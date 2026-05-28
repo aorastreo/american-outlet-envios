@@ -1,0 +1,146 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* American Outlet palette - red/garnet from logo */
+    --background: 0 0% 100%;
+    --foreground: 0 0% 8%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 8%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 8%;
+    --primary: 350 85% 42%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 350 20% 96%;
+    --secondary-foreground: 350 85% 42%;
+    --muted: 0 0% 96%;
+    --muted-foreground: 0 0% 45%;
+    --accent: 350 85% 95%;
+    --accent-foreground: 350 85% 42%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 0 0% 90%;
+    --input: 0 0% 90%;
+    --ring: 350 85% 42%;
+    --radius: 0.625rem;
+    --sidebar-background: 0 0% 4%;
+    --sidebar-foreground: 0 0% 90%;
+    --sidebar-primary: 350 85% 42%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 0 0% 12%;
+    --sidebar-accent-foreground: 0 0% 90%;
+    --sidebar-border: 0 0% 15%;
+    --sidebar-ring: 350 85% 42%;
+
+    /* Brand colors */
+    --ao-red: #C8102E;
+    --ao-red-light: #E83A4A;
+    --ao-red-dark: #9B0B22;
+    --ao-black: #0A0A0A;
+    --ao-gray-900: #1A1A1A;
+    --ao-gray-800: #2D2D2D;
+    --ao-gray-700: #404040;
+    --ao-gray-600: #525252;
+    --ao-gray-500: #6B6B6B;
+    --ao-gray-400: #8A8A8A;
+    --ao-gray-300: #A3A3A3;
+    --ao-gray-200: #D4D4D4;
+    --ao-gray-100: #F0F0F0;
+    --ao-gray-50: #F7F7F7;
+    --ao-success: #1B6B3E;
+    --ao-warning: #B8860B;
+  }
+
+  .dark {
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 240 10% 3.9%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 10% 3.9%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 0 0% 98%;
+    --primary-foreground: 240 5.9% 10%;
+    --secondary: 240 3.7% 15.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
+    --accent: 240 3.7% 15.9%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    --ring: 240 4.9% 83.9%;
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* ===== PRINT: landscape only for boleta ===== */
+@page {
+  margin: 8mm;
+}
+
+/* ===== PRINT STYLES ===== */
+@media print {
+  /* Hide all navigation elements */
+  nav,
+  aside,
+  .sidebar,
+  [data-sidebar="true"],
+  button:not(.print-only),
+  .print\:hidden,
+  .no-print,
+  [role="status"],
+  .fixed {
+    display: none !important;
+  }
+
+  /* Ensure boleta and bitacora pages print full width */
+  .max-w-md,
+  .max-w-4xl,
+  .max-w-\[800px\],
+  .max-w-\[520px\] {
+    max-width: 100% !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0.5rem !important;
+  }
+
+  /* Remove background colors for printing */
+  body {
+    background: white !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Ensure page breaks work */
+  table {
+    page-break-inside: auto;
+  }
+  tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
+
+  .min-h-screen {
+    min-height: auto !important;
+  }
+}
