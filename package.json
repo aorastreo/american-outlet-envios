@@ -9,7 +9,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "db:seed": "NODE_ENV=production tsx db/seed.ts",
-    "start": "NODE_ENV=production node dist/boot.js",
+    "start": "NODE_ENV=production tsx db/seed.ts && node dist/boot.js",
     "check": "tsc -b",
     "format": "prettier --write .",
     "test": "vitest run",
@@ -18,6 +18,7 @@
     "db:push": "drizzle-kit push"
   },
   "dependencies": {
+    "tsx": "^4.19.0",
     "@aws-sdk/client-s3": "^3.965.0",
     "@aws-sdk/s3-request-presigner": "^3.965.0",
     "@hono/node-server": "^1.14.3",
@@ -90,7 +91,6 @@
     "zod": "^4.3.5"
   },
   "devDependencies": {
-    "tsx": "^4.19.0",
     "@eslint/js": "^9.39.1",
     "@hono/vite-dev-server": "^0.19.0",
     "@types/node": "^24.10.1",
