@@ -20,50 +20,50 @@ async function init() {
   await connection.execute(`
     CREATE TABLE franchises (
       id INT AUTO_INCREMENT PRIMARY KEY,
-      name VARCHAR(255) NOT NULL,
-      display_name VARCHAR(255) NOT NULL,
-      code VARCHAR(255) NOT NULL UNIQUE,
-      is_warehouse TINYINT DEFAULT 0,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      name VARCHAR(100) NOT NULL,
+      displayName VARCHAR(255) NOT NULL,
+      code VARCHAR(20) NOT NULL UNIQUE,
+      isWarehouse TINYINT DEFAULT 0,
+      createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
   `);
 
   await connection.execute(`
     CREATE TABLE franchise_users (
       id INT AUTO_INCREMENT PRIMARY KEY,
-      franchise_id INT NOT NULL,
-      username VARCHAR(255) NOT NULL UNIQUE,
-      password_hash VARCHAR(255) NOT NULL,
-      display_name VARCHAR(255) NOT NULL,
-      role VARCHAR(50) DEFAULT 'staff',
-      is_active TINYINT DEFAULT 1,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      franchiseId INT NOT NULL,
+      username VARCHAR(100) NOT NULL UNIQUE,
+      passwordHash VARCHAR(255) NOT NULL,
+      displayName VARCHAR(255) NOT NULL,
+      role ENUM('staff','admin') DEFAULT 'staff',
+      isActive TINYINT DEFAULT 1,
+      createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
   `);
 
   await connection.execute(`
     CREATE TABLE shipments (
       id INT AUTO_INCREMENT PRIMARY KEY,
-      tracking_number VARCHAR(255) NOT NULL UNIQUE,
-      invoice_number VARCHAR(50),
-      sender_name VARCHAR(255) NOT NULL,
-      sender_phone VARCHAR(50) NOT NULL,
-      origin_franchise_id INT NOT NULL,
-      destination_franchise_id INT NOT NULL,
-      current_location_id INT NOT NULL,
+      trackingNumber VARCHAR(50) NOT NULL UNIQUE,
+      invoiceNumber VARCHAR(50),
+      senderName VARCHAR(255) NOT NULL,
+      senderPhone VARCHAR(50) NOT NULL,
+      originFranchiseId INT NOT NULL,
+      destinationFranchiseId INT NOT NULL,
+      currentLocationId INT NOT NULL,
       status ENUM('CREADO','ENVIADO_A_BODEGA','RECIBIDO_EN_BODEGA','ENVIADO_A_DESTINO','RECIBIDO_EN_DESTINO','CANCELADO') DEFAULT 'CREADO',
-      receiver_name VARCHAR(255),
+      receiverName VARCHAR(255),
       notes TEXT,
-      created_by INT NOT NULL,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      createdBy INT NOT NULL,
+      createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     )
   `);
 
   await connection.execute(`
     CREATE TABLE shipment_items (
       id INT AUTO_INCREMENT PRIMARY KEY,
-      shipment_id INT NOT NULL,
+      shipmentId INT NOT NULL,
       description VARCHAR(500) NOT NULL,
       quantity INT DEFAULT 1
     )
@@ -72,11 +72,11 @@ async function init() {
   await connection.execute(`
     CREATE TABLE shipment_tracking (
       id INT AUTO_INCREMENT PRIMARY KEY,
-      shipment_id INT NOT NULL,
+      shipmentId INT NOT NULL,
       status VARCHAR(50) NOT NULL,
       notes TEXT,
-      actor_name VARCHAR(255),
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      actorName VARCHAR(255),
+      createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
   `);
 
