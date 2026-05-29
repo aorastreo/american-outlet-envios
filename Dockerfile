@@ -14,8 +14,7 @@ FROM node:20-alpine AS production
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
-COPY --from=build /app/api ./api
-COPY package.json .env ./
+COPY package.json ./
 
 EXPOSE 3000
 CMD ["npm", "start"]
