@@ -21,16 +21,15 @@ import {
   Package,
   Shield,
 } from "lucide-react";
-import { trpc } from "@/providers/trpc";
 
 const logoUrl = "/logo.jpg";
 
 export default function Login() {
   const navigate = useNavigate();
-  const loginMutation = trpc.franchiseAuth.login.useMutation();
   const [franchiseName, setFranchiseName] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
   const franchises = [
     { value: "los_chiles", label: "Los Chiles" },
@@ -52,19 +51,33 @@ export default function Login() {
       return;
     }
 
+    setIsLoading(true);
     try {
-      await loginMutation.mutateAsync({ username: franchiseName, password });
+      const resp = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: franchiseName, password }),
+        credentials: "include",
+      });
+
+      const data = await resp.json();
+
+      if (!resp.ok || data.error) {
+        setError(data.error || "Error al iniciar sesion");
+        setIsLoading(false);
+        return;
+      }
+
+      localStorage.setItem("franchise_user", JSON.stringify(data.user));
       navigate("/dashboard");
     } catch (err: any) {
-      setError(
-        err.message || "Error al iniciar sesion. Verifique sus credenciales."
-      );
+      setError("Error al conectar con el servidor");
+      setIsLoading(false);
     }
   };
 
   return (
     <div className="min-h-screen bg-[#F7F7F7] flex items-center justify-center p-4">
-      {/* Back to home */}
       <div className="fixed top-4 left-4 z-10">
         <Link
           to="/"
@@ -76,7 +89,6 @@ export default function Login() {
       </div>
 
       <div className="w-full max-w-md">
-        {/* Logo */}
         <div className="text-center mb-8">
           <img
             src={logoUrl}
@@ -93,7 +105,6 @@ export default function Login() {
 
         <Card className="border-[#D4D4D4] shadow-sm">
           <CardContent className="p-6 space-y-6">
-            {/* Features */}
             <div className="grid grid-cols-3 gap-2 text-center mb-2">
               {[
                 { icon: Package, label: "Gestion" },
@@ -172,9 +183,9 @@ export default function Login() {
               <Button
                 type="submit"
                 className="w-full h-11 bg-[#C8102E] hover:bg-[#9B0B22] text-white font-medium"
-                disabled={loginMutation.isPending}
+                disabled={isLoading}
               >
-                {loginMutation.isPending ? (
+                {isLoading ? (
                   <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                 ) : (
                   <>
