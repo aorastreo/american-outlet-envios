@@ -64,6 +64,61 @@ async function runSeed() {
 
 const app = new Hono<{ Bindings: HttpBindings }>();
 
+// REST endpoint for franchise login (bypasses tRPC body issue)
+app.post("/api/auth/login", async (c) => {
+  try {
+    const body = await c.req.json();
+    const { username, password } = body;
+
+    if (!username || !password) {
+      return c.json({ error: "Usuario y contraseña requeridos" }, 400);
+    }
+
+    const db = getDb();
+    const users = await db
+      .select()
+      .from(franchiseUsers)
+      .where(eq(franchiseUsers.username, username))
+      .limit(1);
+
+    if (users.length === 0) {
+      return c.json({ error: "Usuario o contraseña incorrectos" }, 401);
+    }
+
+    const user = users[0];
+    if (user.passwordHash !== hashPassword(password)) {
+      return c.json({ error: "Usuario o contraseña incorrectos" }, 401);
+    }
+
+    if (!user.isActive) {
+      return c.json({ error: "Usuario inactivo" }, 401);
+    }
+
+    const franchiseData = await db
+      .select()
+      .from(franchises)
+      .where(eq(franchises.id, user.franchiseId))
+      .limit(1);
+
+    const franchise = franchiseData[0];
+
+    return c.json({
+      success: true,
+      user: {
+        id: user.id,
+        username: user.username,
+        displayName: user.displayName,
+        role: user.role,
+        franchiseId: user.franchiseId,
+        franchise: franchise || null,
+      },
+    });
+  } catch (err: any) {
+    console.error("[login] Error:", err.message);
+    return c.json({ error: "Error del servidor" }, 500);
+  }
+});
+
 app.get(Paths.oauthCallback, createOAuthCallbackHandler());
 app.all("/api/trpc/*", async (c) => {
   return fetchRequestHandler({
