@@ -10,6 +10,7 @@ import { Paths } from "@contracts/constants";
 const app = new Hono<{ Bindings: HttpBindings }>();
 
 app.get(Paths.oauthCallback, createOAuthCallbackHandler());
+app.all("/api/trpc/*", async (c) => {
   return fetchRequestHandler({
     endpoint: "/api/trpc",
     req: c.req.raw,
@@ -23,7 +24,6 @@ export default app;
 
 if (env.isProduction) {
   const { serve } = await import("@hono/node-server");
-  app.all("/api/trpc/*", async (c) => {
   const { serveStaticFiles } = await import("./lib/vite");
   serveStaticFiles(app);
 
