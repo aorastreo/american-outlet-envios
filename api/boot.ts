@@ -75,6 +75,30 @@ app.post("/api/auth/login", async (c) => {
     }
 
     const db = getDb();
+
+    // Auto-seed: if no users exist, create all franchises and users
+    const allUsers = await db.select().from(franchiseUsers).limit(1);
+    if (allUsers.length === 0) {
+      console.log("[login] Auto-seeding franchises...");
+      for (const f of franchiseData) {
+        try {
+          const result = await db.insert(franchises).values(f);
+          const franchiseId = Number(result[0].insertId);
+          await db.insert(franchiseUsers).values({
+            franchiseId,
+            username: f.code,
+            passwordHash: hashPassword("american2025"),
+            displayName: f.displayName,
+            role: f.isWarehouse ? "admin" : "staff",
+            isActive: 1,
+          });
+          console.log(`[login] Auto-created: ${f.displayName}`);
+        } catch (e: any) {
+          console.log(`[login] Skip ${f.code}: ${e.message}`);
+        }
+      }
+    }
+
     const users = await db
       .select()
       .from(franchiseUsers)
@@ -94,13 +118,14 @@ app.post("/api/auth/login", async (c) => {
       return c.json({ error: "Usuario inactivo" }, 401);
     }
 
-    const franchiseData = await db
+    // Get franchise data
+    const franchiseData2 = await db
       .select()
       .from(franchises)
       .where(eq(franchises.id, user.franchiseId))
       .limit(1);
 
-    const franchise = franchiseData[0];
+    const franchise = franchiseData2[0];
 
     return c.json({
       success: true,
@@ -115,7 +140,7 @@ app.post("/api/auth/login", async (c) => {
     });
   } catch (err: any) {
     console.error("[login] Error:", err.message);
-    return c.json({ error: "Error del servidor" }, 500);
+    return c.json({ error: "Error del servidor: " + err.message }, 500);
   }
 });
 
