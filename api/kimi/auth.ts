@@ -41,7 +41,8 @@ function getJwks() {
   const authUrl = env.kimiAuthUrl || "http://localhost";
   return jose.createRemoteJWKSet(
   new URL(`${env.kimiAuthUrl}/api/.well-known/jwks.json`),
-);
+  );
+}
 
 async function verifyAccessToken(
   accessToken: string,
