@@ -7,11 +7,18 @@ if (!DATABASE_URL) {
 }
 
 async function init() {
-  console.log("[init] Creating tables if not exist...");
+  console.log("[init] Creating tables...");
   const connection = await mysql.createConnection(DATABASE_URL);
 
+  // Drop existing tables to ensure correct schema
+  await connection.execute("DROP TABLE IF EXISTS shipment_tracking");
+  await connection.execute("DROP TABLE IF EXISTS shipment_items");
+  await connection.execute("DROP TABLE IF EXISTS shipments");
+  await connection.execute("DROP TABLE IF EXISTS franchise_users");
+  await connection.execute("DROP TABLE IF EXISTS franchises");
+
   await connection.execute(`
-    CREATE TABLE IF NOT EXISTS franchises (
+    CREATE TABLE franchises (
       id INT AUTO_INCREMENT PRIMARY KEY,
       name VARCHAR(255) NOT NULL,
       display_name VARCHAR(255) NOT NULL,
@@ -22,7 +29,7 @@ async function init() {
   `);
 
   await connection.execute(`
-    CREATE TABLE IF NOT EXISTS franchise_users (
+    CREATE TABLE franchise_users (
       id INT AUTO_INCREMENT PRIMARY KEY,
       franchise_id INT NOT NULL,
       username VARCHAR(255) NOT NULL UNIQUE,
@@ -35,7 +42,7 @@ async function init() {
   `);
 
   await connection.execute(`
-    CREATE TABLE IF NOT EXISTS shipments (
+    CREATE TABLE shipments (
       id INT AUTO_INCREMENT PRIMARY KEY,
       tracking_number VARCHAR(255) NOT NULL UNIQUE,
       invoice_number VARCHAR(50),
@@ -54,7 +61,7 @@ async function init() {
   `);
 
   await connection.execute(`
-    CREATE TABLE IF NOT EXISTS shipment_items (
+    CREATE TABLE shipment_items (
       id INT AUTO_INCREMENT PRIMARY KEY,
       shipment_id INT NOT NULL,
       description VARCHAR(500) NOT NULL,
@@ -63,7 +70,7 @@ async function init() {
   `);
 
   await connection.execute(`
-    CREATE TABLE IF NOT EXISTS shipment_tracking (
+    CREATE TABLE shipment_tracking (
       id INT AUTO_INCREMENT PRIMARY KEY,
       shipment_id INT NOT NULL,
       status VARCHAR(50) NOT NULL,
