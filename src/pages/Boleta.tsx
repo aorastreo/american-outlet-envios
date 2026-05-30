@@ -28,7 +28,7 @@ export default function Boleta() {
 
   if (!shipment) {
     return (
-      <div className="flex items-center justify-center h-screen text-[#8A8A8A] text-lg">
+      <div className="flex items-center justify-center h-screen text-[#404040] text-lg">
         Envio no encontrado
       </div>
     );
@@ -58,7 +58,7 @@ export default function Boleta() {
             <h1 className="text-base font-semibold text-[#1A1A1A]">
               Boleta de Envio
             </h1>
-            <p className="text-xs text-[#8A8A8A]">
+            <p className="text-xs text-[#404040]">
               {shipment.trackingNumber}
             </p>
           </div>
@@ -88,19 +88,19 @@ export default function Boleta() {
                 <h1 className="text-2xl font-black text-[#1A1A1A] tracking-tight leading-none">
                   American Outlet
                 </h1>
-                <p className="text-base font-bold text-[#8A8A8A] leading-none mt-1">
+                <p className="text-base font-bold text-[#404040] leading-none mt-1">
                   {shipment.originFranchise?.displayName || shipment.originFranchise?.name || "Los Chiles"}
                 </p>
               </div>
             </div>
             <div className="text-right">
-              <p className="text-[10px] text-[#A3A3A3] uppercase tracking-wider">
+              <p className="text-[10px] text-[#525252] uppercase tracking-wider">
                 Rastreo
               </p>
               <p className="text-2xl font-mono font-black text-[#1A1A1A] tracking-wider">
                 {shipment.trackingNumber}
               </p>
-              <p className="text-[10px] text-[#A3A3A3] mt-0.5">
+              <p className="text-[10px] text-[#525252] mt-0.5">
                 {shipment.createdAt
                   ? format(new Date(shipment.createdAt), "dd/MM/yyyy", {
                       locale: es,
@@ -183,7 +183,7 @@ export default function Boleta() {
               <p className="text-xl font-bold text-[#1A1A1A]">
                 {itemsText}
               </p>
-              <p className="text-xs text-[#A3A3A3] mt-1">
+              <p className="text-xs text-[#525252] mt-1">
                 {totalItems} unidad{totalItems !== 1 ? "es" : ""} total
               </p>
             </div>
@@ -222,8 +222,8 @@ export default function Boleta() {
           {/* --- FOOTER / BARCODE --- */}
           <div className="px-6 py-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <ArrowRight className="w-5 h-5 text-[#A3A3A3]" />
-              <p className="text-xs text-[#A3A3A3] uppercase tracking-wider">
+              <ArrowRight className="w-5 h-5 text-[#525252]" />
+              <p className="text-xs text-[#525252] uppercase tracking-wider">
                 {shipment.originFranchise?.displayName || shipment.originFranchise?.name || ""}
                 {" "}
                 <span className="text-[#D4D4D4]">-</span>
@@ -242,7 +242,7 @@ export default function Boleta() {
         {/* Cut line */}
         <div className="mt-4 flex items-center gap-3">
           <div className="flex-1 border-t-2 border-dashed border-[#D4D4D4]"></div>
-          <p className="text-[10px] text-[#A3A3A3] uppercase tracking-wider font-medium">
+          <p className="text-[10px] text-[#525252] uppercase tracking-wider font-medium">
             Recorte por aqui
           </p>
           <div className="flex-1 border-t-2 border-dashed border-[#D4D4D4]"></div>
