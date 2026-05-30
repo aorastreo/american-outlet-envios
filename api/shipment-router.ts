@@ -519,3 +519,53 @@ export const shipmentRouter = createRouter({
       };
     }),
 });
+  // ─── MONTHLY REPORT BY FRANCHISE ──────────────────────────────
+  monthlyReport: publicQuery
+    .input(z.object({
+      year: z.number().optional(),
+      month: z.number().min(1).max(12).optional(),
+    }).optional())
+    .query(async ({ input }) => {
+      const db = getDb();
+      const now = new Date();
+      const year = input?.year ?? now.getFullYear();
+      const month = input?.month ?? now.getMonth() + 1;
+
+      const allFranchises = await db.select().from(franchises);
+      const allShipments = await db.select().from(shipments);
+
+      const startDate = new Date(year, month - 1, 1);
+      const endDate = new Date(year, month, 1);
+
+      const monthlyShipments = allShipments.filter(s => {
+        const created = new Date(s.createdAt);
+        return created >= startDate && created < endDate;
+      });
+
+      const statsByFranchise = new Map<number, {
+        franchise: typeof allFranchises[0];
+        created: number;
+        sentToWarehouse: number;
+        receivedAtDestination: number;
+      }>();
+
+      for (const f of allFranchises) {
+        statsByFranchise.set(f.id, { franchise: f, created: 0, sentToWarehouse: 0, receivedAtDestination: 0 });
+      }
+
+      for (const s of monthlyShipments) {
+        const origin = statsByFranchise.get(s.originFranchiseId);
+        if (origin) {
+          origin.created++;
+          if (s.status !== "CREADO") origin.sentToWarehouse++;
+          if (s.status === "RECIBIDO_EN_DESTINO") origin.receivedAtDestination++;
+        }
+      }
+
+      return {
+        year, month,
+        totalShipments: monthlyShipments.length,
+        byFranchise: Array.from(statsByFranchise.values()).filter(s => s.created > 0),
+        period: `${month}/${year}`,
+      };
+    }),
