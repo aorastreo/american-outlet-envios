@@ -1,11 +1,8 @@
 import { Hono } from "hono";
-import { exec } from "child_process";
-import { promisify } from "util";
 import { env } from "./lib/env";
 import fs from "fs";
 import path from "path";
-
-const execAsync = promisify(exec);
+import mysql from "mysql2/promise";
 
 const backupApp = new Hono();
 
@@ -16,15 +13,9 @@ backupApp.post("/api/backup", async (c) => {
       return c.json({ error: "DATABASE_URL not configured" }, 500);
     }
 
-    const url = new URL(dbUrl);
-    const host = url.hostname;
-    const port = url.port || "3306";
-    const user = url.username;
-    const password = decodeURIComponent(url.password);
-    const database = url.pathname.replace("/", "");
-
+    const connection = await mysql.createConnection(dbUrl);
     const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-    const filename = `backup-${database}-${timestamp}.sql`;
+    const filename = `backup-railway-${timestamp}.sql`;
     const backupDir = path.join(process.cwd(), "backups");
     const filepath = path.join(backupDir, filename);
 
@@ -32,8 +23,36 @@ backupApp.post("/api/backup", async (c) => {
       fs.mkdirSync(backupDir, { recursive: true });
     }
 
-    const command = `mysqldump -h ${host} -P ${port} -u ${user} -p'${password}' ${database} > ${filepath}`;
-    await execAsync(command);
+    const [tables] = await connection.execute("SHOW TABLES");
+    let sql = `-- Backup American Outlet - ${new Date().toISOString()}\n`;
+    sql += `-- Database: railway\n\n`;
+
+    for (const tableRow of tables as any[]) {
+      const tableName = Object.values(tableRow)[0] as string;
+
+      const [createTable] = await connection.execute(`SHOW CREATE TABLE \`${tableName}\``);
+      sql += `DROP TABLE IF EXISTS \`${tableName}\`;\n`;
+      sql += (createTable as any[])[0]["Create Table"] + ";\n\n";
+
+      const [rows] = await connection.execute(`SELECT * FROM \`${tableName}\``);
+      if ((rows as any[]).length > 0) {
+        const columns = Object.keys((rows as any[])[0]);
+        sql += `INSERT INTO \`${tableName}\` (${columns.map(c => `\`${c}\``).join(", ")}) VALUES\n`;
+
+        const values = (rows as any[]).map(row => {
+          return "(" + columns.map(col => {
+            const val = (row as any)[col];
+            if (val === null) return "NULL";
+            return "'" + String(val).replace(/'/g, "''") + "'";
+          }).join(", ") + ")";
+        }).join(",\n");
+
+        sql += values + ";\n\n";
+      }
+    }
+
+    fs.writeFileSync(filepath, sql);
+    await connection.end();
 
     const stats = fs.statSync(filepath);
     const sizeMB = (stats.size / (1024 * 1024)).toFixed(2);
@@ -43,8 +62,7 @@ backupApp.post("/api/backup", async (c) => {
       message: "Backup creado exitosamente",
       filename,
       sizeMB: `${sizeMB} MB`,
-      path: filepath,
-      timestamp: new Date().toISOString(),
+      tables: (tables as any[]).length,
     });
   } catch (error: any) {
     console.error("[backup] Error:", error.message);
