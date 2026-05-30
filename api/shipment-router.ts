@@ -122,7 +122,7 @@ export const shipmentRouter = createRouter({
 
       const shipmentId = Number(shipmentResult[0].insertId);
       for (const item of input.items) {
-        await db.insert(shipmentItems).values({ shipmentId, description: item.description, quantity: item.quantity, details: item.details || null });
+        await db.insert(shipmentItems).values({ shipmentId, description: item.description, quantity: item.quantity, ...(item.details ? { details: item.details } : {}) });
       }
       await db.insert(shipmentTracking).values({ shipmentId, status: "CREADO", locationId: originId, notes: "Envio creado", createdBy: ctx.franchiseUser!.id });
 
