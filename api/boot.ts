@@ -344,7 +344,40 @@ app.get("/api/init-tables", async (c) => {
     return c.json({ success: false, error: err.message }, 500);
   }
 });
-
+// Backup endpoint
+app.post("/api/backup", async (c) => {
+  try {
+    const { execSync } = require("child_process");
+    const fs = require("fs");
+    const path = require("path");
+    const dbUrl = process.env.DATABASE_URL;
+    if (!dbUrl) return c.json({ error: "DATABASE_URL not configured" }, 500);
+    
+    const url = new URL(dbUrl);
+    const host = url.hostname;
+    const port = url.port || "3306";
+    const user = url.username;
+    const password = decodeURIComponent(url.password);
+    const database = url.pathname.replace("/", "");
+    
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+    const filename = `backup-${database}-${timestamp}.sql`;
+    const backupDir = path.join(process.cwd(), "backups");
+    const filepath = path.join(backupDir, filename);
+    
+    if (!fs.existsSync(backupDir)) fs.mkdirSync(backupDir, { recursive: true });
+    
+    const command = `mysqldump -h ${host} -P ${port} -u ${user} -p'${password}' ${database} > ${filepath}`;
+    execSync(command);
+    
+    const stats = fs.statSync(filepath);
+    const sizeMB = (stats.size / (1024 * 1024)).toFixed(2);
+    
+    return c.json({ success: true, filename, sizeMB: `${sizeMB} MB` });
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
 app.get(Paths.oauthCallback, createOAuthCallbackHandler());
 app.all("/api/trpc/*", async (c) => {
   return fetchRequestHandler({
