@@ -135,7 +135,7 @@ async function runSeed() {
       }
     }
 
-    console.log("[seed] Seed complete!");
+    console.log("[seed] Seed complete! All franchises ready");
   } catch (err: any) {
     console.error("[seed] Seed failed:", err.message);
   }
