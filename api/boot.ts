@@ -93,7 +93,7 @@ app.post("/api/auth/login", async (c) => {
       for (const f of franchiseData) {
         try {
           const result = await db.insert(franchises).values(f);
-n          const franchiseId = Number(result[0].insertId);
+          const franchiseId = Number(result[0].insertId);
           await db.insert(franchiseUsers).values({
             franchiseId,
             username: f.code,
