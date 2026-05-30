@@ -100,8 +100,7 @@ export default function CreateShipment() {
       items: validItems.map((item) => ({
         description: item.description.trim(),
         quantity: item.quantity,
-        details: item.details.trim() || null,
-      })),
+        details: item.details.trim() || undefined,      })),
     });
   };
 
