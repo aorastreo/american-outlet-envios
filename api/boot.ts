@@ -250,12 +250,42 @@ app.post("/api/auth/login", async (c) => {
 app.get("/api/auth/me", async (c) => {
   try {
     const cookieHeader = c.req.header("cookie") || "";
-    const match = cookieHeader.match(/franchise_sid=([^;]+)/);
-    if (!match) return c.json(null);
+    const cookies = (await import("cookie")).parse(cookieHeader);
+    const token = cookies["franchise_sid"];
+    if (!token) return c.json(null);
 
-    // Simple token verification would go here
-    // For now return null to trigger login
-    return c.json(null);
+    const { jwtVerify } = await import("jose");
+    const secret = new TextEncoder().encode(process.env.JWT_SECRET || "american-outlet-dev-key-change-in-prod");
+    const { payload } = await jwtVerify(token, secret, { clockTolerance: 60 });
+
+    if (!payload || payload.type !== "franchise" || !payload.userId) {
+      return c.json(null);
+    }
+
+    const db = getDb();
+    const users = await db
+      .select()
+      .from(franchiseUsers)
+      .where(eq(franchiseUsers.id, payload.userId as number))
+      .limit(1);
+
+    if (users.length === 0 || !users[0].isActive) return c.json(null);
+
+    const user = users[0];
+    const franchiseData = await db
+      .select()
+      .from(franchises)
+      .where(eq(franchises.id, user.franchiseId))
+      .limit(1);
+
+    return c.json({
+      id: user.id,
+      username: user.username,
+      displayName: user.displayName,
+      role: user.role,
+      franchiseId: user.franchiseId,
+      franchise: franchiseData[0] || null,
+    });
   } catch {
     return c.json(null);
   }

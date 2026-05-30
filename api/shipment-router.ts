@@ -21,34 +21,39 @@ const statusEnum = z.enum([
 ]);
 
 // ─── TRACKING NUMBER GENERATION ──────────────────────────────────
-function randomSuffix(length: number): string {
-  const chars = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"; // exclude 0, O, I, L for clarity
-  let result = "";
-  for (let i = 0; i < length; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return result;
+function randomDigit(): string {
+  return String(Math.floor(Math.random() * 10));
+}
+
+function randomLetter(): string {
+  const letters = "ABCDEFGHJKMNPQRSTUVWXYZ";
+  return letters.charAt(Math.floor(Math.random() * letters.length));
 }
 
 async function generateTrackingNumber(): Promise<string> {
   const db = getDb();
-  const existing = await db
-    .select({ trackingNumber: shipments.trackingNumber })
-    .from(shipments)
-    .where(sql`${shipments.trackingNumber} LIKE 'AO-%'`)
-    .orderBy(desc(shipments.trackingNumber));
 
-  let maxNum = 0;
-  for (const row of existing) {
-    const match = row.trackingNumber.match(/^AO-(\d+)/);
-    if (match) {
-      const num = parseInt(match[1], 10);
-      if (num > maxNum) maxNum = num;
+  for (let attempt = 0; attempt < 10; attempt++) {
+    let numberPart = "";
+    for (let i = 0; i < 8; i++) {
+      numberPart += randomDigit();
+    }
+    const letter = randomLetter();
+    const trackingNumber = `AO${numberPart}${letter}`;
+
+    const existing = await db
+      .select({ trackingNumber: shipments.trackingNumber })
+      .from(shipments)
+      .where(eq(shipments.trackingNumber, trackingNumber))
+      .limit(1);
+
+    if (existing.length === 0) {
+      return trackingNumber;
     }
   }
-  const seq = String(maxNum + 1).padStart(4, "0");
-  const suffix = randomSuffix(2);
-  return `AO-${seq}-${suffix}`;
+
+  const fallbackNumber = `AO${Date.now().toString().slice(-8)}${randomLetter()}`;
+  return fallbackNumber;
 }
 
 export const shipmentRouter = createRouter({
@@ -187,12 +192,23 @@ export const shipmentRouter = createRouter({
   // ─── Get Shipment by ID (with actor names in tracking) ─────────
   getById: franchiseAuthedQuery
     .input(z.object({ id: z.number() }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       const db = getDb();
+      const franchiseId = ctx.franchiseUser!.franchiseId;
+      const userFranchise = await db.select().from(franchises).where(eq(franchises.id, franchiseId)).limit(1);
+      const isWarehouse = userFranchise[0]?.isWarehouse === 1;
 
       const shipment = await db.select().from(shipments).where(eq(shipments.id, input.id)).limit(1);
       if (shipment.length === 0) return null;
 
+      const s = shipment[0];
+      const canView = s.originFranchiseId === franchiseId ||
+        s.destinationFranchiseId === franchiseId ||
+        s.currentLocationId === franchiseId ||
+        (isWarehouse && (s.status === "ENVIADO_A_BODEGA" || s.status === "RECIBIDO_EN_BODEGA" || s.status === "ENVIADO_A_DESTINO"));
+      if (!canView) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "No tiene permiso para ver este envio" });
+      }
       const items = await db.select().from(shipmentItems).where(eq(shipmentItems.shipmentId, input.id));
 
       const trackingHistory = await db
