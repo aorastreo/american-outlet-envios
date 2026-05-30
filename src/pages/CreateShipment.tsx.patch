@@ -1,0 +1,5 @@
+--- a/src/pages/CreateShipment.tsx
++++ b/src/pages/CreateShipment.tsx
+@@
+-        details: item.details.trim() || undefined,
++        details: item.details.trim() || null,

@@ -10,7 +10,6 @@ async function init() {
   console.log("[init] Creating tables...");
   const connection = await mysql.createConnection(DATABASE_URL);
 
-  // Drop existing tables to ensure correct schema
   await connection.execute("DROP TABLE IF EXISTS shipment_tracking");
   await connection.execute("DROP TABLE IF EXISTS shipment_items");
   await connection.execute("DROP TABLE IF EXISTS shipments");
@@ -65,7 +64,9 @@ async function init() {
       id INT AUTO_INCREMENT PRIMARY KEY,
       shipmentId INT NOT NULL,
       description VARCHAR(500) NOT NULL,
-      quantity INT DEFAULT 1
+      quantity INT DEFAULT 1,
+      details VARCHAR(500),
+      createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
   `);
 
@@ -73,7 +74,7 @@ async function init() {
     CREATE TABLE shipment_tracking (
       id INT AUTO_INCREMENT PRIMARY KEY,
       shipmentId INT NOT NULL,
-      status VARCHAR(50) NOT NULL,
+      status ENUM('CREADO','ENVIADO_A_BODEGA','RECIBIDO_EN_BODEGA','ENVIADO_A_DESTINO','RECIBIDO_EN_DESTINO','CANCELADO') NOT NULL,
       notes TEXT,
       actorName VARCHAR(255),
       createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
