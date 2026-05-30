@@ -59,7 +59,7 @@ export default function DemoHome() {
           <form onSubmit={handleSearch} className="flex gap-3 bg-white border border-[#D4D4D4] rounded-xl p-2 shadow-sm">
             <div className="relative flex-1">
               <Barcode className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#A3A3A3]" />
-              <input placeholder="Ej: AO-0017-K9" value={trackingNumber} onChange={(e) => setTrackingNumber(e.target.value.toUpperCase())} className="w-full pl-12 h-12 text-lg font-mono tracking-wide border-0 focus:ring-0 outline-none" />
+              <input placeholder="Ej: AO84729153X" value={trackingNumber} onChange={(e) => setTrackingNumber(e.target.value.toUpperCase())} className="w-full pl-12 h-12 text-lg font-mono tracking-wide border-0 focus:ring-0 outline-none" />
             </div>
             <button type="submit" className="h-12 px-8 bg-[#C8102E] hover:bg-[#9B0B22] text-white rounded-lg font-medium flex items-center gap-2"><Search className="w-5 h-5" />Rastrear</button>
           </form>
