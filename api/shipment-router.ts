@@ -200,6 +200,7 @@ export const shipmentRouter = createRouter({
         (isWarehouse && (s.status === "ENVIADO_A_BODEGA" || s.status === "RECIBIDO_EN_BODEGA" || s.status === "ENVIADO_A_DESTINO"));
       if (!canView) {
         throw new TRPCError({ code: "FORBIDDEN", message: "No tiene permiso para ver este envio" });
+            }
       const items = await db.select().from(shipmentItems).where(eq(shipmentItems.shipmentId, input.id));
 
       const trackingHistory = await db
