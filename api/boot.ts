@@ -10,6 +10,7 @@ import { getDb } from "./queries/connection";
 import { franchises, franchiseUsers } from "@db/schema";
 import { createHash } from "crypto";
 import { eq } from "drizzle-orm";
+import mysql from "mysql2/promise";
 
 function hashPassword(password: string): string {
   return createHash("sha256").update(password).digest("hex");
@@ -26,14 +27,81 @@ const franchiseData = [
   { name: "Bodega", displayName: "American Outlet Bodega", code: "bodega", isWarehouse: 1 },
 ];
 
-async function createFranchiseToken(userId: number): Promise<string> {
-  const { SignJWT } = await import("jose");
-  const secret = new TextEncoder().encode(process.env.JWT_SECRET || "american-outlet-dev-key-change-in-prod");
-  return new SignJWT({ userId, type: "franchise" })
-    .setProtectedHeader({ alg: "HS256" })
-    .setIssuedAt()
-    .setExpirationTime("7d")
-    .sign(secret);
+async function initTables() {
+  try {
+    console.log("[init] Checking tables...");
+    const connection = await mysql.createConnection(env.databaseUrl);
+
+    await connection.execute(`
+      CREATE TABLE IF NOT EXISTS franchises (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(100) NOT NULL,
+        displayName VARCHAR(255) NOT NULL,
+        code VARCHAR(20) NOT NULL UNIQUE,
+        isWarehouse TINYINT DEFAULT 0,
+        createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    await connection.execute(`
+      CREATE TABLE IF NOT EXISTS franchise_users (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        franchiseId INT NOT NULL,
+        username VARCHAR(100) NOT NULL UNIQUE,
+        passwordHash VARCHAR(255) NOT NULL,
+        displayName VARCHAR(255) NOT NULL,
+        role ENUM('staff','admin') DEFAULT 'staff',
+        isActive TINYINT DEFAULT 1,
+        createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    await connection.execute(`
+      CREATE TABLE IF NOT EXISTS shipments (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        trackingNumber VARCHAR(50) NOT NULL UNIQUE,
+        invoiceNumber VARCHAR(50),
+        senderName VARCHAR(255) NOT NULL,
+        senderPhone VARCHAR(50) NOT NULL,
+        originFranchiseId INT NOT NULL,
+        destinationFranchiseId INT NOT NULL,
+        currentLocationId INT NOT NULL,
+        status ENUM('CREADO','ENVIADO_A_BODEGA','RECIBIDO_EN_BODEGA','ENVIADO_A_DESTINO','RECIBIDO_EN_DESTINO','CANCELADO') DEFAULT 'CREADO',
+        receiverName VARCHAR(255),
+        notes TEXT,
+        createdBy INT NOT NULL,
+        createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      )
+    `);
+
+    await connection.execute(`
+      CREATE TABLE IF NOT EXISTS shipment_items (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        shipmentId INT NOT NULL,
+        description VARCHAR(500) NOT NULL,
+        quantity INT DEFAULT 1,
+        details VARCHAR(500),
+        createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    await connection.execute(`
+      CREATE TABLE IF NOT EXISTS shipment_tracking (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        shipmentId INT NOT NULL,
+        status ENUM('CREADO','ENVIADO_A_BODEGA','RECIBIDO_EN_BODEGA','ENVIADO_A_DESTINO','RECIBIDO_EN_DESTINO','CANCELADO') NOT NULL,
+        notes TEXT,
+        actorName VARCHAR(255),
+        createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    await connection.end();
+    console.log("[init] Tables OK!");
+  } catch (err: any) {
+    console.error("[init] Table init failed:", err.message);
+  }
 }
 
 async function runSeed() {
@@ -73,6 +141,17 @@ async function runSeed() {
 }
 
 const app = new Hono<{ Bindings: HttpBindings }>();
+
+// Import franchise auth utilities
+async function createFranchiseToken(userId: number): Promise<string> {
+  const { SignJWT } = await import("jose");
+  const secret = new TextEncoder().encode(process.env.JWT_SECRET || "american-outlet-dev-key-change-in-prod");
+  return new SignJWT({ userId, type: "franchise" })
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt()
+    .setExpirationTime("7d")
+    .sign(secret);
+}
 
 // REST endpoint for franchise login (bypasses tRPC body issue)
 app.post("/api/auth/login", async (c) => {
@@ -166,6 +245,104 @@ app.post("/api/auth/login", async (c) => {
   }
 });
 
+// REST endpoint for current user
+app.get("/api/auth/me", async (c) => {
+  try {
+    const cookieHeader = c.req.header("cookie") || "";
+    const match = cookieHeader.match(/franchise_sid=([^;]+)/);
+    if (!match) return c.json(null);
+
+    // Simple token verification would go here
+    // For now return null to trigger login
+    return c.json(null);
+  } catch {
+    return c.json(null);
+  }
+});
+
+// Endpoint para inicializar tablas manualmente - DEBE ir antes de app.all("/api/*")
+app.get("/api/init-tables", async (c) => {
+  try {
+    const connection = await mysql.createConnection(env.databaseUrl);
+    
+    await connection.execute(`DROP TABLE IF EXISTS shipment_tracking`);
+    await connection.execute(`DROP TABLE IF EXISTS shipment_items`);
+    await connection.execute(`DROP TABLE IF EXISTS shipments`);
+    await connection.execute(`DROP TABLE IF EXISTS franchise_users`);
+    await connection.execute(`DROP TABLE IF EXISTS franchises`);
+
+    await connection.execute(`
+      CREATE TABLE franchises (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(100) NOT NULL,
+        displayName VARCHAR(255) NOT NULL,
+        code VARCHAR(20) NOT NULL UNIQUE,
+        isWarehouse TINYINT DEFAULT 0,
+        createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    await connection.execute(`
+      CREATE TABLE franchise_users (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        franchiseId INT NOT NULL,
+        username VARCHAR(100) NOT NULL UNIQUE,
+        passwordHash VARCHAR(255) NOT NULL,
+        displayName VARCHAR(255) NOT NULL,
+        role ENUM('staff','admin') DEFAULT 'staff',
+        isActive TINYINT DEFAULT 1,
+        createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    await connection.execute(`
+      CREATE TABLE shipments (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        trackingNumber VARCHAR(50) NOT NULL UNIQUE,
+        invoiceNumber VARCHAR(50),
+        senderName VARCHAR(255) NOT NULL,
+        senderPhone VARCHAR(50) NOT NULL,
+        originFranchiseId INT NOT NULL,
+        destinationFranchiseId INT NOT NULL,
+        currentLocationId INT NOT NULL,
+        status ENUM('CREADO','ENVIADO_A_BODEGA','RECIBIDO_EN_BODEGA','ENVIADO_A_DESTINO','RECIBIDO_EN_DESTINO','CANCELADO') DEFAULT 'CREADO',
+        receiverName VARCHAR(255),
+        notes TEXT,
+        createdBy INT NOT NULL,
+        createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      )
+    `);
+
+    await connection.execute(`
+      CREATE TABLE shipment_items (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        shipmentId INT NOT NULL,
+        description VARCHAR(500) NOT NULL,
+        quantity INT DEFAULT 1,
+        details VARCHAR(500),
+        createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    await connection.execute(`
+      CREATE TABLE shipment_tracking (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        shipmentId INT NOT NULL,
+        status ENUM('CREADO','ENVIADO_A_BODEGA','RECIBIDO_EN_BODEGA','ENVIADO_A_DESTINO','RECIBIDO_EN_DESTINO','CANCELADO') NOT NULL,
+        notes TEXT,
+        actorName VARCHAR(255),
+        createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    await connection.end();
+    return c.json({ success: true, message: "Tables created!" });
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message }, 500);
+  }
+});
+
 app.get(Paths.oauthCallback, createOAuthCallbackHandler());
 app.all("/api/trpc/*", async (c) => {
   return fetchRequestHandler({
@@ -180,6 +357,8 @@ app.all("/api/*", (c) => c.json({ error: "Not Found" }, 404));
 export default app;
 
 if (env.isProduction) {
+  // Create tables and seed data
+  await initTables();
   await runSeed();
 
   const { serve } = await import("@hono/node-server");
