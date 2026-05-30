@@ -91,8 +91,9 @@ async function initTables() {
         id INT AUTO_INCREMENT PRIMARY KEY,
         shipmentId INT NOT NULL,
         status ENUM('CREADO','ENVIADO_A_BODEGA','RECIBIDO_EN_BODEGA','ENVIADO_A_DESTINO','RECIBIDO_EN_DESTINO','CANCELADO') NOT NULL,
+        locationId INT NOT NULL,
         notes TEXT,
-        actorName VARCHAR(255),
+        createdBy INT NOT NULL,
         createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
@@ -330,8 +331,9 @@ app.get("/api/init-tables", async (c) => {
         id INT AUTO_INCREMENT PRIMARY KEY,
         shipmentId INT NOT NULL,
         status ENUM('CREADO','ENVIADO_A_BODEGA','RECIBIDO_EN_BODEGA','ENVIADO_A_DESTINO','RECIBIDO_EN_DESTINO','CANCELADO') NOT NULL,
+        locationId INT NOT NULL,
         notes TEXT,
-        actorName VARCHAR(255),
+        createdBy INT NOT NULL,
         createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
