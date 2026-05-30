@@ -585,3 +585,4 @@ export const shipmentRouter = createRouter({
         period: `${month}/${year}`,
       };
     }),
+});
