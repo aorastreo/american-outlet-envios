@@ -17,13 +17,9 @@ function hashPassword(password: string): string {
 }
 
 const franchiseData = [
-  { name: "Los Chiles", displayName: "American Outlet Los Chiles", code: "los_chiles", isWarehouse: 0 },
-  { name: "Pavon", displayName: "American Outlet Pavon", code: "pavon", isWarehouse: 0 },
-  { name: "Santa Rosa", displayName: "American Outlet Santa Rosa", code: "santa_rosa", isWarehouse: 0 },
-  { name: "Boca Arenal", displayName: "American Outlet Boca Arenal", code: "boca_arenal", isWarehouse: 0 },
-  { name: "Florencia", displayName: "American Outlet Florencia", code: "florencia", isWarehouse: 0 },
-  { name: "Fortuna", displayName: "American Outlet Fortuna", code: "fortuna", isWarehouse: 0 },
-  { name: "Ciudad Quesada", displayName: "American Outlet Ciudad Quesada", code: "ciudad_quesada", isWarehouse: 0 },
+    { name: "Ciudad Quesada", displayName: "American Outlet Ciudad Quesada", code: "ciudad_quesada", isWarehouse: 0 },
+  { name: "Puerto Viejo", displayName: "American Outlet Puerto Viejo", code: "puerto_viejo", isWarehouse: 0 },
+  { name: "Ganga Santa Rosa", displayName: "Ganga Santa Rosa", code: "ganga_santa_rosa", isWarehouse: 0 },
   { name: "Bodega", displayName: "American Outlet Bodega", code: "bodega", isWarehouse: 1 },
 ];
 

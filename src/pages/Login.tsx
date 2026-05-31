@@ -38,7 +38,9 @@ export default function Login() {
     { value: "boca_arenal", label: "Boca Arenal" },
     { value: "florencia", label: "Florencia" },
     { value: "fortuna", label: "Fortuna" },
-    { value: "ciudad_quesada", label: "Ciudad Quesada" },
+        { value: "ciudad_quesada", label: "Ciudad Quesada" },
+    { value: "puerto_viejo", label: "Puerto Viejo" },
+    { value: "ganga_santa_rosa", label: "Ganga Santa Rosa" },
     { value: "bodega", label: "Bodega" },
   ];
 
