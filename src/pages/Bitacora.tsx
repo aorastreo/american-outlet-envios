@@ -132,8 +132,8 @@ export default function Bitacora() {
                   <td className="px-4 py-2.5 text-sm font-mono text-[#404040]">{idx + 1}</td>
                   <td className="px-4 py-2.5">
                     <p className="text-sm font-mono font-bold text-[#1A1A1A]">{s.trackingNumber}</p>
-                    {s.invoiceNumber && (
-                      <span className="inline-block bg-[#C8102E] text-white text-xs font-mono font-bold px-2 py-1 rounded mt-1 tracking-wide">
+                   {s.invoiceNumber && (
+                      <span className="inline-block bg-[#1A1A1A] text-white text-sm font-mono font-bold px-3 py-1 mt-1 rounded tracking-wide">
                         FACT: {s.invoiceNumber}
                       </span>
                     )}
