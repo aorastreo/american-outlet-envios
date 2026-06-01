@@ -19,6 +19,8 @@ const statusConfig: Record<string, { color: string; label: string; icon: React.E
   RECIBIDO_EN_BODEGA: { color: "bg-purple-100 text-purple-700", label: "Recibido en Bodega", icon: ClipboardCheck },
   ENVIADO_A_DESTINO: { color: "bg-[#FFF5F5] text-[#C8102E]", label: "Enviado a Destino", icon: Truck },
   RECIBIDO_EN_DESTINO: { color: "bg-emerald-100 text-emerald-700", label: "Entregado", icon: CheckCircle },
+  EN_RUTA: { color: "bg-blue-100 text-blue-700", label: "En Ruta de Camion", icon: Truck },
+  EN_PARADA: { color: "bg-orange-100 text-orange-700", label: "En Punto de Recogida", icon: MapPin },
   CANCELADO: { color: "bg-red-100 text-red-700", label: "Cancelado", icon: AlertTriangle },
 };
 
@@ -27,17 +29,19 @@ const normalTimeline = [
   { status: "CREADO", label: "Creado", desc: "Envio registrado" },
   { status: "ENVIADO_A_BODEGA", label: "Enviado a Bodega", desc: "Tienda envio a bodega" },
   { status: "RECIBIDO_EN_BODEGA", label: "En Bodega", desc: "Bodega recibio" },
-  { status: "ENVIADO_A_DESTINO", label: "Enviado a Destino", desc: "Bodega envio a tienda" },
-  { status: "RECIBIDO_EN_DESTINO", label: "Entregado", desc: "Tienda recibio" },
+  { status: "EN_RUTA", label: "En Ruta", desc: "Asignado a camion" },
+  { status: "EN_PARADA", label: "En Parada", desc: "Camion en punto de recogida" },
+  { status: "RECIBIDO_EN_DESTINO", label: "Entregado", desc: "Cliente recibio" },
 ];
 
 // Direct warehouse flow: warehouse → store (3 steps)
 const directTimeline = [
   { status: "CREADO", label: "Creado", desc: "Envio registrado" },
-  { status: "ENVIADO_A_DESTINO", label: "Enviado a Destino", desc: "Bodega envio a tienda" },
-  { status: "RECIBIDO_EN_DESTINO", label: "Entregado", desc: "Tienda recibio" },
+  { status: "ENVIADO_A_DESTINO", label: "Enviado a Destino", desc: "Bodega envio directo" },
+  { status: "EN_RUTA", label: "En Ruta", desc: "Asignado a camion" },
+  { status: "EN_PARADA", label: "En Parada", desc: "Camion en punto de recogida" },
+  { status: "RECIBIDO_EN_DESTINO", label: "Entregado", desc: "Cliente recibio" },
 ];
-
 export default function Track() {
   const [trackingNumber, setTrackingNumber] = useState("");
   const [searchedTracking, setSearchedTracking] = useState("");
