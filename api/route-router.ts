@@ -298,13 +298,17 @@ export const routeRouter = createRouter({
 
       const franchiseMap = new Map(allFranchises.map(f => [f.id, f]));
 
-      return available.map(s => ({
+            return available.map(s => ({
         ...s,
         items: items.filter(i => i.shipmentId === s.id),
         originFranchise: franchiseMap.get(s.originFranchiseId),
         destinationFranchise: franchiseMap.get(s.destinationFranchiseId),
       }));
-    }),
+    } catch (error: any) {
+      console.error("[route.getById] Error:", error.message);
+      throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
+    }
+  }),
 
   pendingByPickupPoint: franchiseAuthedQuery
     .query(async () => {
