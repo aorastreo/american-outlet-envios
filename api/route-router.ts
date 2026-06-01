@@ -62,12 +62,8 @@ export const routeRouter = createRouter({
 
       const shipmentIds = allRouteShipments.map(rs => rs.shipmentId);
             const validRouteStatuses = ["RECIBIDO_EN_BODEGA", "EN_RUTA", "EN_PARADA"];
-      const shipmentsData = shipmentIds.length > 0
-        ? await db.select().from(shipments)
-            .where(and(
-              inArray(shipments.id, shipmentIds),
-              inArray(shipments.status, validRouteStatuses)
-            ))
+            const shipmentsData = shipmentIds.length > 0
+        ? await db.select().from(shipments).where(inArray(shipments.id, shipmentIds))
         : [];
 
       const itemsData = shipmentIds.length > 0
