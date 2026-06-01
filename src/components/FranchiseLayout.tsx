@@ -2,24 +2,20 @@ import { Link, useLocation } from "react-router";
 import { useState } from "react";
 import { useFranchiseAuth } from "@/hooks/useFranchiseAuth";
 import { trpc } from "@/providers/trpc";
-import {
-  LayoutDashboard,
-  Package,
-  Plus,
-  LogOut,
-  Menu,
-  ChevronRight,
-  Truck,
-  Search,
-} from "lucide-react";
+import { Package, Plus, Search, LayoutDashboard, LogOut, ChevronDown, Menu, X, Building2, Truck } from "lucide-react";
 
 const logoUrl = "/logo.jpg";
 
-const navItems = [
+const allNavItems = [
   { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { path: "/envios", label: "Mis Envios", icon: Package },
   { path: "/enviar", label: "Crear Envio", icon: Plus },
+  { path: "/rutas", label: "Rutas", icon: Truck },
   { path: "/rastrear", label: "Rastrear", icon: Search },
+];
+
+const driverNavItems = [
+  { path: "/rutas", label: "Mis Rutas", icon: Truck },
 ];
 
 export default function FranchiseLayout({
@@ -96,7 +92,7 @@ export default function FranchiseLayout({
 
         {/* Navigation */}
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-          {navItems.map((item) => {
+          {((user?.username === "chofer") ? driverNavItems : allNavItems).map((item) => {
             const isActive = location.pathname === item.path;
             return (
               <Link

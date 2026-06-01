@@ -19,7 +19,8 @@ function hashPassword(password: string): string {
 const franchiseData = [
     { name: "Ciudad Quesada", displayName: "American Outlet Ciudad Quesada", code: "ciudad_quesada", isWarehouse: 0 },
   { name: "Puerto Viejo", displayName: "American Outlet Puerto Viejo", code: "puerto_viejo", isWarehouse: 0 },
-  { name: "Ganga Santa Rosa", displayName: "Ganga Santa Rosa", code: "ganga_santa_rosa", isWarehouse: 0 },
+    { name: "Ganga Santa Rosa", displayName: "American Outlet Ganga Santa Rosa", code: "ganga_santa_rosa", isWarehouse: 0 },
+  { name: "Bodega Sabana", displayName: "American Outlet Bodega Sabana", code: "bodega_sabana", isWarehouse: 0 },
   { name: "Bodega", displayName: "American Outlet Bodega", code: "bodega", isWarehouse: 1 },
 ];
 
@@ -94,6 +95,44 @@ async function initTables() {
       )
     `);
 
+    await connection.execute(`
+      CREATE TABLE IF NOT EXISTS delivery_routes (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        status ENUM('PLANIFICADA','EN_RUTA','COMPLETADA','CANCELADA') DEFAULT 'PLANIFICADA',
+        createdBy INT NOT NULL,
+        createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      )
+    `);
+
+    await connection.execute(`
+      CREATE TABLE IF NOT EXISTS route_stops (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        routeId INT NOT NULL,
+        cityName VARCHAR(100) NOT NULL,
+        stopOrder INT DEFAULT 1,
+        status ENUM('PENDIENTE','LLEGADO','COMPLETADO') DEFAULT 'PENDIENTE',
+        arrivalTime TIMESTAMP NULL,
+        departureTime TIMESTAMP NULL,
+        notes TEXT,
+        createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    await connection.execute(`
+      CREATE TABLE IF NOT EXISTS route_shipments (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        routeId INT NOT NULL,
+        stopId INT NOT NULL,
+        shipmentId INT NOT NULL,
+        status ENUM('ASIGNADO','ENTREGADO','NO_RECOGIDO') DEFAULT 'ASIGNADO',
+        deliveredAt TIMESTAMP NULL,
+        notes TEXT,
+        createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
     await connection.end();
     console.log("[init] Tables OK!");
   } catch (err: any) {
@@ -131,6 +170,27 @@ async function runSeed() {
       }
     }
 
+    // Create driver user
+    try {
+      const bodegaFranchise = await db.select().from(franchises).where(eq(franchises.code, "bodega")).limit(1);
+      if (bodegaFranchise.length > 0) {
+        const bodegaId = bodegaFranchise[0].id;
+        const existingDriver = await db.select().from(franchiseUsers).where(eq(franchiseUsers.username, "chofer")).limit(1);
+        if (existingDriver.length === 0) {
+          await db.insert(franchiseUsers).values({
+            franchiseId: bodegaId,
+            username: "chofer",
+            passwordHash: hashPassword("american2025"),
+            displayName: "Chofer - Rutas",
+            role: "admin",
+            isActive: 1,
+          });
+          console.log("[seed] Created: Chofer (user: chofer / pass: american2025)");
+        }
+      }
+    } catch (e: any) {
+      console.log("[seed] Skip chofer:", e.message);
+    }
     console.log("[seed] Seed complete! All franchises ready");
   } catch (err: any) {
     console.error("[seed] Seed failed:", err.message);

@@ -1,0 +1,209 @@
+import { z } from "zod";
+import { eq, inArray, asc } from "drizzle-orm";
+import { createRouter, franchiseAuthedQuery } from "./middleware";
+import { getDb } from "./queries/connection";
+import { deliveryRoutes, routeStops, routeShipments, shipments, shipmentItems, shipmentTracking, franchises } from "@db/schema";
+import { TRPCError } from "@trpc/server";
+
+export const routeRouter = createRouter({
+  create: franchiseAuthedQuery
+    .input(z.object({
+      name: z.string().min(1).max(255),
+      stops: z.array(z.object({
+        cityName: z.string().min(1).max(100),
+      })).min(1),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const db = getDb();
+      const routeResult = await db.insert(deliveryRoutes).values({
+        name: input.name,
+        status: "PLANIFICADA",
+        createdBy: ctx.franchiseUser!.id,
+      });
+      const routeId = Number(routeResult[0].insertId);
+
+      for (let i = 0; i < input.stops.length; i++) {
+        await db.insert(routeStops).values({
+          routeId,
+          cityName: input.stops[i].cityName,
+          stopOrder: i + 1,
+        });
+      }
+
+      return { success: true, routeId };
+    }),
+
+  list: franchiseAuthedQuery
+    .input(z.object({
+      status: z.enum(["PLANIFICADA", "EN_RUTA", "COMPLETADA", "CANCELADA"]).optional(),
+    }).optional())
+    .query(async ({ input }) => {
+      const db = getDb();
+      const conditions = input?.status ? eq(deliveryRoutes.status, input.status) : undefined;
+      const result = conditions
+        ? await db.select().from(deliveryRoutes).where(conditions).orderBy(deliveryRoutes.createdAt)
+        : await db.select().from(deliveryRoutes).orderBy(deliveryRoutes.createdAt);
+      return result;
+    }),
+
+  getById: franchiseAuthedQuery
+    .input(z.object({ id: z.number() }))
+    .query(async ({ input }) => {
+      const db = getDb();
+      const route = await db.select().from(deliveryRoutes).where(eq(deliveryRoutes.id, input.id)).limit(1);
+      if (route.length === 0) return null;
+
+      const stops = await db.select().from(routeStops)
+        .where(eq(routeStops.routeId, input.id))
+        .orderBy(asc(routeStops.stopOrder));
+
+      const allRouteShipments = await db.select().from(routeShipments)
+        .where(eq(routeShipments.routeId, input.id));
+
+      const shipmentIds = allRouteShipments.map(rs => rs.shipmentId);
+      const shipmentsData = shipmentIds.length > 0
+        ? await db.select().from(shipments).where(inArray(shipments.id, shipmentIds))
+        : [];
+
+      const itemsData = shipmentIds.length > 0
+        ? await db.select().from(shipmentItems).where(inArray(shipmentItems.shipmentId, shipmentIds))
+        : [];
+
+      const allFranchises = await db.select().from(franchises);
+      const franchiseMap = new Map(allFranchises.map(f => [f.id, f]));
+
+      const stopsWithShipments = stops.map(stop => {
+        const stopShipments = allRouteShipments
+          .filter(rs => rs.stopId === stop.id)
+          .map(rs => {
+            const shipment = shipmentsData.find(s => s.id === rs.shipmentId);
+            const items = itemsData.filter(i => i.shipmentId === rs.shipmentId);
+            return {
+              ...rs,
+              shipment: shipment ? {
+                ...shipment,
+                items,
+                originFranchise: franchiseMap.get(shipment.originFranchiseId),
+                destinationFranchise: franchiseMap.get(shipment.destinationFranchiseId),
+              } : null,
+            };
+          });
+
+        return {
+          ...stop,
+          shipments: stopShipments,
+          totalShipments: stopShipments.length,
+          delivered: stopShipments.filter(s => s.status === "ENTREGADO").length,
+          notCollected: stopShipments.filter(s => s.status === "NO_RECOGIDO").length,
+          pending: stopShipments.filter(s => s.status === "ASIGNADO").length,
+        };
+      });
+
+      const totalAssigned = allRouteShipments.length;
+      const totalDelivered = allRouteShipments.filter(s => s.status === "ENTREGADO").length;
+      const totalNotCollected = allRouteShipments.filter(s => s.status === "NO_RECOGIDO").length;
+
+      return {
+        ...route[0],
+        stops: stopsWithShipments,
+        summary: {
+          totalAssigned,
+          totalDelivered,
+          totalNotCollected,
+          totalPending: totalAssigned - totalDelivered - totalNotCollected,
+        },
+      };
+    }),
+
+  assignShipments: franchiseAuthedQuery
+    .input(z.object({
+      routeId: z.number(),
+      stopId: z.number(),
+      shipmentIds: z.array(z.number()).min(1),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const db = getDb();
+      for (const shipmentId of input.shipmentIds) {
+        await db.insert(routeShipments).values({
+          routeId: input.routeId,
+          stopId: input.stopId,
+          shipmentId,
+        }).onDuplicateKeyUpdate({ set: { stopId: input.stopId } });
+
+        await db.insert(shipmentTracking).values({
+          shipmentId,
+          status: "EN_RUTA",
+          locationId: 0,
+          notes: "Asignado a ruta de camion",
+          createdBy: ctx.franchiseUser!.id,
+        });
+      }
+      return { success: true };
+    }),
+
+  removeShipment: franchiseAuthedQuery
+    .input(z.object({ routeShipmentId: z.number() }))
+    .mutation(async ({ input }) => {
+      const db = getDb();
+      await db.delete(routeShipments).where(eq(routeShipments.id, input.routeShipmentId));
+      return { success: true };
+    }),
+
+  updateStatus: franchiseAuthedQuery
+    .input(z.object({
+      id: z.number(),
+      status: z.enum(["PLANIFICADA", "EN_RUTA", "COMPLETADA", "CANCELADA"]),
+    }))
+    .mutation(async ({ input }) => {
+      const db = getDb();
+      await db.update(deliveryRoutes).set({ status: input.status }).where(eq(deliveryRoutes.id, input.id));
+      return { success: true };
+    }),
+
+  updateStop: franchiseAuthedQuery
+    .input(z.object({
+      stopId: z.number(),
+      status: z.enum(["PENDIENTE", "LLEGADO", "COMPLETADO"]),
+      notes: z.string().optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const db = getDb();
+      const updateData: Record<string, any> = { status: input.status };
+      if (input.status === "LLEGADO") {
+        updateData.arrivalTime = new Date();
+        const stopData = await db.select().from(routeStops).where(eq(routeStops.id, input.stopId)).limit(1);
+        const cityName = stopData[0]?.cityName || "parada";
+        const assigned = await db.select().from(routeShipments).where(eq(routeShipments.stopId, input.stopId));
+        for (const rs of assigned) {
+          await db.insert(shipmentTracking).values({
+            shipmentId: rs.shipmentId,
+            status: "EN_PARADA",
+            locationId: 0,
+            notes: `Camion llego a ${cityName} - punto de referencia`,
+            createdBy: ctx.franchiseUser!.id,
+          });
+        }
+      } else if (input.status === "COMPLETADO") {
+        updateData.departureTime = new Date();
+      }
+      if (input.notes) updateData.notes = input.notes;
+
+      await db.update(routeStops).set(updateData).where(eq(routeStops.id, input.stopId));
+      return { success: true };
+    }),
+
+  updateShipmentStatus: franchiseAuthedQuery
+    .input(z.object({
+      routeShipmentId: z.number(),
+      status: z.enum(["ENTREGADO", "NO_RECOGIDO"]),
+      notes: z.string().optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const db = getDb();
+      const updateData: Record<string, any> = {
+        status: input.status,
+        deliveredAt: new Date(),
+      };
+      if (input.notes) updateData.notes = input.notes;
+
+      await db.update(routeShipments

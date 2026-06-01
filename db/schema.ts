@@ -67,14 +67,7 @@ export const shipments = mysqlTable("shipments", {
   originFranchiseId: bigint("originFranchiseId", { mode: "number", unsigned: true }).notNull(),
   destinationFranchiseId: bigint("destinationFranchiseId", { mode: "number", unsigned: true }).notNull(),
   currentLocationId: bigint("currentLocationId", { mode: "number", unsigned: true }).notNull(),
-  status: mysqlEnum("status", [
-    "CREADO",
-    "ENVIADO_A_BODEGA",
-    "RECIBIDO_EN_BODEGA",
-    "ENVIADO_A_DESTINO",
-    "RECIBIDO_EN_DESTINO",
-    "CANCELADO",
-  ]).notNull(),
+  status: mysqlEnum("status", ["CREADO", "ENVIADO_A_BODEGA", "RECIBIDO_EN_BODEGA", "ENVIADO_A_DESTINO", "RECIBIDO_EN_DESTINO", "EN_RUTA", "EN_PARADA", "CANCELADO"]).notNull(),
   receiverName: varchar("receiverName", { length: 255 }),
   notes: text("notes"),
   createdBy: bigint("createdBy", { mode: "number", unsigned: true }).notNull(),
@@ -121,3 +114,46 @@ export const shipmentTracking = mysqlTable("shipment_tracking", {
 
 export type ShipmentTracking = typeof shipmentTracking.$inferSelect;
 export type InsertShipmentTracking = typeof shipmentTracking.$inferInsert;
+// ─── Delivery Routes ────────────────────────────────────────────
+export const deliveryRoutes = mysqlTable("delivery_routes", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  status: mysqlEnum("status", ["PLANIFICADA", "EN_RUTA", "COMPLETADA", "CANCELADA"]).default("PLANIFICADA").notNull(),
+  createdBy: bigint("createdBy", { mode: "number", unsigned: true }).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull().$onUpdate(() => new Date()),
+});
+
+export type DeliveryRoute = typeof deliveryRoutes.$inferSelect;
+export type InsertDeliveryRoute = typeof deliveryRoutes.$inferInsert;
+
+// ─── Route Stops ────────────────────────────────────────────────
+export const routeStops = mysqlTable("route_stops", {
+  id: serial("id").primaryKey(),
+  routeId: bigint("routeId", { mode: "number", unsigned: true }).notNull(),
+  cityName: varchar("cityName", { length: 100 }).notNull(),
+  stopOrder: int("stopOrder").default(1).notNull(),
+  status: mysqlEnum("status", ["PENDIENTE", "LLEGADO", "COMPLETADO"]).default("PENDIENTE").notNull(),
+  arrivalTime: timestamp("arrivalTime"),
+  departureTime: timestamp("departureTime"),
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type RouteStop = typeof routeStops.$inferSelect;
+export type InsertRouteStop = typeof routeStops.$inferInsert;
+
+// ─── Route Shipments ────────────────────────────────────────────
+export const routeShipments = mysqlTable("route_shipments", {
+  id: serial("id").primaryKey(),
+  routeId: bigint("routeId", { mode: "number", unsigned: true }).notNull(),
+  stopId: bigint("stopId", { mode: "number", unsigned: true }).notNull(),
+  shipmentId: bigint("shipmentId", { mode: "number", unsigned: true }).notNull(),
+  status: mysqlEnum("status", ["ASIGNADO", "ENTREGADO", "NO_RECOGIDO"]).default("ASIGNADO").notNull(),
+  deliveredAt: timestamp("deliveredAt"),
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type RouteShipment = typeof routeShipments.$inferSelect;
+export type InsertRouteShipment = typeof routeShipments.$inferInsert;
