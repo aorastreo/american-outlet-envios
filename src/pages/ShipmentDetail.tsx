@@ -30,13 +30,19 @@ const normalTimeline = [
   { status: "CREADO", label: "Creado" },
   { status: "ENVIADO_A_BODEGA", label: "Enviado a Bodega" },
   { status: "RECIBIDO_EN_BODEGA", label: "En Bodega" },
+  { status: "EN_RUTA", label: "En Ruta" },
+  { status: "EN_PARADA", label: "En Parada" },
   { status: "ENVIADO_A_DESTINO", label: "Enviado a Destino" },
+  { status: "EN_RUTA", label: "En Ruta" },
+  { status: "EN_PARADA", label: "En Parada" },
   { status: "RECIBIDO_EN_DESTINO", label: "Entregado" },
 ];
 
 const directTimeline = [
   { status: "CREADO", label: "Creado" },
   { status: "ENVIADO_A_DESTINO", label: "Enviado a Destino" },
+  { status: "EN_RUTA", label: "En Ruta" },
+  { status: "EN_PARADA", label: "En Parada" },
   { status: "RECIBIDO_EN_DESTINO", label: "Entregado" },
 ];
 
