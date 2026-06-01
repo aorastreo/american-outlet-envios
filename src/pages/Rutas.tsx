@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Truck, Plus, MapPin, Package, ChevronRight, AlertCircle, Play, CheckCircle, XCircle } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Truck, Plus, MapPin, Package, ChevronRight, AlertCircle, Play, CheckCircle, XCircle, ClipboardList } from "lucide-react";
 import toast from "react-hot-toast";
 
 const statusConfig: Record<string, { color: string; label: string; icon: React.ElementType }> = {
@@ -19,11 +20,16 @@ const statusConfig: Record<string, { color: string; label: string; icon: React.E
 
 export default function Rutas() {
   const [createDialog, setCreateDialog] = useState(false);
+  const [pendingDialog, setPendingDialog] = useState(false);
   const [routeName, setRouteName] = useState("");
   const [cities, setCities] = useState<string[]>([""]);
+  const [selectedShipmentIds, setSelectedShipmentIds] = useState<number[]>([]);
   const utils = trpc.useUtils();
 
   const { data: routes, isLoading } = trpc.route.list.useQuery();
+  const { data: pendingByCity } = trpc.route.pendingByPickupPoint.useQuery(undefined, {
+    enabled: pendingDialog,
+  });
 
   const createMutation = trpc.route.create.useMutation({
     onSuccess: () => {
@@ -56,19 +62,62 @@ export default function Rutas() {
     createMutation.mutate({ name: routeName.trim(), stops: validCities.map(c => ({ cityName: c })) });
   };
 
+  const toggleShipment = (shipmentId: number) => {
+    setSelectedShipmentIds(prev =>
+      prev.includes(shipmentId) ? prev.filter(id => id !== shipmentId) : [...prev, shipmentId]
+    );
+  };
+
+  const addCityFromPending = (cityName: string) => {
+    const cleanCity = cityName.replace("Recogida - ", "").trim();
+    if (!cities.some(c => c.trim().toLowerCase() === cleanCity.toLowerCase())) {
+      setCities([...cities.filter(c => c.trim()), cleanCity]);
+    }
+  };
+
+  const totalPending = pendingByCity?.reduce((sum, group) => sum + group.count, 0) || 0;
+
   return (
     <FranchiseLayout>
-      <div className="max-w-4xl mx-auto space-y-6">
-        <div className="flex items-center justify-between">
+      <div className="max-w-5xl mx-auto space-y-6">
+        <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
             <h1 className="text-2xl font-bold text-[#1A1A1A]">Rutas de Camion</h1>
             <p className="text-sm text-[#404040] mt-1">Gestion de rutas de entrega semanales</p>
           </div>
-          <Button onClick={() => setCreateDialog(true)} className="bg-[#C8102E] hover:bg-[#9B0B22]">
-            <Plus className="w-4 h-4 mr-2" />
-            Nueva Ruta
-          </Button>
+          <div className="flex items-center gap-3">
+            <Button onClick={() => setPendingDialog(true)} variant="outline" className="border-orange-300 text-orange-700 hover:bg-orange-50">
+              <ClipboardList className="w-4 h-4 mr-2" />
+              Envios Pendientes
+              {totalPending > 0 && (
+                <Badge variant="secondary" className="ml-2 bg-orange-100 text-orange-700">
+                  {totalPending}
+                </Badge>
+              )}
+            </Button>
+            <Button onClick={() => setCreateDialog(true)} className="bg-[#C8102E] hover:bg-[#9B0B22]">
+              <Plus className="w-4 h-4 mr-2" />
+              Nueva Ruta
+            </Button>
+          </div>
         </div>
+
+        {pendingByCity && pendingByCity.length > 0 && (
+          <div className="grid grid-cols-3 gap-3">
+            {pendingByCity.map((group) => (
+              <Card key={group.pickupId} className="border-orange-200 bg-orange-50/30">
+                <CardContent className="p-3">
+                  <div className="flex items-center gap-2">
+                    <MapPin className="w-4 h-4 text-orange-600" />
+                    <span className="text-sm font-semibold text-orange-800">{group.cityName}</span>
+                  </div>
+                  <p className="text-2xl font-bold text-orange-700 mt-1">{group.count}</p>
+                  <p className="text-xs text-orange-600">envio{group.count !== 1 ? "s" : ""} pendiente{group.count !== 1 ? "s" : ""}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
 
         {isLoading ? (
           <div className="flex justify-center py-12">
@@ -118,7 +167,7 @@ export default function Rutas() {
                   </Card>
                 </Link>
               );
-            })}
+n            })}
           </div>
         )}
       </div>
@@ -175,6 +224,93 @@ export default function Rutas() {
               {createMutation.isPending ? "Creando..." : "Crear Ruta"}
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={pendingDialog} onOpenChange={setPendingDialog}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ClipboardList className="w-5 h-5 text-orange-600" />
+              Envios Pendientes por Punto de Recogida
+            </DialogTitle>
+          </DialogHeader>
+
+          {!pendingByCity || pendingByCity.length === 0 ? (
+            <div className="text-center py-8 text-[#404040]">
+              <Package className="w-10 h-10 text-[#D4D4D4] mx-auto mb-2" />
+              <p>No hay envios pendientes para puntos de recogida</p>
+              <p className="text-xs mt-1 text-[#8A8A8A]">Los envios deben estar en bodega con destino a Grecia, San Ramon o Palmares</p>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {pendingByCity.map((group) => (
+                <div key={group.pickupId} className="border border-orange-200 rounded-lg p-4 bg-orange-50/20">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <MapPin className="w-5 h-5 text-orange-600" />
+                      <h3 className="font-bold text-orange-800">{group.cityName}</h3>
+                      <Badge variant="secondary" className="bg-orange-100 text-orange-700">
+                        {group.count} envio{group.count !== 1 ? "s" : ""}
+                      </Badge>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => addCityFromPending(group.fullDisplayName)}
+                      className="text-[#C8102E] border-[#C8102E]"
+                    >
+                      <Plus className="w-3 h-3 mr-1" />
+                      Agregar a Ruta
+                    </Button>
+                  </div>
+
+                  <div className="space-y-2">
+                    {group.shipments.map((s: any) => (
+                      <div
+                        key={s.id}
+                        className="flex items-center gap-3 p-2 rounded bg-white border border-[#F0F0F0]"
+                      >
+                        <Checkbox
+                          checked={selectedShipmentIds.includes(s.id)}
+                          onCheckedChange={() => toggleShipment(s.id)}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-mono font-bold text-[#C8102E]">{s.trackingNumber}</span>
+                            {s.invoiceNumber && <span className="text-xs text-[#525252]">Fact: #{s.invoiceNumber}</span>}
+                          </div>
+                          <div className="flex items-center gap-2 text-xs text-[#525252]">
+                            <span>{s.senderName}</span>
+                            <span className="text-[#8A8A8A]">|</span>
+                            <span>{s.senderPhone}</span>
+                          </div>
+                          <p className="text-xs text-[#8A8A8A] truncate">
+                            {s.items?.map((i: any) => `${i.description} x${i.quantity}`).join(", ")}
+                          </p>
+                        </div>
+                        <span className="text-xs text-[#8A8A8A] shrink-0">{s.originFranchise?.name}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+
+              {selectedShipmentIds.length > 0 && (
+                <div className="sticky bottom-0 bg-white p-3 border-t border-[#F0F0F0]">
+                  <Button
+                    onClick={() => {
+                      setPendingDialog(false);
+                      setCreateDialog(true);
+                    }}
+                    className="w-full bg-[#C8102E] hover:bg-[#9B0B22]"
+                  >
+                    Crear Ruta con {selectedShipmentIds.length} envio{selectedShipmentIds.length !== 1 ? "s" : ""} seleccionado{selectedShipmentIds.length !== 1 ? "s" : ""}
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </FranchiseLayout>
