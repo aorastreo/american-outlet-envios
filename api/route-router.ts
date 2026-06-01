@@ -206,4 +206,46 @@ export const routeRouter = createRouter({
       };
       if (input.notes) updateData.notes = input.notes;
 
-      await db.update(routeShipments
+      await db.update(routeShipments).set(updateData).where(eq(routeShipments.id, input.routeShipmentId));
+
+      const rsData = await db.select().from(routeShipments).where(eq(routeShipments.id, input.routeShipmentId)).limit(1);
+      if (rsData.length > 0 && input.status === "ENTREGADO") {
+        await db.insert(shipmentTracking).values({
+          shipmentId: rsData[0].shipmentId,
+          status: "RECIBIDO_EN_DESTINO",
+          locationId: 0,
+          notes: input.notes?.trim() ? `Recibido por el cliente: ${input.notes.trim()}` : "Recibido por el cliente en punto de recogida",
+          createdBy: ctx.franchiseUser!.id,
+        });
+      }
+
+      return { success: true };
+    }),
+
+  availableShipments: franchiseAuthedQuery
+    .query(async () => {
+      const db = getDb();
+      const allShipments = await db.select().from(shipments)
+        .where(eq(shipments.status, "RECIBIDO_EN_BODEGA"));
+
+      const assigned = await db.select({ shipmentId: routeShipments.shipmentId }).from(routeShipments)
+        .where(eq(routeShipments.status, "ASIGNADO"));
+      const assignedIds = new Set(assigned.map(a => a.shipmentId));
+
+      const available = allShipments.filter(s => !assignedIds.has(s.id));
+      if (available.length === 0) return [];
+
+      const shipmentIds = available.map(s => s.id);
+      const items = await db.select().from(shipmentItems).where(inArray(shipmentItems.shipmentId, shipmentIds));
+
+      const allFranchises = await db.select().from(franchises);
+      const franchiseMap = new Map(allFranchises.map(f => [f.id, f]));
+
+      return available.map(s => ({
+        ...s,
+        items: items.filter(i => i.shipmentId === s.id),
+        originFranchise: franchiseMap.get(s.originFranchiseId),
+        destinationFranchise: franchiseMap.get(s.destinationFranchiseId),
+      }));
+    }),
+});
