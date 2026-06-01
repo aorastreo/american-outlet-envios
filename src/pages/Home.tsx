@@ -40,6 +40,8 @@ export default function Home() {
     CREADO: { color: "bg-slate-100 text-[#1A1A1A]", label: "Creado", icon: Package },
     ENVIADO_A_BODEGA: { color: "bg-amber-50 text-[#B8860B]", label: "Enviado a Bodega", icon: Send },
     RECIBIDO_EN_BODEGA: { color: "bg-purple-50 text-purple-700", label: "Recibido en Bodega", icon: ClipboardCheck },
+    EN_RUTA: { color: "bg-blue-50 text-blue-700", label: "En Ruta de Camion", icon: Truck },
+    EN_PARADA: { color: "bg-orange-50 text-orange-700", label: "En Punto de Recogida", icon: MapPin },
     ENVIADO_A_DESTINO: { color: "bg-[#FFF5F5] text-[#C8102E]", label: "Enviado a Destino", icon: Truck },
     RECIBIDO_EN_DESTINO: { color: "bg-emerald-50 text-[#1B6B3E]", label: "Entregado", icon: CheckCircle },
     CANCELADO: { color: "bg-red-50 text-red-700", label: "Cancelado", icon: AlertTriangle },
