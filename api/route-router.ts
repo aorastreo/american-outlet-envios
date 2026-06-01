@@ -247,5 +247,55 @@ export const routeRouter = createRouter({
         originFranchise: franchiseMap.get(s.originFranchiseId),
         destinationFranchise: franchiseMap.get(s.destinationFranchiseId),
       }));
+        }),
+
+  pendingByPickupPoint: franchiseAuthedQuery
+    .query(async () => {
+      const db = getDb();
+      const allFranchises = await db.select().from(franchises);
+      const pickupPoints = allFranchises.filter(f => f.displayName?.toLowerCase().includes("recogida"));
+      const pickupIds = pickupPoints.map(f => f.id);
+
+      if (pickupIds.length === 0) return [];
+
+      const pending = await db.select().from(shipments)
+        .where(and(
+          eq(shipments.status, "RECIBIDO_EN_BODEGA"),
+          inArray(shipments.destinationFranchiseId, pickupIds)
+        ));
+
+      if (pending.length === 0) return [];
+
+      const assigned = await db.select({ shipmentId: routeShipments.shipmentId }).from(routeShipments)
+        .where(eq(routeShipments.status, "ASIGNADO"));
+      const assignedIds = new Set(assigned.map(a => a.shipmentId));
+      const available = pending.filter(s => !assignedIds.has(s.id));
+
+      if (available.length === 0) return [];
+
+      const shipmentIds = available.map(s => s.id);
+      const items = await db.select().from(shipmentItems).where(inArray(shipmentItems.shipmentId, shipmentIds));
+      const franchiseMap = new Map(allFranchises.map(f => [f.id, f]));
+
+      const enriched = available.map(s => ({
+        ...s,
+        items: items.filter(i => i.shipmentId === s.id),
+        originFranchise: franchiseMap.get(s.originFranchiseId),
+        destinationFranchise: franchiseMap.get(s.destinationFranchiseId),
+      }));
+
+      const grouped = pickupIds.map(pickupId => {
+        const point = franchiseMap.get(pickupId);
+        const shipmentsForPoint = enriched.filter(s => s.destinationFranchiseId === pickupId);
+        return {
+          pickupId,
+          cityName: point?.displayName?.replace("Recogida - ", "") || point?.name || "Desconocido",
+          fullDisplayName: point?.displayName || point?.name || "Desconocido",
+          shipments: shipmentsForPoint,
+          count: shipmentsForPoint.length,
+        };
+      }).filter(g => g.count > 0);
+
+      return grouped;
     }),
 });
