@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { eq, inArray, asc } from "drizzle-orm";
+import { eq, inArray, asc, and } from "drizzle-orm";
 import { createRouter, franchiseAuthedQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { deliveryRoutes, routeStops, routeShipments, shipments, shipmentItems, shipmentTracking, franchises } from "@db/schema";
@@ -48,78 +48,78 @@ export const routeRouter = createRouter({
 
   getById: franchiseAuthedQuery
     .input(z.object({ id: z.number() }))
-        .query(async ({ input }) => {
+    .query(async ({ input }) => {
       try {
         const db = getDb();
-      const route = await db.select().from(deliveryRoutes).where(eq(deliveryRoutes.id, input.id)).limit(1);
-      if (route.length === 0) return null;
+        const route = await db.select().from(deliveryRoutes).where(eq(deliveryRoutes.id, input.id)).limit(1);
+        if (route.length === 0) return null;
 
-      const stops = await db.select().from(routeStops)
-        .where(eq(routeStops.routeId, input.id))
-        .orderBy(asc(routeStops.stopOrder));
+        const stops = await db.select().from(routeStops)
+          .where(eq(routeStops.routeId, input.id))
+          .orderBy(asc(routeStops.stopOrder));
 
-      const allRouteShipments = await db.select().from(routeShipments)
-        .where(eq(routeShipments.routeId, input.id));
+        const allRouteShipments = await db.select().from(routeShipments)
+          .where(eq(routeShipments.routeId, input.id));
 
-      const shipmentIds = allRouteShipments.map(rs => rs.shipmentId);
-            const validRouteStatuses = ["RECIBIDO_EN_BODEGA", "EN_RUTA", "EN_PARADA"];
-            const shipmentsData = shipmentIds.length > 0
-        ? await db.select().from(shipments).where(inArray(shipments.id, shipmentIds))
-        : [];
+        const shipmentIds = allRouteShipments.map(rs => rs.shipmentId);
 
-      const itemsData = shipmentIds.length > 0
-        ? await db.select().from(shipmentItems).where(inArray(shipmentItems.shipmentId, shipmentIds))
-        : [];
+        const shipmentsData = shipmentIds.length > 0
+          ? await db.select().from(shipments).where(inArray(shipments.id, shipmentIds))
+          : [];
 
-      const franchiseMap = new Map(allFranchises.map(f => [f.id, f]));
+        const itemsData = shipmentIds.length > 0
+          ? await db.select().from(shipmentItems).where(inArray(shipmentItems.shipmentId, shipmentIds))
+          : [];
 
-      const stopsWithShipments = stops.map(stop => {
-        const stopShipments = allRouteShipments
-          .filter(rs => rs.stopId === stop.id)
-          .map(rs => {
-            const shipment = shipmentsData.find(s => s.id === rs.shipmentId);
-            const items = itemsData.filter(i => i.shipmentId === rs.shipmentId);
-            return {
-              ...rs,
-              shipment: shipment ? {
-                ...shipment,
-                items,
-                originFranchise: franchiseMap.get(shipment.originFranchiseId),
-                destinationFranchise: franchiseMap.get(shipment.destinationFranchiseId),
-              } : null,
-            };
-          });
+        const allFranchises = await db.select().from(franchises);
+        const franchiseMap = new Map(allFranchises.map(f => [f.id, f]));
+
+        const stopsWithShipments = stops.map(stop => {
+          const stopShipments = allRouteShipments
+            .filter(rs => rs.stopId === stop.id)
+            .map(rs => {
+              const shipment = shipmentsData.find(s => s.id === rs.shipmentId);
+              const items = itemsData.filter(i => i.shipmentId === rs.shipmentId);
+              return {
+                ...rs,
+                shipment: shipment ? {
+                  ...shipment,
+                  items,
+                  originFranchise: franchiseMap.get(shipment.originFranchiseId),
+                  destinationFranchise: franchiseMap.get(shipment.destinationFranchiseId),
+                } : null,
+              };
+            });
+
+          return {
+            ...stop,
+            shipments: stopShipments,
+            totalShipments: stopShipments.length,
+            delivered: stopShipments.filter(s => s.status === "ENTREGADO").length,
+            notCollected: stopShipments.filter(s => s.status === "NO_RECOGIDO").length,
+            pending: stopShipments.filter(s => s.status === "ASIGNADO").length,
+          };
+        });
+
+        const totalAssigned = allRouteShipments.length;
+        const totalDelivered = allRouteShipments.filter(s => s.status === "ENTREGADO").length;
+        const totalNotCollected = allRouteShipments.filter(s => s.status === "NO_RECOGIDO").length;
 
         return {
-          ...stop,
-          shipments: stopShipments,
-          totalShipments: stopShipments.length,
-          delivered: stopShipments.filter(s => s.status === "ENTREGADO").length,
-          notCollected: stopShipments.filter(s => s.status === "NO_RECOGIDO").length,
-          pending: stopShipments.filter(s => s.status === "ASIGNADO").length,
+          ...route[0],
+          stops: stopsWithShipments,
+          summary: {
+            totalAssigned,
+            totalDelivered,
+            totalNotCollected,
+            totalPending: totalAssigned - totalDelivered - totalNotCollected,
+          },
         };
-      });
-
-      const totalAssigned = allRouteShipments.length;
-      const totalDelivered = allRouteShipments.filter(s => s.status === "ENTREGADO").length;
-      const totalNotCollected = allRouteShipments.filter(s => s.status === "NO_RECOGIDO").length;
-
-      return {
-        ...route[0],
-        stops: stopsWithShipments,
-        summary: {
-          totalAssigned,
-          totalDelivered,
-          totalNotCollected,
-                    totalPending: totalAssigned - totalDelivered - totalNotCollected,
-        },
-      };
-    } catch (error: any) {
-      console.error("[route.getById] Error:", error.message);
-      throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
-    }
-  }),
-
+      } catch (error: any) {
+        console.error("[route.getById] Error:", error.message);
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
+      }
+    }),
   assignShipments: franchiseAuthedQuery
     .input(z.object({
       routeId: z.number(),
@@ -242,16 +242,15 @@ export const routeRouter = createRouter({
 
   availableShipments: franchiseAuthedQuery
     .input(z.object({ stopId: z.number().optional() }).optional())
-        .query(async ({ input }) => {
-      try {
-        const db = getDb();
+    .query(async ({ input }) => {
+      const db = getDb();
 
       let destinationFranchiseId: number | null = null;
-      const allFranchises = await db.select().from(franchises);
 
       if (input?.stopId) {
         const stop = await db.select().from(routeStops).where(eq(routeStops.id, input.stopId)).limit(1);
         if (stop.length > 0) {
+          const allFranchises = await db.select().from(franchises);
           const matchingFranchise = allFranchises.find(f =>
             f.displayName?.toLowerCase().includes(stop[0].cityName.toLowerCase()) ||
             f.name.toLowerCase() === stop[0].cityName.toLowerCase()
@@ -262,7 +261,7 @@ export const routeRouter = createRouter({
         }
       }
 
-            // Get all pickup point franchise IDs (displayName contains "recogida")
+      const allFranchises = await db.select().from(franchises);
       const pickupFranchises = allFranchises.filter(f =>
         f.displayName?.toLowerCase().includes("recogida")
       );
@@ -270,27 +269,24 @@ export const routeRouter = createRouter({
 
       if (pickupIds.length === 0) return [];
 
-      // Get shipments in warehouse
       const allShipments = await db.select().from(shipments)
         .where(eq(shipments.status, "RECIBIDO_EN_BODEGA"));
 
       if (allShipments.length === 0) return [];
 
-      // Filter: only pickup point destinations
       const pickupShipments = allShipments.filter(s => pickupIds.includes(s.destinationFranchiseId));
 
-      // Further filter by specific stop destination if provided
       const filteredShipments = destinationFranchiseId
         ? pickupShipments.filter(s => s.destinationFranchiseId === destinationFranchiseId)
         : pickupShipments;
 
-      if (allShipments.length === 0) return [];
+      if (filteredShipments.length === 0) return [];
 
       const assigned = await db.select({ shipmentId: routeShipments.shipmentId }).from(routeShipments)
         .where(eq(routeShipments.status, "ASIGNADO"));
       const assignedIds = new Set(assigned.map(a => a.shipmentId));
 
-            const available = filteredShipments.filter(s => !assignedIds.has(s.id));
+      const available = filteredShipments.filter(s => !assignedIds.has(s.id));
       if (available.length === 0) return [];
 
       const shipmentIds = available.map(s => s.id);
@@ -298,17 +294,13 @@ export const routeRouter = createRouter({
 
       const franchiseMap = new Map(allFranchises.map(f => [f.id, f]));
 
-            return available.map(s => ({
+      return available.map(s => ({
         ...s,
         items: items.filter(i => i.shipmentId === s.id),
         originFranchise: franchiseMap.get(s.originFranchiseId),
         destinationFranchise: franchiseMap.get(s.destinationFranchiseId),
       }));
-    } catch (error: any) {
-      console.error("[route.getById] Error:", error.message);
-      throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
-    }
-  }),
+    }),
 
   pendingByPickupPoint: franchiseAuthedQuery
     .query(async () => {
@@ -330,6 +322,7 @@ export const routeRouter = createRouter({
       const assigned = await db.select({ shipmentId: routeShipments.shipmentId }).from(routeShipments)
         .where(eq(routeShipments.status, "ASIGNADO"));
       const assignedIds = new Set(assigned.map(a => a.shipmentId));
+
       const available = pending.filter(s => !assignedIds.has(s.id));
 
       if (available.length === 0) return [];
