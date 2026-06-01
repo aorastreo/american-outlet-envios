@@ -277,9 +277,9 @@ export const shipmentRouter = createRouter({
       }
 
       let newLocationId = shipment.currentLocationId;
-      if (input.newStatus === "ENVIADO_A_BODEGA") newLocationId = bodegaId || shipment.currentLocationId;
-      else if (input.newStatus === "RECIBIDO_EN_BODEGA") newLocationId = bodegaId || shipment.currentLocationId;
-      else if (input.newStatus === "ENVIADO_A_DESTINO") newLocationId = bodegaId || shipment.currentLocationId;
+      if (input.newStatus === "ENVIADO_A_BODEGA") newLocationId = shipment.destinationFranchiseId;
+      else if (input.newStatus === "RECIBIDO_EN_BODEGA") newLocationId = shipment.destinationFranchiseId;
+      else if (input.newStatus === "ENVIADO_A_DESTINO") newLocationId = shipment.destinationFranchiseId;
       else if (input.newStatus === "RECIBIDO_EN_DESTINO") newLocationId = shipment.destinationFranchiseId;
 
       const updateData: Record<string, any> = {
