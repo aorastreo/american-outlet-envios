@@ -33,8 +33,6 @@ const normalTimeline = [
   { status: "EN_RUTA", label: "En Ruta" },
   { status: "EN_PARADA", label: "En Parada" },
   { status: "ENVIADO_A_DESTINO", label: "Enviado a Destino" },
-  { status: "EN_RUTA", label: "En Ruta" },
-  { status: "EN_PARADA", label: "En Parada" },
   { status: "RECIBIDO_EN_DESTINO", label: "Entregado" },
 ];
 
