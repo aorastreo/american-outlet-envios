@@ -74,7 +74,6 @@ export const routeRouter = createRouter({
         ? await db.select().from(shipmentItems).where(inArray(shipmentItems.shipmentId, shipmentIds))
         : [];
 
-      const allFranchises = await db.select().from(franchises);
       const franchiseMap = new Map(allFranchises.map(f => [f.id, f]));
 
       const stopsWithShipments = stops.map(stop => {
