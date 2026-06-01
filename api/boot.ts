@@ -17,9 +17,15 @@ function hashPassword(password: string): string {
 }
 
 const franchiseData = [
-    { name: "Ciudad Quesada", displayName: "American Outlet Ciudad Quesada", code: "ciudad_quesada", isWarehouse: 0 },
+  { name: "Los Chiles", displayName: "American Outlet Los Chiles", code: "los_chiles", isWarehouse: 0 },
+  { name: "Pavon", displayName: "American Outlet Pavon", code: "pavon", isWarehouse: 0 },
+  { name: "Santa Rosa", displayName: "American Outlet Santa Rosa", code: "santa_rosa", isWarehouse: 0 },
+  { name: "Boca Arenal", displayName: "American Outlet Boca Arenal", code: "boca_arenal", isWarehouse: 0 },
+  { name: "Florencia", displayName: "American Outlet Florencia", code: "florencia", isWarehouse: 0 },
+  { name: "Fortuna", displayName: "American Outlet Fortuna", code: "fortuna", isWarehouse: 0 },
+  { name: "Ciudad Quesada", displayName: "American Outlet Ciudad Quesada", code: "ciudad_quesada", isWarehouse: 0 },
   { name: "Puerto Viejo", displayName: "American Outlet Puerto Viejo", code: "puerto_viejo", isWarehouse: 0 },
-    { name: "Ganga Santa Rosa", displayName: "American Outlet Ganga Santa Rosa", code: "ganga_santa_rosa", isWarehouse: 0 },
+  { name: "Ganga Santa Rosa", displayName: "American Outlet Ganga Santa Rosa", code: "ganga_santa_rosa", isWarehouse: 0 },
   { name: "Bodega Sabana", displayName: "American Outlet Bodega Sabana", code: "bodega_sabana", isWarehouse: 0 },
   { name: "Grecia", displayName: "Recogida - Grecia", code: "grecia", isWarehouse: 0 },
   { name: "San Ramon", displayName: "Recogida - San Ramon", code: "san_ramon", isWarehouse: 0 },
@@ -66,7 +72,7 @@ async function initTables() {
         originFranchiseId INT NOT NULL,
         destinationFranchiseId INT NOT NULL,
         currentLocationId INT NOT NULL,
-        status ENUM('CREADO','ENVIADO_A_BODEGA','RECIBIDO_EN_BODEGA','ENVIADO_A_DESTINO','RECIBIDO_EN_DESTINO','CANCELADO') DEFAULT 'CREADO',
+        status ENUM('CREADO','ENVIADO_A_BODEGA','RECIBIDO_EN_BODEGA','ENVIADO_A_DESTINO','RECIBIDO_EN_DESTINO','EN_RUTA','EN_PARADA','CANCELADO') DEFAULT 'CREADO',
         receiverName VARCHAR(255),
         notes TEXT,
         createdBy INT NOT NULL,
@@ -90,7 +96,7 @@ async function initTables() {
       CREATE TABLE IF NOT EXISTS shipment_tracking (
         id INT AUTO_INCREMENT PRIMARY KEY,
         shipmentId INT NOT NULL,
-        status ENUM('CREADO','ENVIADO_A_BODEGA','RECIBIDO_EN_BODEGA','ENVIADO_A_DESTINO','RECIBIDO_EN_DESTINO','CANCELADO') NOT NULL,
+        status ENUM('CREADO','ENVIADO_A_BODEGA','RECIBIDO_EN_BODEGA','ENVIADO_A_DESTINO','RECIBIDO_EN_DESTINO','EN_RUTA','EN_PARADA','CANCELADO') NOT NULL,
         locationId INT NOT NULL,
         notes TEXT,
         createdBy INT NOT NULL,
@@ -173,7 +179,7 @@ async function runSeed() {
       }
     }
 
-    // Create driver user
+    // Create driver user (associated with warehouse)
     try {
       const bodegaFranchise = await db.select().from(franchises).where(eq(franchises.code, "bodega")).limit(1);
       if (bodegaFranchise.length > 0) {
@@ -194,7 +200,8 @@ async function runSeed() {
     } catch (e: any) {
       console.log("[seed] Skip chofer:", e.message);
     }
-    console.log("[seed] Seed complete! All franchises ready");
+
+    console.log("[seed] Seed complete! All franchises ready.");
   } catch (err: any) {
     console.error("[seed] Seed failed:", err.message);
   }
@@ -217,22 +224,37 @@ async function createFranchiseToken(userId: number): Promise<string> {
 app.post("/api/auth/login", async (c) => {
   try {
     const body = await c.req.json();
-    const { username, password } = body;
+    const username = (body.username || "").trim().toLowerCase();
+    const password = (body.password || "").trim();
+
+    console.log(`[login] Attempt: username="${username}" password_length=${password.length}`);
 
     if (!username || !password) {
+      console.log("[login] Rejected: missing username or password");
       return c.json({ error: "Usuario y contraseña requeridos" }, 400);
     }
 
     const db = getDb();
 
-    // Auto-seed: if no users exist, create all franchises and users
-    const allUsers = await db.select().from(franchiseUsers).limit(1);
-    if (allUsers.length === 0) {
-      console.log("[login] Auto-seeding franchises...");
-      for (const f of franchiseData) {
-        try {
+    // ─── AUTO-SEED: Ensure all franchises and users exist ───
+    console.log("[login] Running auto-seed...");
+    for (const f of franchiseData) {
+      try {
+        // 1. Ensure franchise exists
+        const existingFranchise = await db.select().from(franchises).where(eq(franchises.code, f.code)).limit(1);
+        let franchiseId: number;
+
+        if (existingFranchise.length === 0) {
           const result = await db.insert(franchises).values(f);
-          const franchiseId = Number(result[0].insertId);
+          franchiseId = Number(result[0].insertId);
+          console.log(`[login][seed] Created franchise: ${f.displayName} (id=${franchiseId})`);
+        } else {
+          franchiseId = existingFranchise[0].id;
+        }
+
+        // 2. Ensure user exists for this franchise
+        const existingUser = await db.select().from(franchiseUsers).where(eq(franchiseUsers.username, f.code)).limit(1);
+        if (existingUser.length === 0) {
           await db.insert(franchiseUsers).values({
             franchiseId,
             username: f.code,
@@ -241,25 +263,57 @@ app.post("/api/auth/login", async (c) => {
             role: f.isWarehouse ? "admin" : "staff",
             isActive: 1,
           });
-          console.log(`[login] Auto-created: ${f.displayName}`);
-        } catch (e: any) {
-          console.log(`[login] Skip ${f.code}: ${e.message}`);
+          console.log(`[login][seed] Created user: ${f.code} (franchiseId=${franchiseId})`);
         }
+      } catch (e: any) {
+        console.error(`[login][seed] ERROR for ${f.code}:`, e.message);
       }
     }
 
+    // 3. Ensure driver user exists
+    try {
+      const bodegaFranchise = await db.select().from(franchises).where(eq(franchises.code, "bodega")).limit(1);
+      if (bodegaFranchise.length > 0) {
+        const existingDriver = await db.select().from(franchiseUsers).where(eq(franchiseUsers.username, "chofer")).limit(1);
+        if (existingDriver.length === 0) {
+          await db.insert(franchiseUsers).values({
+            franchiseId: bodegaFranchise[0].id,
+            username: "chofer",
+            passwordHash: hashPassword("american2025"),
+            displayName: "Chofer - Rutas",
+            role: "admin",
+            isActive: 1,
+          });
+          console.log("[login][seed] Created driver: chofer");
+        }
+      }
+    } catch (e: any) {
+      console.error("[login][seed] ERROR creating chofer:", e.message);
+    }
+    console.log("[login] Auto-seed complete.");
+
+    // ─── AUTHENTICATE ───
     const users = await db
       .select()
       .from(franchiseUsers)
       .where(eq(franchiseUsers.username, username))
       .limit(1);
 
+    console.log(`[login] User lookup: found=${users.length}, username="${username}"`);
+
     if (users.length === 0) {
+      // List all existing users for debugging
+      const allUsers = await db.select({ username: franchiseUsers.username, displayName: franchiseUsers.displayName }).from(franchiseUsers);
+      console.log("[login] Available users:", allUsers.map(u => u.username));
       return c.json({ error: "Usuario o contraseña incorrectos" }, 401);
     }
 
     const user = users[0];
-    if (user.passwordHash !== hashPassword(password)) {
+    const expectedHash = hashPassword(password);
+    const passwordMatch = user.passwordHash === expectedHash;
+    console.log(`[login] Password check: match=${passwordMatch}, stored_hash=${user.passwordHash?.slice(0, 16)}..., computed_hash=${expectedHash?.slice(0, 16)}..., isActive=${user.isActive}`);
+
+    if (!passwordMatch) {
       return c.json({ error: "Usuario o contraseña incorrectos" }, 401);
     }
 
@@ -287,6 +341,7 @@ app.post("/api/auth/login", async (c) => {
       .limit(1);
 
     const franchise = franchiseData2[0];
+    console.log(`[login] SUCCESS: user=${user.username}, role=${user.role}, franchise=${franchise?.displayName}`);
 
     return c.json({
       success: true,
@@ -300,12 +355,12 @@ app.post("/api/auth/login", async (c) => {
       },
     });
   } catch (err: any) {
-    console.error("[login] Error:", err.message);
+    console.error("[login] CRITICAL ERROR:", err.message, err.stack);
     return c.json({ error: "Error del servidor: " + err.message }, 500);
   }
 });
 
-// REST endpoint for current user
+// REST endpoint for current user (verifies JWT cookie)
 app.get("/api/auth/me", async (c) => {
   try {
     const cookieHeader = c.req.header("cookie") || "";
@@ -350,19 +405,24 @@ app.get("/api/auth/me", async (c) => {
   }
 });
 
-// Endpoint para inicializar tablas manualmente - DEBE ir antes de app.all("/api/*")
+// Importar rutas de backup
+import backupApp from "./backup";
+
+// Endpoint para verificar/crear tablas - SOLO crea si no existen, NUNCA borra
+// Requiere token secreto para prevenir acceso no autorizado
 app.get("/api/init-tables", async (c) => {
   try {
+    // Validar token secreto
+    const providedToken = c.req.query("token");
+    const expectedToken = process.env.INIT_TABLES_SECRET;
+    if (expectedToken && providedToken !== expectedToken) {
+      return c.json({ error: "Acceso denegado" }, 403);
+    }
+
     const connection = await mysql.createConnection(env.databaseUrl);
-    
-    await connection.execute(`DROP TABLE IF EXISTS shipment_tracking`);
-    await connection.execute(`DROP TABLE IF EXISTS shipment_items`);
-    await connection.execute(`DROP TABLE IF EXISTS shipments`);
-    await connection.execute(`DROP TABLE IF EXISTS franchise_users`);
-    await connection.execute(`DROP TABLE IF EXISTS franchises`);
 
     await connection.execute(`
-      CREATE TABLE franchises (
+      CREATE TABLE IF NOT EXISTS franchises (
         id INT AUTO_INCREMENT PRIMARY KEY,
         name VARCHAR(100) NOT NULL,
         displayName VARCHAR(255) NOT NULL,
@@ -373,7 +433,7 @@ app.get("/api/init-tables", async (c) => {
     `);
 
     await connection.execute(`
-      CREATE TABLE franchise_users (
+      CREATE TABLE IF NOT EXISTS franchise_users (
         id INT AUTO_INCREMENT PRIMARY KEY,
         franchiseId INT NOT NULL,
         username VARCHAR(100) NOT NULL UNIQUE,
@@ -386,7 +446,7 @@ app.get("/api/init-tables", async (c) => {
     `);
 
     await connection.execute(`
-      CREATE TABLE shipments (
+      CREATE TABLE IF NOT EXISTS shipments (
         id INT AUTO_INCREMENT PRIMARY KEY,
         trackingNumber VARCHAR(50) NOT NULL UNIQUE,
         invoiceNumber VARCHAR(50),
@@ -395,7 +455,7 @@ app.get("/api/init-tables", async (c) => {
         originFranchiseId INT NOT NULL,
         destinationFranchiseId INT NOT NULL,
         currentLocationId INT NOT NULL,
-        status ENUM('CREADO','ENVIADO_A_BODEGA','RECIBIDO_EN_BODEGA','ENVIADO_A_DESTINO','RECIBIDO_EN_DESTINO','CANCELADO') DEFAULT 'CREADO',
+        status ENUM('CREADO','ENVIADO_A_BODEGA','RECIBIDO_EN_BODEGA','ENVIADO_A_DESTINO','RECIBIDO_EN_DESTINO','EN_RUTA','EN_PARADA','CANCELADO') DEFAULT 'CREADO',
         receiverName VARCHAR(255),
         notes TEXT,
         createdBy INT NOT NULL,
@@ -405,7 +465,7 @@ app.get("/api/init-tables", async (c) => {
     `);
 
     await connection.execute(`
-      CREATE TABLE shipment_items (
+      CREATE TABLE IF NOT EXISTS shipment_items (
         id INT AUTO_INCREMENT PRIMARY KEY,
         shipmentId INT NOT NULL,
         description VARCHAR(500) NOT NULL,
@@ -416,10 +476,10 @@ app.get("/api/init-tables", async (c) => {
     `);
 
     await connection.execute(`
-      CREATE TABLE shipment_tracking (
+      CREATE TABLE IF NOT EXISTS shipment_tracking (
         id INT AUTO_INCREMENT PRIMARY KEY,
         shipmentId INT NOT NULL,
-        status ENUM('CREADO','ENVIADO_A_BODEGA','RECIBIDO_EN_BODEGA','ENVIADO_A_DESTINO','RECIBIDO_EN_DESTINO','CANCELADO') NOT NULL,
+        status ENUM('CREADO','ENVIADO_A_BODEGA','RECIBIDO_EN_BODEGA','ENVIADO_A_DESTINO','RECIBIDO_EN_DESTINO','EN_RUTA','EN_PARADA','CANCELADO') NOT NULL,
         locationId INT NOT NULL,
         notes TEXT,
         createdBy INT NOT NULL,
@@ -427,69 +487,174 @@ app.get("/api/init-tables", async (c) => {
       )
     `);
 
+    await connection.execute(`
+      CREATE TABLE IF NOT EXISTS delivery_routes (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        status ENUM('PLANIFICADA','EN_RUTA','COMPLETADA','CANCELADA') DEFAULT 'PLANIFICADA',
+        createdBy INT NOT NULL,
+        createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      )
+    `);
+
+    await connection.execute(`
+      CREATE TABLE IF NOT EXISTS route_stops (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        routeId INT NOT NULL,
+        cityName VARCHAR(100) NOT NULL,
+        stopOrder INT DEFAULT 1,
+        status ENUM('PENDIENTE','LLEGADO','COMPLETADO') DEFAULT 'PENDIENTE',
+        arrivalTime TIMESTAMP NULL,
+        departureTime TIMESTAMP NULL,
+        notes TEXT,
+        createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    await connection.execute(`
+      CREATE TABLE IF NOT EXISTS route_shipments (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        routeId INT NOT NULL,
+        stopId INT NOT NULL,
+        shipmentId INT NOT NULL,
+        status ENUM('ASIGNADO','ENTREGADO','NO_RECOGIDO') DEFAULT 'ASIGNADO',
+        deliveredAt TIMESTAMP NULL,
+        notes TEXT,
+        createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
     await connection.end();
-    return c.json({ success: true, message: "Tables created!" });
+    return c.json({ success: true, message: "All tables verified/created! No data was deleted." });
   } catch (err: any) {
     return c.json({ success: false, error: err.message }, 500);
   }
 });
-// Backup endpoint
-app.post("/api/backup", async (c) => {
+
+// ─── REPAIR USERS endpoint: Recreates any missing franchise users ───
+app.get("/api/repair-users", async (c) => {
   try {
-    const fs = await import("fs");
-    const path = await import("path");
-    const mysql = await import("mysql2/promise");
-    
-    const dbUrl = env.databaseUrl;
-    if (!dbUrl) return c.json({ error: "DATABASE_URL not configured" }, 500);
-    
-    const connection = await mysql.createConnection(dbUrl);
-    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-    const filename = `backup-railway-${timestamp}.sql`;
-    const backupDir = path.join(process.cwd(), "backups");
-    const filepath = path.join(backupDir, filename);
-    
-    if (!fs.existsSync(backupDir)) fs.mkdirSync(backupDir, { recursive: true });
-    
-    const [tables] = await connection.execute("SHOW TABLES");
-    let sql = `-- Backup American Outlet - ${new Date().toISOString()}\n`;
-    sql += `-- Database: railway\n\n`;
-    
-    for (const tableRow of tables as any[]) {
-      const tableName = Object.values(tableRow)[0] as string;
-      
-      const [createTable] = await connection.execute(`SHOW CREATE TABLE \`${tableName}\``);
-      sql += `DROP TABLE IF EXISTS \`${tableName}\`;\n`;
-      sql += (createTable as any[])[0]["Create Table"] + ";\n\n";
-      
-      const [rows] = await connection.execute(`SELECT * FROM \`${tableName}\``);
-      if ((rows as any[]).length > 0) {
-        const columns = Object.keys((rows as any[])[0]);
-        sql += `INSERT INTO \`${tableName}\` (${columns.map(c => `\`${c}\``).join(", ")}) VALUES\n`;
-        
-        const values = (rows as any[]).map(row => {
-          return "(" + columns.map(col => {
-            const val = (row as any)[col];
-            if (val === null) return "NULL";
-            return "'" + String(val).replace(/'/g, "''") + "'";
-          }).join(", ") + ")";
-        }).join(",\n");
-        
-        sql += values + ";\n\n";
+    // Validate secret token
+    const providedToken = c.req.query("token");
+    const expectedToken = process.env.INIT_TABLES_SECRET;
+    if (expectedToken && providedToken !== expectedToken) {
+      return c.json({ error: "Acceso denegado" }, 403);
+    }
+
+    const db = getDb();
+    const results: Array<{ action: string; code: string; details: string }> = [];
+
+    // Repair all franchise users
+    for (const f of franchiseData) {
+      try {
+        const existingFranchise = await db.select().from(franchises).where(eq(franchises.code, f.code)).limit(1);
+        let franchiseId: number;
+
+        if (existingFranchise.length === 0) {
+          const result = await db.insert(franchises).values(f);
+          franchiseId = Number(result[0].insertId);
+          results.push({ action: "created_franchise", code: f.code, details: f.displayName });
+        } else {
+          franchiseId = existingFranchise[0].id;
+        }
+
+        const existingUser = await db.select().from(franchiseUsers).where(eq(franchiseUsers.username, f.code)).limit(1);
+        if (existingUser.length === 0) {
+          await db.insert(franchiseUsers).values({
+            franchiseId,
+            username: f.code,
+            passwordHash: hashPassword("american2025"),
+            displayName: f.displayName,
+            role: f.isWarehouse ? "admin" : "staff",
+            isActive: 1,
+          });
+          results.push({ action: "created_user", code: f.code, details: f.displayName });
+        } else {
+          // Update password to ensure it's correct
+          await db.update(franchiseUsers)
+            .set({ passwordHash: hashPassword("american2025"), isActive: 1 })
+            .where(eq(franchiseUsers.id, existingUser[0].id));
+          results.push({ action: "updated_password", code: f.code, details: f.displayName });
+        }
+      } catch (e: any) {
+        results.push({ action: "error", code: f.code, details: e.message });
       }
     }
-    
-    fs.writeFileSync(filepath, sql);
-    await connection.end();
-    
-    const stats = fs.statSync(filepath);
-    const sizeMB = (stats.size / (1024 * 1024)).toFixed(2);
-    
-    return c.json({ success: true, filename, sizeMB: `${sizeMB} MB`, tables: (tables as any[]).length });
+
+    // Repair driver user
+    try {
+      const bodegaFranchise = await db.select().from(franchises).where(eq(franchises.code, "bodega")).limit(1);
+      if (bodegaFranchise.length > 0) {
+        const existingDriver = await db.select().from(franchiseUsers).where(eq(franchiseUsers.username, "chofer")).limit(1);
+        if (existingDriver.length === 0) {
+          await db.insert(franchiseUsers).values({
+            franchiseId: bodegaFranchise[0].id,
+            username: "chofer",
+            passwordHash: hashPassword("american2025"),
+            displayName: "Chofer - Rutas",
+            role: "admin",
+            isActive: 1,
+          });
+          results.push({ action: "created_user", code: "chofer", details: "Chofer - Rutas" });
+        } else {
+          await db.update(franchiseUsers)
+            .set({ passwordHash: hashPassword("american2025"), isActive: 1 })
+            .where(eq(franchiseUsers.id, existingDriver[0].id));
+          results.push({ action: "updated_password", code: "chofer", details: "Chofer - Rutas" });
+        }
+      }
+    } catch (e: any) {
+      results.push({ action: "error", code: "chofer", details: e.message });
+    }
+
+    return c.json({ success: true, repaired: results.length, details: results });
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message }, 500);
+  }
+});
+
+// ─── DEBUG: List all users (diagnostic only) ───
+app.get("/api/debug/users", async (c) => {
+  try {
+    // Validate secret token
+    const providedToken = c.req.query("token");
+    const expectedToken = process.env.INIT_TABLES_SECRET;
+    if (expectedToken && providedToken !== expectedToken) {
+      return c.json({ error: "Acceso denegado" }, 403);
+    }
+
+    const db = getDb();
+    const allUsers = await db.select({
+      id: franchiseUsers.id,
+      username: franchiseUsers.username,
+      displayName: franchiseUsers.displayName,
+      franchiseId: franchiseUsers.franchiseId,
+      role: franchiseUsers.role,
+      isActive: franchiseUsers.isActive,
+      passwordHashPrefix: franchiseUsers.passwordHash,
+    }).from(franchiseUsers);
+
+    const allFranchises = await db.select().from(franchises);
+
+    return c.json({
+      users: allUsers.map(u => ({
+        ...u,
+        passwordHashPrefix: u.passwordHashPrefix ? u.passwordHashPrefix.substring(0, 16) + "..." : null,
+      })),
+      franchises: allFranchises,
+      expectedUsers: franchiseData.map(f => f.code),
+      hashTest: {
+        password: "american2025",
+        hash: hashPassword("american2025"),
+      },
+    });
   } catch (err: any) {
     return c.json({ error: err.message }, 500);
   }
 });
+
+app.route("/api/backup", backupApp);
 app.get(Paths.oauthCallback, createOAuthCallbackHandler());
 app.all("/api/trpc/*", async (c) => {
   return fetchRequestHandler({
