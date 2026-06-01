@@ -149,6 +149,19 @@ export const routeRouter = createRouter({
       return { success: true };
     }),
 
+  moveShipment: franchiseAuthedQuery
+    .input(z.object({
+      routeShipmentId: z.number(),
+      newStopId: z.number(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = getDb();
+      await db.update(routeShipments)
+        .set({ stopId: input.newStopId })
+        .where(eq(routeShipments.id, input.routeShipmentId));
+      return { success: true };
+    }),
+
   updateStatus: franchiseAuthedQuery
     .input(z.object({
       id: z.number(),
@@ -223,10 +236,33 @@ export const routeRouter = createRouter({
     }),
 
   availableShipments: franchiseAuthedQuery
-    .query(async () => {
+    .input(z.object({ stopId: z.number().optional() }).optional())
+    .query(async ({ input }) => {
       const db = getDb();
-      const allShipments = await db.select().from(shipments)
-        .where(eq(shipments.status, "RECIBIDO_EN_BODEGA"));
+
+      let destinationFranchiseId: number | null = null;
+
+      if (input?.stopId) {
+        const stop = await db.select().from(routeStops).where(eq(routeStops.id, input.stopId)).limit(1);
+        if (stop.length > 0) {
+          const allFranchises = await db.select().from(franchises);
+          const matchingFranchise = allFranchises.find(f =>
+            f.displayName?.toLowerCase().includes(stop[0].cityName.toLowerCase()) ||
+            f.name.toLowerCase() === stop[0].cityName.toLowerCase()
+          );
+          if (matchingFranchise) {
+            destinationFranchiseId = matchingFranchise.id;
+          }
+        }
+      }
+
+      let query = db.select().from(shipments).where(eq(shipments.status, "RECIBIDO_EN_BODEGA"));
+
+      const allShipments = destinationFranchiseId
+        ? await query.then(rows => rows.filter(s => s.destinationFranchiseId === destinationFranchiseId))
+        : await query;
+
+      if (allShipments.length === 0) return [];
 
       const assigned = await db.select({ shipmentId: routeShipments.shipmentId }).from(routeShipments)
         .where(eq(routeShipments.status, "ASIGNADO"));
@@ -247,7 +283,7 @@ export const routeRouter = createRouter({
         originFranchise: franchiseMap.get(s.originFranchiseId),
         destinationFranchise: franchiseMap.get(s.destinationFranchiseId),
       }));
-        }),
+    }),
 
   pendingByPickupPoint: franchiseAuthedQuery
     .query(async () => {

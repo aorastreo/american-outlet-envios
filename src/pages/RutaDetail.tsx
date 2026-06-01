@@ -58,6 +58,10 @@ export default function RutaDetail() {
     onError: (err) => toast.error(err.message),
   });
 
+  const moveShipmentMutation = trpc.route.moveShipment.useMutation({
+    onSuccess: () => { utils.route.getById.invalidate({ id: routeId }); toast.success("Envio movido"); },
+    onError: (err) => toast.error(err.message),
+  });
   const assignMutation = trpc.route.assignShipments.useMutation({
     onSuccess: () => {
       utils.route.getById.invalidate({ id: routeId });
@@ -69,8 +73,8 @@ export default function RutaDetail() {
     onError: (err) => toast.error(err.message),
   });
 
-  const { data: availableShipments } = trpc.route.availableShipments.useQuery(
-    undefined,
+   const { data: availableShipments } = trpc.route.availableShipments.useQuery(
+    assignDialog ? { stopId: assignDialog } : undefined,
     { enabled: assignDialog !== null }
   );
 
@@ -237,10 +241,14 @@ export default function RutaDetail() {
                           <div key={rs.id} className="flex items-center gap-3 p-2 rounded-lg bg-[#F7F7F7]">
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 flex-wrap">
-                                <span className="inline-block bg-[#1A1A1A] text-white text-xs font-mono font-bold px-2 py-0.5 rounded">
+                                                                <span className="inline-block bg-[#1A1A1A] text-white text-xs font-mono font-bold px-2 py-0.5 rounded">
                                   {s.trackingNumber}
                                 </span>
                                 {shCfg && <Badge variant="secondary" className={shCfg.color}>{shCfg.label}</Badge>}
+                                <span className="text-xs text-orange-600 font-semibold bg-orange-50 px-1.5 py-0.5 rounded">
+                                  <MapPin className="w-3 h-3 inline mr-0.5" />
+                                  {s.destinationFranchise?.displayName?.replace("Recogida - ", "") || s.destinationFranchise?.name || "-"}
+                                </span>
                               </div>
                               <div className="flex items-center gap-3 mt-1 text-xs text-[#525252]">
                                 <span className="flex items-center gap-1"><User className="w-3 h-3" />{s.senderName}</span>
@@ -251,6 +259,28 @@ export default function RutaDetail() {
                               </p>
                             </div>
                             <div className="flex items-center gap-1 shrink-0">
+                              {rs.status === "ASIGNADO" && stop.status !== "LLEGADO" && (
+                                <select
+                                  className="text-xs border border-[#D4D4D4] rounded px-2 py-1 bg-white"
+                                  onChange={(e) => {
+                                    const newStopId = parseInt(e.target.value);
+                                    if (newStopId) {
+                                      moveShipmentMutation.mutate({ routeShipmentId: rs.id, newStopId });
+                                      e.target.value = "";
+                                    }
+                                  }}
+                                  disabled={moveShipmentMutation.isPending}
+                                >
+                                  <option value="">Mover a...</option>
+                                  {route.stops
+                                    .filter((otherStop) => otherStop.id !== stop.id)
+                                    .map((otherStop) => (
+                                      <option key={otherStop.id} value={otherStop.id}>
+                                        {otherStop.cityName}
+                                      </option>
+                                    ))}
+                                </select>
+                              )}
                               {rs.status === "ASIGNADO" && stop.status === "LLEGADO" && (
                                 <>
                                   <Button size="sm" variant="outline" onClick={() => handleCall(s.senderPhone)} className="h-8 px-2">
@@ -314,8 +344,8 @@ export default function RutaDetail() {
           {!availableShipments || availableShipments.length === 0 ? (
             <div className="text-center py-8 text-[#404040]">
               <Package className="w-10 h-10 text-[#D4D4D4] mx-auto mb-2" />
-              <p>No hay envios disponibles en bodega</p>
-              <p className="text-xs mt-1">Los envios deben estar en estado RECIBIDO_EN_BODEGA y no asignados a otra ruta</p>
+                            <p>No hay envios disponibles para esta parada</p>
+                            <p className="text-xs mt-1">Solo se muestran envios en bodega con destino a esta ciudad</p>
             </div>
           ) : (
             <div className="space-y-2">
