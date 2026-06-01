@@ -48,8 +48,9 @@ export const routeRouter = createRouter({
 
   getById: franchiseAuthedQuery
     .input(z.object({ id: z.number() }))
-    .query(async ({ input }) => {
-      const db = getDb();
+        .query(async ({ input }) => {
+      try {
+        const db = getDb();
       const route = await db.select().from(deliveryRoutes).where(eq(deliveryRoutes.id, input.id)).limit(1);
       if (route.length === 0) return null;
 
@@ -110,10 +111,14 @@ export const routeRouter = createRouter({
           totalAssigned,
           totalDelivered,
           totalNotCollected,
-          totalPending: totalAssigned - totalDelivered - totalNotCollected,
+                    totalPending: totalAssigned - totalDelivered - totalNotCollected,
         },
       };
-    }),
+    } catch (error: any) {
+      console.error("[route.getById] Error:", error.message);
+      throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
+    }
+  }),
 
   assignShipments: franchiseAuthedQuery
     .input(z.object({
@@ -237,8 +242,9 @@ export const routeRouter = createRouter({
 
   availableShipments: franchiseAuthedQuery
     .input(z.object({ stopId: z.number().optional() }).optional())
-    .query(async ({ input }) => {
-      const db = getDb();
+        .query(async ({ input }) => {
+      try {
+        const db = getDb();
 
       let destinationFranchiseId: number | null = null;
       const allFranchises = await db.select().from(franchises);
