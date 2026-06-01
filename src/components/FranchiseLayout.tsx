@@ -2,7 +2,7 @@ import { Link, useLocation } from "react-router";
 import { useState } from "react";
 import { useFranchiseAuth } from "@/hooks/useFranchiseAuth";
 import { trpc } from "@/providers/trpc";
-import { Package, Plus, Search, LayoutDashboard, LogOut, ChevronDown, Menu, X, Building2, Truck } from "lucide-react";
+import { Package, Plus, Search, LayoutDashboard, LogOut, ChevronRight, Menu, Truck } from "lucide-react";
 
 const logoUrl = "/logo.jpg";
 
