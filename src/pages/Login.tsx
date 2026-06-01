@@ -41,7 +41,10 @@ export default function Login() {
         { value: "ciudad_quesada", label: "Ciudad Quesada" },
     { value: "puerto_viejo", label: "Puerto Viejo" },
     { value: "ganga_santa_rosa", label: "Ganga Santa Rosa" },
-        { value: "bodega_sabana", label: "Bodega Sabana" },
+        { value: "grecia", label: "Recogida - Grecia" },
+    { value: "san_ramon", label: "Recogida - San Ramon" },
+    { value: "palmares", label: "Recogida - Palmares" },
+    { value: "bodega_sabana", label: "Bodega Sabana" },
     { value: "chofer", label: "Chofer - Rutas" },
     { value: "bodega", label: "Bodega" },
   ];
