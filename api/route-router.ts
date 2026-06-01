@@ -246,11 +246,11 @@ export const routeRouter = createRouter({
       const db = getDb();
 
       let destinationFranchiseId: number | null = null;
+      const allFranchises = await db.select().from(franchises);
 
       if (input?.stopId) {
         const stop = await db.select().from(routeStops).where(eq(routeStops.id, input.stopId)).limit(1);
         if (stop.length > 0) {
-          const allFranchises = await db.select().from(franchises);
           const matchingFranchise = allFranchises.find(f =>
             f.displayName?.toLowerCase().includes(stop[0].cityName.toLowerCase()) ||
             f.name.toLowerCase() === stop[0].cityName.toLowerCase()
@@ -262,7 +262,6 @@ export const routeRouter = createRouter({
       }
 
             // Get all pickup point franchise IDs (displayName contains "recogida")
-      const allFranchises = await db.select().from(franchises);
       const pickupFranchises = allFranchises.filter(f =>
         f.displayName?.toLowerCase().includes("recogida")
       );
