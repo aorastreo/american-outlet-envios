@@ -305,7 +305,7 @@ export default function ShipmentDetail() {
         {/* Route */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Card><CardContent className="p-4"><p className="text-xs text-[#8A8A8A] mb-1">Origen</p><div className="flex items-center gap-2"><MapPin className="w-4 h-4 text-[#C8102E]" /><p className="font-medium text-[#1A1A1A]">{shipment.originFranchise?.displayName || "-"}</p></div></CardContent></Card>
-          <Card><CardContent className="p-4"><p className="text-xs text-[#8A8A8A] mb-1">Destino</p><div className="flex items-center gap-2"><MapPin className="w-4 h-4 text-emerald-600" /><p className="font-medium text-[#1A1A1A]">{shipment.destinationFranchise?.displayName || "-"}</p></div></CardContent></Card>
+          <Card><CardContent className="p-4"><p className="text-xs text-[#8A8A8A] mb-1">Destino</p><div className="flex items-center gap-2"><MapPin className="w-4 h-4 text-emerald-600" /><p className="font-medium text-[#1A1A1A]">{(shipment.destinationFranchise?.displayName || "").toLowerCase().includes("recogida") ? <><span className="font-bold text-orange-700 bg-orange-50 px-2 py-1 rounded border border-orange-200">{shipment.destinationFranchise?.displayName}</span></> : shipment.destinationFranchise?.displayName || "-"}</p></div></CardContent></Card>
         </div>
 
         {/* Timeline */}
