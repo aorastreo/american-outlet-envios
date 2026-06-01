@@ -256,11 +256,28 @@ export const routeRouter = createRouter({
         }
       }
 
-      let query = db.select().from(shipments).where(eq(shipments.status, "RECIBIDO_EN_BODEGA"));
+            // Get all pickup point franchise IDs (displayName contains "recogida")
+      const allFranchises = await db.select().from(franchises);
+      const pickupFranchises = allFranchises.filter(f =>
+        f.displayName?.toLowerCase().includes("recogida")
+      );
+      const pickupIds = pickupFranchises.map(f => f.id);
 
-      const allShipments = destinationFranchiseId
-        ? await query.then(rows => rows.filter(s => s.destinationFranchiseId === destinationFranchiseId))
-        : await query;
+      if (pickupIds.length === 0) return [];
+
+      // Get shipments in warehouse
+      const allShipments = await db.select().from(shipments)
+        .where(eq(shipments.status, "RECIBIDO_EN_BODEGA"));
+
+      if (allShipments.length === 0) return [];
+
+      // Filter: only pickup point destinations
+      const pickupShipments = allShipments.filter(s => pickupIds.includes(s.destinationFranchiseId));
+
+      // Further filter by specific stop destination if provided
+      const filteredShipments = destinationFranchiseId
+        ? pickupShipments.filter(s => s.destinationFranchiseId === destinationFranchiseId)
+        : pickupShipments;
 
       if (allShipments.length === 0) return [];
 
@@ -268,7 +285,7 @@ export const routeRouter = createRouter({
         .where(eq(routeShipments.status, "ASIGNADO"));
       const assignedIds = new Set(assigned.map(a => a.shipmentId));
 
-      const available = allShipments.filter(s => !assignedIds.has(s.id));
+            const available = filteredShipments.filter(s => !assignedIds.has(s.id));
       if (available.length === 0) return [];
 
       const shipmentIds = available.map(s => s.id);
