@@ -75,7 +75,11 @@ export default function Track() {
     }
   };
 
-  // Dynamic timeline based on origin (warehouse vs store) AND destination (pickup vs store)
+  // Auto-detect route type from tracking history
+  const hasRouteStatus = useMemo(() => {
+    return shipment?.tracking?.some((t: any) => t.status === "EN_RUTA" || t.status === "EN_PARADA") || false;
+  }, [shipment]);
+
   const originIsWarehouse = useMemo(() => {
     return shipment?.originFranchise?.isWarehouse === 1;
   }, [shipment]);
@@ -84,12 +88,13 @@ export default function Track() {
     return shipment?.destinationFranchise?.displayName?.toLowerCase().includes("recogida") || false;
   }, [shipment]);
 
+  // Use route timeline if: tracking has EN_RUTA/EN_PARADA OR destination is pickup point
   const timelineSteps = useMemo(() => {
-    if (originIsWarehouse) {
-      return isPickupDestination ? directPickupTimeline : directStoreTimeline;
+    if (hasRouteStatus || isPickupDestination) {
+      return originIsWarehouse ? directPickupTimeline : pickupTimeline;
     }
-    return isPickupDestination ? pickupTimeline : storeTimeline;
-  }, [originIsWarehouse, isPickupDestination]);
+    return originIsWarehouse ? directStoreTimeline : storeTimeline;
+  }, [hasRouteStatus, isPickupDestination, originIsWarehouse]);
 
   const currentStepIndex = shipment ? timelineSteps.findIndex((s) => s.status === shipment.status) : -1;
 

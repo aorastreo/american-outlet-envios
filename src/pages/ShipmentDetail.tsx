@@ -174,13 +174,16 @@ export default function ShipmentDetail() {
     }
   }
 
-  // Choose correct timeline based on destination (pickup point vs store)
+  // Auto-detect route type from tracking history
+  const hasRouteStatus = shipment.tracking?.some((t: any) => t.status === "EN_RUTA" || t.status === "EN_PARADA") || false;
+
+  // Choose correct timeline: route timeline if tracking has EN_RUTA/EN_PARADA OR destination is pickup
   const isPickupDestination = shipment.destinationFranchise?.displayName?.toLowerCase().includes("recogida") || false;
   let timelineSteps;
-  if (originIsWarehouse) {
-    timelineSteps = isPickupDestination ? directPickupTimeline : directStoreTimeline;
+  if (hasRouteStatus || isPickupDestination) {
+    timelineSteps = originIsWarehouse ? directPickupTimeline : pickupTimeline;
   } else {
-    timelineSteps = isPickupDestination ? pickupTimeline : storeTimeline;
+    timelineSteps = originIsWarehouse ? directStoreTimeline : storeTimeline;
   }
   const currentStepIndex = timelineSteps.findIndex((s) => s.status === shipment.status);
 
