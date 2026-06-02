@@ -686,6 +686,62 @@ app.get("/api/debug/users", async (c) => {
 });
 
 // ─── REPAIR: Clean up shipments wrongly assigned to routes ───
+// Debug: Ver estados reales de un envio
+app.get("/api/debug/shipment-tracking", async (c) => {
+  try {
+    const providedToken = c.req.query("token");
+    const expectedToken = process.env.INIT_TABLES_SECRET;
+    if (expectedToken && providedToken !== expectedToken) {
+      return c.json({ error: "Acceso denegado" }, 403);
+    }
+
+    const db = getDb();
+    const trackingId = c.req.query("id");
+
+    // Get all tracking entries with shipment info
+    let query;
+    if (trackingId) {
+      query = db.select().from(shipmentTracking).where(eq(shipmentTracking.shipmentId, parseInt(trackingId)));
+    } else {
+      query = db.select().from(shipmentTracking);
+    }
+
+    const entries = await query;
+    const allShipments = await db.select().from(shipments);
+    const allFranchises = await db.select().from(franchises);
+    const shipmentMap = new Map(allShipments.map(s => [s.id, s]));
+    const franchiseMap = new Map(allFranchises.map(f => [f.id, f]));
+
+    const enriched = entries.map(e => {
+      const s = shipmentMap.get(e.shipmentId);
+      return {
+        id: e.id,
+        shipmentId: e.shipmentId,
+        trackingNumber: s?.trackingNumber || "?",
+        status: e.status,
+        destination: s ? franchiseMap.get(s.destinationFranchiseId)?.displayName || "?" : "?",
+        destinationId: s?.destinationFranchiseId,
+        isPickup: s ? (franchiseMap.get(s.destinationFranchiseId)?.displayName?.toLowerCase().includes("recogida") || false) : false,
+        notes: e.notes,
+        createdAt: e.createdAt,
+      };
+    });
+
+    // Filter only EN_RUTA and EN_PARADA
+    const routeEntries = enriched.filter(e => e.status === "EN_RUTA" || e.status === "EN_PARADA");
+
+    return c.json({
+      total: entries.length,
+      routeRelated: routeEntries.length,
+      allStatuses: [...new Set(entries.map(e => e.status))],
+      routeEntries: routeEntries,
+      pickupFranchises: allFranchises.filter(f => f.displayName?.toLowerCase().includes("recogida")).map(f => ({ id: f.id, name: f.displayName })),
+    });
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message }, 500);
+  }
+});
+
 // Limpia envios a tiendas normales que tienen tracking EN_RUTA o EN_PARADA
 app.get("/api/repair-route-shipments", async (c) => {
   try {
