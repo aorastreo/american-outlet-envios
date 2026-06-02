@@ -6,7 +6,6 @@ import { useFranchiseAuth } from "@/hooks/useFranchiseAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Truck, MapPin, Phone, Package, CheckCircle, XCircle, Play, ArrowLeft,
@@ -57,7 +56,7 @@ export default function RutaDetail() {
     { enabled: routeId > 0 }
   );
 
-  const [assignDialog, setAssignDialog] = useState<number | null>(null);
+  const [expandedStopId, setExpandedStopId] = useState<number | null>(null);
   const [selectedShipmentIds, setSelectedShipmentIds] = useState<number[]>([]);
   const [searchFilter, setSearchFilter] = useState("");
 
@@ -98,19 +97,19 @@ export default function RutaDetail() {
 
   const assignMutation = trpc.route.assignShipments.useMutation({
     onSuccess: () => {
-      // Refresh all related data
-      utils.route.getById.invalidate({ id: routeId });
-      utils.route.availableShipments.invalidate();
-      utils.route.pendingByPickupPoint.invalidate();
-      utils.route.list.invalidate();
-      toast.success("Envios asignados exitosamente");
+      utils.route.getById.refetch({ id: routeId });
+      utils.route.pendingByPickupPoint.refetch();
+      utils.route.list.refetch();
+      setSelectedShipmentIds([]);
+      setSearchFilter("");
+      toast.success("Envios asignados");
     },
     onError: (err) => toast.error(err.message),
   });
 
   const { data: availableShipments } = trpc.route.availableShipments.useQuery(
-    assignDialog ? { stopId: assignDialog } : undefined,
-    { enabled: assignDialog !== null }
+    expandedStopId ? { stopId: expandedStopId } : undefined,
+    { enabled: expandedStopId !== null }
   );
 
   // Get ALL pending shipments to show alerts for stops that have unassigned shipments
@@ -400,17 +399,90 @@ export default function RutaDetail() {
                     </div>
                   )}
 
-                  {/* Assign shipments button */}
+                  {/* Toggle inline assign panel */}
                   {(route.status === "PLANIFICADA" || route.status === "EN_RUTA") && stop.status !== "COMPLETADO" && (
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setAssignDialog(stop.id)}
+                      onClick={() => {
+                        setExpandedStopId(expandedStopId === stop.id ? null : stop.id);
+                        setSelectedShipmentIds([]);
+                        setSearchFilter("");
+                      }}
                       className="mt-3 text-[#C8102E]"
                     >
                       <Package className="w-3.5 h-3.5 mr-1" />
-                      Asignar envios
+                      {expandedStopId === stop.id ? "Ocultar" : "Asignar envios"}
                     </Button>
+                  )}
+
+                  {/* Inline Assign Panel */}
+                  {expandedStopId === stop.id && (
+                    <div className="mt-3 pt-3 border-t border-[#F0F0F0]">
+                      {!availableShipments || availableShipments.length === 0 ? (
+                        <div className="text-center py-4 text-[#8A8A8A] text-sm">
+                          <Package className="w-8 h-8 text-[#D4D4D4] mx-auto mb-1" />
+                          <p>No hay envios disponibles para {stop.cityName}</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <p className="text-sm text-[#8A8A8A]">{availableShipments.length} envios disponibles</p>
+                            <div className="flex gap-2">
+                              <Button size="sm" variant="outline" onClick={() => setSelectedShipmentIds(availableShipments.map((s: any) => s.id))}>
+                                Todos
+                              </Button>
+                              <Button size="sm" variant="outline" onClick={() => setSelectedShipmentIds([])}>
+                                Limpiar
+                              </Button>
+                            </div>
+                          </div>
+                          <div className="relative">
+                            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#8A8A8A]" />
+                            <input
+                              type="text"
+                              placeholder="Buscar..."
+                              value={searchFilter}
+                              onChange={(e) => setSearchFilter(e.target.value)}
+                              className="w-full pl-9 pr-3 py-1.5 text-sm border border-[#D4D4D4] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C8102E] focus:border-transparent"
+                            />
+                          </div>
+                          <div className="max-h-60 overflow-y-auto space-y-1">
+                            {availableShipments
+                              .filter((s: any) => {
+                                const q = searchFilter.toLowerCase();
+                                return !q || s.trackingNumber?.toLowerCase().includes(q) || s.senderName?.toLowerCase().includes(q) || s.senderPhone?.includes(q);
+                              })
+                              .map((s: any) => (
+                                <div
+                                  key={s.id}
+                                  className={`p-2 rounded border cursor-pointer text-sm ${selectedShipmentIds.includes(s.id) ? "border-[#C8102E] bg-[#FFF5F5]" : "border-[#F0F0F0] hover:border-[#D4D4D4]"}`}
+                                  onClick={() => {
+                                    setSelectedShipmentIds(prev => prev.includes(s.id) ? prev.filter(i => i !== s.id) : [...prev, s.id]);
+                                  }}
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <Checkbox checked={selectedShipmentIds.includes(s.id)} />
+                                    <span className="font-mono font-bold text-xs">{s.trackingNumber}</span>
+                                    <span className="text-[#525252] text-xs">{s.senderName}</span>
+                                  </div>
+                                </div>
+                              ))}
+                          </div>
+                          <Button
+                            onClick={() => {
+                              if (selectedShipmentIds.length > 0) {
+                                assignMutation.mutate({ routeId, stopId: stop.id, shipmentIds: selectedShipmentIds });
+                              }
+                            }}
+                            className="w-full bg-[#C8102E] hover:bg-[#9B0B22]"
+                            disabled={assignMutation.isPending || selectedShipmentIds.length === 0}
+                          >
+                            {assignMutation.isPending ? "Asignando..." : `Asignar ${selectedShipmentIds.length} envio${selectedShipmentIds.length !== 1 ? "s" : ""}`}
+                          </Button>
+                        </div>
+                      )}
+                    </div>
                   )}
                 </CardContent>
               </Card>
@@ -419,123 +491,6 @@ export default function RutaDetail() {
         </div>
       </div>
 
-      {/* Assign Shipments Dialog */}
-      <Dialog open={assignDialog !== null} onOpenChange={(open) => { if (!open) { setAssignDialog(null); setSelectedShipmentIds([]); setSearchFilter(""); } }}>
-        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Package className="w-5 h-5 text-[#C8102E]" />
-              Asignar envios a parada
-            </DialogTitle>
-          </DialogHeader>
-          {!availableShipments || availableShipments.length === 0 ? (
-            <div className="text-center py-8 text-[#8A8A8A]">
-              <Package className="w-10 h-10 text-[#D4D4D4] mx-auto mb-2" />
-              <p>No hay envios disponibles para esta parada</p>
-              <p className="text-xs mt-1">Solo se muestran envios en bodega con destino a esta ciudad</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <p className="text-sm text-[#8A8A8A]">{availableShipments.length} envios disponibles</p>
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setSelectedShipmentIds(availableShipments.map(s => s.id))}
-                  >
-                    Seleccionar Todos
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setSelectedShipmentIds([])}
-                  >
-                    Limpiar
-                  </Button>
-                </div>
-              </div>
-
-              {/* Search filter */}
-              <div className="relative">
-                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#8A8A8A]" />
-                <input
-                  type="text"
-                  placeholder="Buscar por tracking, factura, nombre..."
-                  value={searchFilter}
-                  onChange={(e) => setSearchFilter(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 text-sm border border-[#D4D4D4] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C8102E] focus:border-transparent"
-                />
-              </div>
-
-              {availableShipments
-                .filter(s => {
-                  const q = searchFilter.toLowerCase();
-                  return !q ||
-                    s.trackingNumber?.toLowerCase().includes(q) ||
-                    s.invoiceNumber?.toLowerCase().includes(q) ||
-                    s.senderName?.toLowerCase().includes(q) ||
-                    s.senderPhone?.includes(q) ||
-                    s.items?.some((i: any) => i.description.toLowerCase().includes(q));
-                })
-                .map((s) => (
-                <div
-                  key={s.id}
-                  className={`p-3 rounded-lg border cursor-pointer transition-colors ${
-                    selectedShipmentIds.includes(s.id) ? "border-[#C8102E] bg-[#FFF5F5]" : "border-[#F0F0F0] hover:border-[#D4D4D4]"
-                  }`}
-                  onClick={() => {
-                    setSelectedShipmentIds(prev =>
-                      prev.includes(s.id) ? prev.filter(i => i !== s.id) : [...prev, s.id]
-                    );
-                  }}
-                >
-                  <div className="flex items-center gap-2">
-                    <Checkbox checked={selectedShipmentIds.includes(s.id)} />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-mono font-bold text-[#1A1A1A]">{s.trackingNumber}</span>
-                        <span className="text-xs text-[#525252]">{s.senderName}</span>
-                      </div>
-                      <p className="text-xs text-[#8A8A8A] truncate">
-                        {s.items?.map((i: any) => `${i.description} x${i.quantity}`).join(", ")}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-              <Button
-                onClick={() => {
-                  if (assignDialog && selectedShipmentIds.length > 0) {
-                    const stopId = assignDialog;
-                    const shipmentIds = [...selectedShipmentIds];
-                    // Close dialog and clear state immediately
-                    setAssignDialog(null);
-                    setSelectedShipmentIds([]);
-                    setSearchFilter("");
-                    // Execute mutation with callbacks that force refresh
-                    assignMutation.mutate(
-                      { routeId, stopId, shipmentIds },
-                      {
-                        onSuccess: () => {
-                          toast.success("Envios asignados exitosamente");
-                          // Force full page refresh to show updated data
-                          window.location.reload();
-                        },
-                        onError: (err) => toast.error(err.message),
-                      }
-                    );
-                  }
-                }}
-                className="w-full bg-[#C8102E] hover:bg-[#9B0B22]"
-                disabled={assignMutation.isPending || selectedShipmentIds.length === 0}
-              >
-                {assignMutation.isPending ? "Asignando..." : `Asignar ${selectedShipmentIds.length} envio${selectedShipmentIds.length !== 1 ? "s" : ""}`}
-              </Button>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
     </FranchiseLayout>
   );
 }
