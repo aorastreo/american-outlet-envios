@@ -98,16 +98,16 @@ export default function RutaDetail() {
 
   const assignMutation = trpc.route.assignShipments.useMutation({
     onSuccess: () => {
+      // Close dialog immediately
+      setAssignDialog(null);
+      setSelectedShipmentIds([]);
+      setSearchFilter("");
       // Invalidate all related queries to refresh UI
       utils.route.getById.invalidate({ id: routeId });
       utils.route.availableShipments.invalidate();
       utils.route.pendingByPickupPoint.invalidate();
       utils.route.list.invalidate();
-      setSelectedShipmentIds([]);
-      setSearchFilter("");
       toast.success("Envios asignados exitosamente");
-      // Close dialog after a short delay so user sees the toast
-      setTimeout(() => setAssignDialog(null), 800);
     },
     onError: (err) => toast.error(err.message),
   });
@@ -424,7 +424,7 @@ export default function RutaDetail() {
       </div>
 
       {/* Assign Shipments Dialog */}
-      <Dialog open={assignDialog !== null} onOpenChange={() => { setAssignDialog(null); setSelectedShipmentIds([]); }}>
+      <Dialog open={assignDialog !== null} onOpenChange={(open) => { if (!open) { setAssignDialog(null); setSelectedShipmentIds([]); setSearchFilter(""); } }}>
         <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
