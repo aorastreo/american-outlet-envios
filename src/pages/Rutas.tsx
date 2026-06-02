@@ -117,22 +117,31 @@ export default function Rutas() {
           </div>
         </div>
 
-        {/* Pending Summary Cards */}
-        {pendingByCity && pendingByCity.length > 0 && (
-          <div className="grid grid-cols-3 gap-3">
-            {pendingByCity.map((group) => (
-              <Card key={group.pickupId} className="border-orange-200 bg-orange-50/30">
-                <CardContent className="p-3">
-                  <div className="flex items-center gap-2">
-                    <MapPin className="w-4 h-4 text-orange-600" />
-                    <span className="text-sm font-semibold text-orange-800">{group.cityName}</span>
+        {/* Pending Shipments Alert */}
+        {totalPending > 0 && (
+          <Card className="border-amber-300 bg-amber-50">
+            <CardContent className="p-4">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="font-semibold text-amber-800">
+                    Hay {totalPending} envio{totalPending !== 1 ? "s" : ""} en bodega esperando ruta
+                  </p>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {pendingByCity?.map((group) => (
+                      <Badge key={group.pickupId} variant="secondary" className="bg-orange-100 text-orange-700 border-orange-200">
+                        <MapPin className="w-3 h-3 mr-1" />
+                        {group.cityName}: {group.count}
+                      </Badge>
+                    ))}
                   </div>
-                  <p className="text-2xl font-bold text-orange-700 mt-1">{group.count}</p>
-                  <p className="text-xs text-orange-600">envio{group.count !== 1 ? "s" : ""} pendiente{group.count !== 1 ? "s" : ""}</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                  <p className="text-xs text-amber-600 mt-2">
+                    Cree una ruta y asigne los envios a cada parada
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         )}
 
         {isLoading ? (

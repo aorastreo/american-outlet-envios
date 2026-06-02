@@ -11,6 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   Truck, MapPin, Phone, Package, CheckCircle, XCircle, Play, ArrowLeft,
   ChevronRight, AlertCircle, Clock, User, Calendar, ArrowUpRight, MessageCircle,
+  AlertTriangle, Search,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -58,6 +59,7 @@ export default function RutaDetail() {
 
   const [assignDialog, setAssignDialog] = useState<number | null>(null);
   const [selectedShipmentIds, setSelectedShipmentIds] = useState<number[]>([]);
+  const [searchFilter, setSearchFilter] = useState("");
 
   const updateRouteMutation = trpc.route.updateStatus.useMutation({
     onSuccess: () => { utils.route.getById.invalidate({ id: routeId }); utils.route.list.invalidate(); toast.success("Estado actualizado"); },
@@ -94,6 +96,9 @@ export default function RutaDetail() {
     assignDialog ? { stopId: assignDialog } : undefined,
     { enabled: assignDialog !== null }
   );
+
+  // Get ALL pending shipments to show alerts for stops that have unassigned shipments
+  const { data: allPending } = trpc.route.pendingByPickupPoint.useQuery();
 
   const handleCall = (phone: string) => {
     window.open(`tel:${phone.replace(/-/g, "")}`, "_self");
@@ -151,6 +156,32 @@ export default function RutaDetail() {
             </p>
           </div>
         </div>
+
+        {/* Alert: Pending shipments for this route's cities */}
+        {allPending && allPending.length > 0 && (() => {
+          const routeCityNames = route.stops.map((s: any) => s.cityName.toLowerCase());
+          const pendingForRoute = allPending.filter(g =>
+            routeCityNames.some((city: string) => g.cityName.toLowerCase().includes(city) || city.includes(g.cityName.toLowerCase()))
+          );
+          const totalUnassigned = pendingForRoute.reduce((sum, g) => sum + g.count, 0);
+          if (totalUnassigned > 0) {
+            return (
+              <Card className="border-amber-300 bg-amber-50">
+                <CardContent className="p-4 flex items-start gap-3">
+                  <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <p className="font-semibold text-amber-800">Hay {totalUnassigned} envio{totalUnassigned !== 1 ? "s" : ""} pendiente{totalUnassigned !== 1 ? "s" : ""} por asignar</p>
+                    <p className="text-sm text-amber-700 mt-1">
+                      {pendingForRoute.map(g => `${g.cityName}: ${g.count}`).join(" | ")}
+                    </p>
+                    <p className="text-xs text-amber-600 mt-1">Use "Asignar envios" en cada parada para agregarlos a la ruta</p>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          }
+          return null;
+        })()}
 
         {/* Summary */}
         <div className="grid grid-cols-4 gap-3">
@@ -224,6 +255,21 @@ export default function RutaDetail() {
                             {stop.totalShipments} envio{stop.totalShipments !== 1 ? "s" : ""}
                             {stop.delivered > 0 && ` (${stop.delivered} entregados)`}
                           </span>
+                          {(() => {
+                            const pendingForStop = allPending?.find(g =>
+                              stop.cityName.toLowerCase().includes(g.cityName.toLowerCase()) ||
+                              g.cityName.toLowerCase().includes(stop.cityName.toLowerCase())
+                            );
+                            if (pendingForStop && pendingForStop.count > 0) {
+                              return (
+                                <Badge className="bg-amber-100 text-amber-700 border-amber-200">
+                                  <AlertTriangle className="w-3 h-3 mr-1" />
+                                  {pendingForStop.count} sin asignar
+                                </Badge>
+                              );
+                            }
+                            return null;
+                          })()}
                         </div>
                       </div>
                     </div>
@@ -373,9 +419,50 @@ export default function RutaDetail() {
               <p className="text-xs mt-1">Solo se muestran envios en bodega con destino a esta ciudad</p>
             </div>
           ) : (
-            <div className="space-y-2">
-              <p className="text-sm text-[#8A8A8A]">{availableShipments.length} envios disponibles</p>
-              {availableShipments.map((s) => (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-[#8A8A8A]">{availableShipments.length} envios disponibles</p>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setSelectedShipmentIds(availableShipments.map(s => s.id))}
+                  >
+                    Seleccionar Todos
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setSelectedShipmentIds([])}
+                  >
+                    Limpiar
+                  </Button>
+                </div>
+              </div>
+
+              {/* Search filter */}
+              <div className="relative">
+                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#8A8A8A]" />
+                <input
+                  type="text"
+                  placeholder="Buscar por tracking, factura, nombre..."
+                  value={searchFilter}
+                  onChange={(e) => setSearchFilter(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 text-sm border border-[#D4D4D4] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C8102E] focus:border-transparent"
+                />
+              </div>
+
+              {availableShipments
+                .filter(s => {
+                  const q = searchFilter.toLowerCase();
+                  return !q ||
+                    s.trackingNumber?.toLowerCase().includes(q) ||
+                    s.invoiceNumber?.toLowerCase().includes(q) ||
+                    s.senderName?.toLowerCase().includes(q) ||
+                    s.senderPhone?.includes(q) ||
+                    s.items?.some((i: any) => i.description.toLowerCase().includes(q));
+                })
+                .map((s) => (
                 <div
                   key={s.id}
                   className={`p-3 rounded-lg border cursor-pointer transition-colors ${
