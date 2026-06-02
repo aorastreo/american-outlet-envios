@@ -7,7 +7,8 @@ import { env } from "./lib/env";
 import { createOAuthCallbackHandler } from "./kimi/auth";
 import { Paths } from "@contracts/constants";
 import { getDb } from "./queries/connection";
-import { franchises, franchiseUsers } from "@db/schema";
+import { franchises, franchiseUsers, shipments, shipmentTracking, routeShipments } from "@db/schema";
+import { inArray } from "drizzle-orm";
 import { createHash } from "crypto";
 import { eq } from "drizzle-orm";
 import mysql from "mysql2/promise";
@@ -682,6 +683,100 @@ app.get("/api/debug/users", async (c) => {
     });
   } catch (err: any) {
     return c.json({ error: err.message }, 500);
+  }
+});
+
+// ─── REPAIR: Clean up shipments wrongly assigned to routes ───
+// Envios a tiendas normales (no puntos de recogida) que fueron asignados a rutas por error
+app.get("/api/repair-route-shipments", async (c) => {
+  try {
+    // Validate secret token
+    const providedToken = c.req.query("token");
+    const expectedToken = process.env.INIT_TABLES_SECRET;
+    if (expectedToken && providedToken !== expectedToken) {
+      return c.json({ error: "Acceso denegado" }, 403);
+    }
+
+    const db = getDb();
+    const results: Array<{ action: string; trackingNumber: string; details: string }> = [];
+
+    // 1. Find pickup point franchise IDs
+    const allFranchises = await db.select().from(franchises);
+    const pickupIds = allFranchises
+      .filter(f => f.displayName?.toLowerCase().includes("recogida"))
+      .map(f => f.id);
+
+    // 2. Get all route shipments
+    const allRouteShipments = await db.select().from(routeShipments);
+    if (allRouteShipments.length === 0) {
+      return c.json({ success: true, message: "No hay envios asignados a rutas", fixed: 0, details: [] });
+    }
+
+    // 3. Get the actual shipments
+    const shipmentIds = allRouteShipments.map(rs => rs.shipmentId);
+    const allShipments = await db.select().from(shipments).where(inArray(shipments.id, shipmentIds));
+
+    // 4. Find shipments that go to NON-pickup destinations
+    const badShipmentIds: number[] = [];
+    const badRouteShipmentIds: number[] = [];
+
+    for (const rs of allRouteShipments) {
+      const shipment = allShipments.find(s => s.id === rs.shipmentId);
+      if (shipment && !pickupIds.includes(shipment.destinationFranchiseId)) {
+        badShipmentIds.push(shipment.id);
+        badRouteShipmentIds.push(rs.id);
+        const destFranchise = allFranchises.find(f => f.id === shipment.destinationFranchiseId);
+        results.push({
+          action: "found_bad_assignment",
+          trackingNumber: shipment.trackingNumber,
+          details: `Va a ${destFranchise?.displayName || "tienda"} - no es punto de recogida`
+        });
+      }
+    }
+
+    if (badShipmentIds.length === 0) {
+      return c.json({ success: true, message: "Todos los envios en rutas son correctos", fixed: 0, details: results });
+    }
+
+    // 5. Delete bad route assignments
+    for (const rsId of badRouteShipmentIds) {
+      await db.delete(routeShipments).where(eq(routeShipments.id, rsId));
+    }
+    results.forEach(r => {
+      if (r.action === "found_bad_assignment") r.action = "removed_from_route";
+    });
+
+    // 6. Delete EN_RUTA and EN_PARADA tracking entries for these shipments
+    for (const sId of badShipmentIds) {
+      const trackingEntries = await db.select().from(shipmentTracking)
+        .where(eq(shipmentTracking.shipmentId, sId));
+
+      const badEntries = trackingEntries.filter(t =>
+        t.status === "EN_RUTA" || t.status === "EN_PARADA"
+      );
+
+      for (const entry of badEntries) {
+        await db.delete(shipmentTracking).where(eq(shipmentTracking.id, entry.id));
+      }
+
+      const shipment = allShipments.find(s => s.id === sId);
+      if (shipment) {
+        results.push({
+          action: "cleaned_tracking",
+          trackingNumber: shipment.trackingNumber,
+          details: `Eliminados ${badEntries.length} registros de tracking (EN_RUTA/EN_PARADA)`
+        });
+      }
+    }
+
+    return c.json({
+      success: true,
+      message: `Reparados ${badShipmentIds.length} envios mal asignados a rutas`,
+      fixed: badShipmentIds.length,
+      details: results,
+    });
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message }, 500);
   }
 });
 
