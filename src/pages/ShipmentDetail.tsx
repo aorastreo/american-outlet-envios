@@ -22,25 +22,44 @@ const statusConfig: Record<string, { color: string; label: string; icon: React.E
   ENVIADO_A_BODEGA: { color: "bg-amber-100 text-amber-700", label: "Enviado a Bodega", icon: Send },
   RECIBIDO_EN_BODEGA: { color: "bg-purple-100 text-purple-700", label: "Recibido en Bodega", icon: ClipboardCheck },
   ENVIADO_A_DESTINO: { color: "bg-[#FFF5F5] text-[#C8102E]", label: "Enviado a Destino", icon: Truck },
+  EN_RUTA: { color: "bg-blue-100 text-blue-700", label: "En Ruta de Camion" },
+  EN_PARADA: { color: "bg-orange-100 text-orange-700", label: "En Punto de Recogida" },
   RECIBIDO_EN_DESTINO: { color: "bg-emerald-100 text-emerald-700", label: "Entregado", icon: CheckCircle },
   CANCELADO: { color: "bg-red-100 text-red-700", label: "Cancelado", icon: Ban },
 };
 
-const normalTimeline = [
+// Timeline para envios a TIENDAS NORMALES (sin EN_RUTA ni EN_PARADA)
+const storeTimeline = [
+  { status: "CREADO", label: "Creado" },
+  { status: "ENVIADO_A_BODEGA", label: "Enviado a Bodega" },
+  { status: "RECIBIDO_EN_BODEGA", label: "En Bodega" },
+  { status: "ENVIADO_A_DESTINO", label: "Enviado a Destino" },
+  { status: "RECIBIDO_EN_DESTINO", label: "Entregado" },
+];
+
+// Timeline para envios a PUNTOS DE RECOGIDA (con EN_RUTA y EN_PARADA)
+const pickupTimeline = [
   { status: "CREADO", label: "Creado" },
   { status: "ENVIADO_A_BODEGA", label: "Enviado a Bodega" },
   { status: "RECIBIDO_EN_BODEGA", label: "En Bodega" },
   { status: "EN_RUTA", label: "En Ruta" },
   { status: "EN_PARADA", label: "En Parada" },
-  { status: "ENVIADO_A_DESTINO", label: "Enviado a Destino" },
   { status: "RECIBIDO_EN_DESTINO", label: "Entregado" },
 ];
 
-const directTimeline = [
+// Timeline para envio DIRECTO de bodega a PUNTO DE RECOGIDA
+const directPickupTimeline = [
   { status: "CREADO", label: "Creado" },
   { status: "ENVIADO_A_DESTINO", label: "Enviado a Destino" },
   { status: "EN_RUTA", label: "En Ruta" },
   { status: "EN_PARADA", label: "En Parada" },
+  { status: "RECIBIDO_EN_DESTINO", label: "Entregado" },
+];
+
+// Timeline para envio DIRECTO de bodega a TIENDA
+const directStoreTimeline = [
+  { status: "CREADO", label: "Creado" },
+  { status: "ENVIADO_A_DESTINO", label: "Enviado a Destino" },
   { status: "RECIBIDO_EN_DESTINO", label: "Entregado" },
 ];
 
@@ -155,7 +174,14 @@ export default function ShipmentDetail() {
     }
   }
 
-  const timelineSteps = originIsWarehouse ? directTimeline : normalTimeline;
+  // Choose correct timeline based on destination (pickup point vs store)
+  const isPickupDestination = shipment.destinationFranchise?.displayName?.toLowerCase().includes("recogida") || false;
+  let timelineSteps;
+  if (originIsWarehouse) {
+    timelineSteps = isPickupDestination ? directPickupTimeline : directStoreTimeline;
+  } else {
+    timelineSteps = isPickupDestination ? pickupTimeline : storeTimeline;
+  }
   const currentStepIndex = timelineSteps.findIndex((s) => s.status === shipment.status);
 
   return (
@@ -291,7 +317,7 @@ export default function ShipmentDetail() {
                     return (
                       <div key={step.status} className="flex flex-col items-center relative z-10 flex-1">
                         <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-colors ${isCompleted ? "bg-[#C8102E] border-blue-600 text-white" : "bg-white border-[#D4D4D4] text-[#A3A3A3]"} ${isCurrent ? "ring-4 ring-blue-100" : ""}`}>
-                          {step.status === "RECIBIDO_EN_DESTINO" ? <CheckCircle className="w-5 h-5" /> : step.status === "RECIBIDO_EN_BODEGA" ? <ClipboardCheck className="w-5 h-5" /> : step.status === "ENVIADO_A_DESTINO" ? <Truck className="w-5 h-5" /> : step.status === "ENVIADO_A_BODEGA" ? <Send className="w-5 h-5" /> : <Package className="w-5 h-5" />}
+                          {step.status === "RECIBIDO_EN_DESTINO" ? <CheckCircle className="w-5 h-5" /> : step.status === "RECIBIDO_EN_BODEGA" ? <ClipboardCheck className="w-5 h-5" /> : step.status === "ENVIADO_A_DESTINO" ? <Truck className="w-5 h-5" /> : step.status === "ENVIADO_A_BODEGA" ? <Send className="w-5 h-5" /> : step.status === "EN_RUTA" ? <Truck className="w-5 h-5" /> : step.status === "EN_PARADA" ? <MapPin className="w-5 h-5" /> : <Package className="w-5 h-5" />}
                         </div>
                         <span className={`text-xs mt-2 text-center font-medium ${isCompleted ? "text-[#1A1A1A]" : "text-[#A3A3A3]"}`}>{step.label}</span>
                       </div>
@@ -309,7 +335,11 @@ export default function ShipmentDetail() {
         {/* Route */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Card><CardContent className="p-4"><p className="text-xs text-[#8A8A8A] mb-1">Origen</p><div className="flex items-center gap-2"><MapPin className="w-4 h-4 text-[#C8102E]" /><p className="font-medium text-[#1A1A1A]">{shipment.originFranchise?.displayName || "-"}</p></div></CardContent></Card>
-          <Card><CardContent className="p-4"><p className="text-xs text-[#8A8A8A] mb-1">Destino</p><div className="flex items-center gap-2"><MapPin className="w-4 h-4 text-emerald-600" /><p className="font-medium text-[#1A1A1A]">{(shipment.destinationFranchise?.displayName || "").toLowerCase().includes("recogida") ? <><span className="font-bold text-orange-700 bg-orange-50 px-2 py-1 rounded border border-orange-200">{shipment.destinationFranchise?.displayName}</span></> : shipment.destinationFranchise?.displayName || "-"}</p></div></CardContent></Card>
+          <Card><CardContent className="p-4"><p className="text-xs text-[#8A8A8A] mb-1">Destino</p><div className="flex items-center gap-2">{(shipment.destinationFranchise?.displayName || "").toLowerCase().includes("recogida") ? (
+            <><MapPin className="w-4 h-4 text-orange-600" /><p className="font-bold text-orange-700 bg-orange-50 px-2 py-1 rounded text-sm border border-orange-200">{shipment.destinationFranchise?.displayName || "-"}</p></>
+          ) : (
+            <><MapPin className="w-4 h-4 text-emerald-600" /><p className="font-medium text-[#1A1A1A]">{shipment.destinationFranchise?.displayName || "-"}</p></>
+          )}</div></CardContent></Card>
         </div>
 
         {/* Timeline */}
@@ -325,7 +355,7 @@ export default function ShipmentDetail() {
                     return (
                       <div key={step.status} className="flex flex-col items-center relative z-10 flex-1">
                         <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-colors ${isCompleted ? "bg-[#C8102E] border-[#C8102E] text-white" : "bg-white border-[#D4D4D4] text-[#A3A3A3]"} ${isCurrent ? "ring-4 ring-[#C8102E]/20" : ""}`}>
-                          {step.status === "RECIBIDO_EN_DESTINO" ? <CheckCircle className="w-5 h-5" /> : step.status === "RECIBIDO_EN_BODEGA" ? <ClipboardCheck className="w-5 h-5" /> : step.status === "ENVIADO_A_DESTINO" ? <Truck className="w-5 h-5" /> : step.status === "ENVIADO_A_BODEGA" ? <Send className="w-5 h-5" /> : <Package className="w-5 h-5" />}
+                          {step.status === "RECIBIDO_EN_DESTINO" ? <CheckCircle className="w-5 h-5" /> : step.status === "RECIBIDO_EN_BODEGA" ? <ClipboardCheck className="w-5 h-5" /> : step.status === "ENVIADO_A_DESTINO" ? <Truck className="w-5 h-5" /> : step.status === "ENVIADO_A_BODEGA" ? <Send className="w-5 h-5" /> : step.status === "EN_RUTA" ? <Truck className="w-5 h-5" /> : step.status === "EN_PARADA" ? <MapPin className="w-5 h-5" /> : <Package className="w-5 h-5" />}
                         </div>
                         <span className={`text-xs mt-2 text-center font-medium ${isCompleted ? "text-[#1A1A1A]" : "text-[#A3A3A3]"}`}>{step.label}</span>
                       </div>

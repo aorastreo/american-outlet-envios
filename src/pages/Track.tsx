@@ -18,14 +18,23 @@ const statusConfig: Record<string, { color: string; label: string; icon: React.E
   ENVIADO_A_BODEGA: { color: "bg-amber-100 text-amber-700", label: "Enviado a Bodega", icon: Send },
   RECIBIDO_EN_BODEGA: { color: "bg-purple-100 text-purple-700", label: "Recibido en Bodega", icon: ClipboardCheck },
   ENVIADO_A_DESTINO: { color: "bg-[#FFF5F5] text-[#C8102E]", label: "Enviado a Destino", icon: Truck },
+  EN_RUTA: { color: "bg-blue-100 text-blue-700", label: "En Ruta de Camion" },
+  EN_PARADA: { color: "bg-orange-100 text-orange-700", label: "En Punto de Recogida" },
   RECIBIDO_EN_DESTINO: { color: "bg-emerald-100 text-emerald-700", label: "Entregado", icon: CheckCircle },
-  EN_RUTA: { color: "bg-blue-100 text-blue-700", label: "En Ruta de Camion", icon: Truck },
-  EN_PARADA: { color: "bg-orange-100 text-orange-700", label: "En Punto de Recogida", icon: MapPin },
   CANCELADO: { color: "bg-red-100 text-red-700", label: "Cancelado", icon: AlertTriangle },
 };
 
-// Normal flow: store → warehouse → store (5 steps)
-const normalTimeline = [
+// Timeline para envios a TIENDAS NORMALES (sin EN_RUTA ni EN_PARADA)
+const storeTimeline = [
+  { status: "CREADO", label: "Creado", desc: "Envio registrado" },
+  { status: "ENVIADO_A_BODEGA", label: "Enviado a Bodega", desc: "Tienda envio a bodega" },
+  { status: "RECIBIDO_EN_BODEGA", label: "En Bodega", desc: "Bodega recibio" },
+  { status: "ENVIADO_A_DESTINO", label: "Enviado a Destino", desc: "Bodega envio a tienda" },
+  { status: "RECIBIDO_EN_DESTINO", label: "Entregado", desc: "Cliente recibio" },
+];
+
+// Timeline para envios a PUNTOS DE RECOGIDA (con EN_RUTA y EN_PARADA)
+const pickupTimeline = [
   { status: "CREADO", label: "Creado", desc: "Envio registrado" },
   { status: "ENVIADO_A_BODEGA", label: "Enviado a Bodega", desc: "Tienda envio a bodega" },
   { status: "RECIBIDO_EN_BODEGA", label: "En Bodega", desc: "Bodega recibio" },
@@ -34,14 +43,22 @@ const normalTimeline = [
   { status: "RECIBIDO_EN_DESTINO", label: "Entregado", desc: "Cliente recibio" },
 ];
 
-// Direct warehouse flow: warehouse → store (3 steps)
-const directTimeline = [
+// Timeline para envio DIRECTO de bodega a PUNTO DE RECOGIDA
+const directPickupTimeline = [
   { status: "CREADO", label: "Creado", desc: "Envio registrado" },
   { status: "ENVIADO_A_DESTINO", label: "Enviado a Destino", desc: "Bodega envio directo" },
   { status: "EN_RUTA", label: "En Ruta", desc: "Asignado a camion" },
   { status: "EN_PARADA", label: "En Parada", desc: "Camion en punto de recogida" },
   { status: "RECIBIDO_EN_DESTINO", label: "Entregado", desc: "Cliente recibio" },
 ];
+
+// Timeline para envio DIRECTO de bodega a TIENDA
+const directStoreTimeline = [
+  { status: "CREADO", label: "Creado", desc: "Envio registrado" },
+  { status: "ENVIADO_A_DESTINO", label: "Enviado a Destino", desc: "Bodega envio a tienda" },
+  { status: "RECIBIDO_EN_DESTINO", label: "Entregado", desc: "Cliente recibio" },
+];
+
 export default function Track() {
   const [trackingNumber, setTrackingNumber] = useState("");
   const [searchedTracking, setSearchedTracking] = useState("");
@@ -58,14 +75,21 @@ export default function Track() {
     }
   };
 
-  // Dynamic timeline based on flow type
+  // Dynamic timeline based on origin (warehouse vs store) AND destination (pickup vs store)
   const originIsWarehouse = useMemo(() => {
     return shipment?.originFranchise?.isWarehouse === 1;
   }, [shipment]);
 
+  const isPickupDestination = useMemo(() => {
+    return shipment?.destinationFranchise?.displayName?.toLowerCase().includes("recogida") || false;
+  }, [shipment]);
+
   const timelineSteps = useMemo(() => {
-    return originIsWarehouse ? directTimeline : normalTimeline;
-  }, [originIsWarehouse]);
+    if (originIsWarehouse) {
+      return isPickupDestination ? directPickupTimeline : directStoreTimeline;
+    }
+    return isPickupDestination ? pickupTimeline : storeTimeline;
+  }, [originIsWarehouse, isPickupDestination]);
 
   const currentStepIndex = shipment ? timelineSteps.findIndex((s) => s.status === shipment.status) : -1;
 
@@ -83,7 +107,7 @@ export default function Track() {
               <div className="relative flex-1">
                 <Barcode className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#A3A3A3]" />
                 <Input
-                  placeholder="Ej: AO-0001"
+                  placeholder="Ej: AO84729153X"
                   value={trackingNumber}
                   onChange={(e) => setTrackingNumber(e.target.value.toUpperCase())}
                   className="pl-12 h-12 text-lg font-mono"
