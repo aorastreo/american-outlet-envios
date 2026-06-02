@@ -686,10 +686,9 @@ app.get("/api/debug/users", async (c) => {
 });
 
 // ─── REPAIR: Clean up shipments wrongly assigned to routes ───
-// Envios a tiendas normales (no puntos de recogida) que fueron asignados a rutas por error
+// Limpia envios a tiendas normales que tienen tracking EN_RUTA o EN_PARADA
 app.get("/api/repair-route-shipments", async (c) => {
   try {
-    // Validate secret token
     const providedToken = c.req.query("token");
     const expectedToken = process.env.INIT_TABLES_SECRET;
     if (expectedToken && providedToken !== expectedToken) {
@@ -697,113 +696,54 @@ app.get("/api/repair-route-shipments", async (c) => {
     }
 
     const db = getDb();
+    const connection = await mysql.createConnection(env.databaseUrl);
     const results: Array<{ action: string; trackingNumber: string; details: string }> = [];
 
-    // 1. Find pickup point franchise IDs
+    // 1. Get pickup franchise IDs
     const allFranchises = await db.select().from(franchises);
     const pickupIds = allFranchises
       .filter(f => f.displayName?.toLowerCase().includes("recogida"))
       .map(f => f.id);
 
-    // 2. Get all route shipments
-    const allRouteShipments = await db.select().from(routeShipments);
-    if (allRouteShipments.length === 0) {
-      return c.json({ success: true, message: "No hay envios asignados a rutas", fixed: 0, details: [] });
+    if (pickupIds.length === 0) {
+      await connection.end();
+      return c.json({ success: true, message: "No hay puntos de recogida", fixed: 0, details: [] });
     }
 
-    // 3. Get the actual shipments
-    const shipmentIds = allRouteShipments.map(rs => rs.shipmentId);
-    const allShipments = await db.select().from(shipments).where(inArray(shipments.id, shipmentIds));
+    // 2. Find all EN_RUTA/EN_PARADA tracking for non-pickup shipments using raw SQL
+    const pickupList = pickupIds.join(",");
+    const [rows] = await connection.execute(`
+      SELECT st.id, st.shipmentId, st.status, s.trackingNumber, f.displayName as destination
+      FROM shipment_tracking st
+      JOIN shipments s ON s.id = st.shipmentId
+      JOIN franchises f ON f.id = s.destinationFranchiseId
+      WHERE st.status IN ('EN_RUTA', 'EN_PARADA')
+        AND s.destinationFranchiseId NOT IN (${pickupList})
+    `);
 
-    // 4. Find shipments that go to NON-pickup destinations
-    const badShipmentIds: number[] = [];
-    const badRouteShipmentIds: number[] = [];
+    const badEntries = rows as any[];
 
-    for (const rs of allRouteShipments) {
-      const shipment = allShipments.find(s => s.id === rs.shipmentId);
-      if (shipment && !pickupIds.includes(shipment.destinationFranchiseId)) {
-        badShipmentIds.push(shipment.id);
-        badRouteShipmentIds.push(rs.id);
-        const destFranchise = allFranchises.find(f => f.id === shipment.destinationFranchiseId);
-        results.push({
-          action: "found_bad_assignment",
-          trackingNumber: shipment.trackingNumber,
-          details: `Va a ${destFranchise?.displayName || "tienda"} - no es punto de recogida`
-        });
-      }
+    if (badEntries.length === 0) {
+      await connection.end();
+      return c.json({ success: true, message: "No se encontraron registros huérfanos", fixed: 0, details: [] });
     }
 
-    if (badShipmentIds.length === 0) {
-      return c.json({ success: true, message: "Todos los envios en rutas son correctos", fixed: 0, details: results });
+    // 3. Delete them
+    for (const entry of badEntries) {
+      await db.delete(shipmentTracking).where(eq(shipmentTracking.id, entry.id));
+      results.push({
+        action: "deleted_" + entry.status,
+        trackingNumber: entry.trackingNumber,
+        details: `Eliminado ${entry.status} de envio a ${entry.destination}`
+      });
     }
 
-    // 5. Delete bad route assignments
-    for (const rsId of badRouteShipmentIds) {
-      await db.delete(routeShipments).where(eq(routeShipments.id, rsId));
-    }
-    results.forEach(r => {
-      if (r.action === "found_bad_assignment") r.action = "removed_from_route";
-    });
-
-    // 6. Delete EN_RUTA and EN_PARADA tracking entries for these shipments
-    for (const sId of badShipmentIds) {
-      const trackingEntries = await db.select().from(shipmentTracking)
-        .where(eq(shipmentTracking.shipmentId, sId));
-
-      const badEntries = trackingEntries.filter(t =>
-        t.status === "EN_RUTA" || t.status === "EN_PARADA"
-      );
-
-      for (const entry of badEntries) {
-        await db.delete(shipmentTracking).where(eq(shipmentTracking.id, entry.id));
-      }
-
-      const shipment = allShipments.find(s => s.id === sId);
-      if (shipment) {
-        results.push({
-          action: "cleaned_tracking",
-          trackingNumber: shipment.trackingNumber,
-          details: `Eliminados ${badEntries.length} registros de tracking (EN_RUTA/EN_PARADA)`
-        });
-      }
-    }
-
-    // 7. SECOND PASS: Clean EN_RUTA/EN_PARADA tracking for ALL non-pickup shipments
-    // This catches shipments that were removed from routes but still have bad tracking entries
-    const nonPickupShipments = pickupIds.length > 0
-      ? await db.select().from(shipments).where(notInArray(shipments.destinationFranchiseId, pickupIds))
-      : [];
-
-    let cleanedTrackingCount = 0;
-    for (const s of nonPickupShipments) {
-      const trackingEntries = await db.select().from(shipmentTracking)
-        .where(eq(shipmentTracking.shipmentId, s.id));
-
-      const badEntries = trackingEntries.filter(t =>
-        t.status === "EN_RUTA" || t.status === "EN_PARADA"
-      );
-
-      if (badEntries.length > 0) {
-        for (const entry of badEntries) {
-          await db.delete(shipmentTracking).where(eq(shipmentTracking.id, entry.id));
-        }
-        cleanedTrackingCount += badEntries.length;
-        results.push({
-          action: "cleaned_orphan_tracking",
-          trackingNumber: s.trackingNumber,
-          details: `Eliminados ${badEntries.length} registros huérfanos (EN_RUTA/EN_PARADA) - va a ${allFranchises.find(f => f.id === s.destinationFranchiseId)?.displayName || "tienda"}`
-        });
-      }
-    }
-
-    const totalFixed = badShipmentIds.length + cleanedTrackingCount;
+    await connection.end();
 
     return c.json({
       success: true,
-      message: totalFixed > 0 
-        ? `Reparados ${badShipmentIds.length} envios en rutas + ${cleanedTrackingCount} registros de tracking huérfanos limpiados`
-        : "Todos los envios son correctos",
-      fixed: totalFixed,
+      message: `Eliminados ${badEntries.length} registros huérfanos (EN_RUTA/EN_PARADA)`,
+      fixed: badEntries.length,
       details: results,
     });
   } catch (err: any) {
