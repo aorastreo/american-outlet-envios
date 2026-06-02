@@ -25,14 +25,18 @@ function randomDigit(): string {
   return String(Math.floor(Math.random() * 10));
 }
 
+
 function randomLetter(): string {
-  const letters = "ABCDEFGHJKMNPQRSTUVWXYZ";
+  const letters = "ABCDEFGHJKMNPQRSTUVWXYZ"; // excluye I, L, O para evitar confusiones
   return letters.charAt(Math.floor(Math.random() * letters.length));
 }
 
 async function generateTrackingNumber(): Promise<string> {
   const db = getDb();
 
+  // Generar numeros de guia impredecibles: AO + 8 digitos aleatorios + 1 letra
+  // Ejemplo: AO84729153X, AO10293847K
+  // Sin guiones, sin secuencia predecible
   for (let attempt = 0; attempt < 10; attempt++) {
     let numberPart = "";
     for (let i = 0; i < 8; i++) {
@@ -41,6 +45,7 @@ async function generateTrackingNumber(): Promise<string> {
     const letter = randomLetter();
     const trackingNumber = `AO${numberPart}${letter}`;
 
+    // Verificar que no exista ya en la base de datos
     const existing = await db
       .select({ trackingNumber: shipments.trackingNumber })
       .from(shipments)
@@ -48,10 +53,12 @@ async function generateTrackingNumber(): Promise<string> {
       .limit(1);
 
     if (existing.length === 0) {
-      return trackingNumber;
+      return trackingNumber; // Unico, lo retornamos
     }
+    // Si existe, intentamos otra vez con otros numeros
   }
 
+  // En el caso extremo de 10 colisiones, agregar timestamp para garantizar unicidad
   const fallbackNumber = `AO${Date.now().toString().slice(-8)}${randomLetter()}`;
   return fallbackNumber;
 }
@@ -193,6 +200,7 @@ export const shipmentRouter = createRouter({
       const shipment = await db.select().from(shipments).where(eq(shipments.id, input.id)).limit(1);
       if (shipment.length === 0) return null;
 
+      // Verify permission: user can only see shipments related to their franchise
       const s = shipment[0];
       const canView = s.originFranchiseId === franchiseId ||
         s.destinationFranchiseId === franchiseId ||
@@ -200,7 +208,8 @@ export const shipmentRouter = createRouter({
         (isWarehouse && (s.status === "ENVIADO_A_BODEGA" || s.status === "RECIBIDO_EN_BODEGA" || s.status === "ENVIADO_A_DESTINO"));
       if (!canView) {
         throw new TRPCError({ code: "FORBIDDEN", message: "No tiene permiso para ver este envio" });
-            }
+      }
+
       const items = await db.select().from(shipmentItems).where(eq(shipmentItems.shipmentId, input.id));
 
       const trackingHistory = await db
@@ -209,9 +218,11 @@ export const shipmentRouter = createRouter({
         .where(eq(shipmentTracking.shipmentId, input.id))
         .orderBy(shipmentTracking.createdAt);
 
+      // Get franchise names
       const allFranchises = await db.select().from(franchises);
       const franchiseMap = new Map(allFranchises.map(f => [f.id, f]));
 
+      // Get all actor names (franchise users)
       const actorIds = [...new Set(trackingHistory.map(t => t.createdBy))].filter(Boolean);
       const actors = actorIds.length > 0
         ? await db.select().from(franchiseUsers).where(inArray(franchiseUsers.id, actorIds))
@@ -223,16 +234,23 @@ export const shipmentRouter = createRouter({
         actorName: actorMap.get(t.createdBy) || "Sistema",
       }));
 
+      const destFranchise = franchiseMap.get(shipment[0].destinationFranchiseId);
+      const pickupCodes = ["grecia", "san_ramon", "palmares"];
+      const isPickupRoute = pickupCodes.includes(destFranchise?.code?.toLowerCase() || "") ||
+                            (destFranchise?.displayName?.toLowerCase() || "").includes("recogida");
+
       return {
         ...shipment[0],
         items,
         tracking: trackingWithActors,
         originFranchise: franchiseMap.get(shipment[0].originFranchiseId),
-        destinationFranchise: franchiseMap.get(shipment[0].destinationFranchiseId),
+        destinationFranchise: destFranchise,
         currentLocation: franchiseMap.get(shipment[0].currentLocationId),
+        isPickupRoute,
       };
     }),
 
+  // ─── Update Status (with receiverName support) ─────────────────
   updateStatus: franchiseAuthedQuery
     .input(
       z.object({
@@ -256,6 +274,7 @@ export const shipmentRouter = createRouter({
       const bodegaId = bodegaResult[0]?.id;
       const originIsWarehouse = shipment.originFranchiseId === bodegaId;
 
+      // Validate transitions
       const validTransitions: Record<string, string[]> = originIsWarehouse
         ? { CREADO: ["ENVIADO_A_DESTINO", "CANCELADO"], ENVIADO_A_DESTINO: ["RECIBIDO_EN_DESTINO"], RECIBIDO_EN_DESTINO: [], CANCELADO: [], ENVIADO_A_BODEGA: [], RECIBIDO_EN_BODEGA: [] }
         : { CREADO: ["ENVIADO_A_BODEGA", "CANCELADO"], ENVIADO_A_BODEGA: ["RECIBIDO_EN_BODEGA"], RECIBIDO_EN_BODEGA: ["ENVIADO_A_DESTINO"], ENVIADO_A_DESTINO: ["RECIBIDO_EN_DESTINO"], RECIBIDO_EN_DESTINO: [], CANCELADO: [] };
@@ -265,6 +284,7 @@ export const shipmentRouter = createRouter({
         throw new TRPCError({ code: "BAD_REQUEST", message: `No se puede cambiar de ${shipment.status} a ${input.newStatus}` });
       }
 
+      // Validate permissions
       if (input.newStatus === "ENVIADO_A_BODEGA" && shipment.originFranchiseId !== franchiseId) {
         throw new TRPCError({ code: "FORBIDDEN", message: "Solo la tienda de origen puede marcar como enviado a bodega" });
       } else if (input.newStatus === "RECIBIDO_EN_BODEGA" && !isWarehouse) {
@@ -277,11 +297,12 @@ export const shipmentRouter = createRouter({
       }
 
       let newLocationId = shipment.currentLocationId;
-      if (input.newStatus === "ENVIADO_A_BODEGA") newLocationId = shipment.destinationFranchiseId;
-      else if (input.newStatus === "RECIBIDO_EN_BODEGA") newLocationId = shipment.destinationFranchiseId;
+      if (input.newStatus === "ENVIADO_A_BODEGA") newLocationId = bodegaId || shipment.currentLocationId;
+      else if (input.newStatus === "RECIBIDO_EN_BODEGA") newLocationId = bodegaId || shipment.currentLocationId;
       else if (input.newStatus === "ENVIADO_A_DESTINO") newLocationId = shipment.destinationFranchiseId;
       else if (input.newStatus === "RECIBIDO_EN_DESTINO") newLocationId = shipment.destinationFranchiseId;
 
+      // Build update data
       const updateData: Record<string, any> = {
         status: input.newStatus,
         currentLocationId: newLocationId,
@@ -312,6 +333,7 @@ export const shipmentRouter = createRouter({
       return { success: true };
     }),
 
+  // ─── Cancel Shipment ───────────────────────────────────────────
   cancel: franchiseAuthedQuery
     .input(z.object({ id: z.number(), reason: z.string().optional() }))
     .mutation(async ({ input, ctx }) => {
@@ -323,6 +345,7 @@ export const shipmentRouter = createRouter({
 
       const shipment = current[0];
 
+      // Only origin or destination can cancel, and only if not already delivered or cancelled
       if (shipment.status === "RECIBIDO_EN_DESTINO" || shipment.status === "CANCELADO") {
         throw new TRPCError({ code: "BAD_REQUEST", message: "No se puede cancelar un envio que ya fue entregado o cancelado" });
       }
@@ -349,6 +372,7 @@ export const shipmentRouter = createRouter({
       return { success: true };
     }),
 
+  // ─── Public Track ──────────────────────────────────────────────
   track: publicQuery
     .input(z.object({ trackingNumber: z.string().min(1) }))
     .query(async ({ input }) => {
@@ -362,6 +386,11 @@ export const shipmentRouter = createRouter({
       const allFranchises = await db.select().from(franchises);
       const franchiseMap = new Map(allFranchises.map(f => [f.id, f]));
 
+      const destFranchise = franchiseMap.get(shipment[0].destinationFranchiseId);
+      const pickupCodes = ["grecia", "san_ramon", "palmares"];
+      const isPickupRoute = pickupCodes.includes(destFranchise?.code?.toLowerCase() || "") ||
+                            (destFranchise?.displayName?.toLowerCase() || "").includes("recogida");
+
       return {
         ...shipment[0],
         items,
@@ -369,59 +398,64 @@ export const shipmentRouter = createRouter({
         originFranchise: franchiseMap.get(shipment[0].originFranchiseId),
         destinationFranchise: franchiseMap.get(shipment[0].destinationFranchiseId),
         currentLocation: franchiseMap.get(shipment[0].currentLocationId),
+        isPickupRoute,
       };
     }),
 
+  // ─── Stats ─────────────────────────────────────────────────────
   stats: franchiseAuthedQuery.query(async ({ ctx }) => {
-      const db = getDb();
-      const franchiseId = ctx.franchiseUser!.franchiseId;
-      const userFranchise = await db.select().from(franchises).where(eq(franchises.id, franchiseId)).limit(1);
-      const isWarehouse = userFranchise[0]?.isWarehouse === 1;
+    const db = getDb();
+    const franchiseId = ctx.franchiseUser!.franchiseId;
+    const userFranchise = await db.select().from(franchises).where(eq(franchises.id, franchiseId)).limit(1);
+    const isWarehouse = userFranchise[0]?.isWarehouse === 1;
 
-      const conditions = [
-        eq(shipments.originFranchiseId, franchiseId),
-        eq(shipments.destinationFranchiseId, franchiseId),
-        eq(shipments.currentLocationId, franchiseId),
-      ];
-      if (isWarehouse) conditions.push(eq(shipments.status, "ENVIADO_A_BODEGA"));
-      conditions.push(sql`${shipments.status} = 'ENVIADO_A_DESTINO' AND ${shipments.destinationFranchiseId} = ${franchiseId}`);
+    const conditions = [
+      eq(shipments.originFranchiseId, franchiseId),
+      eq(shipments.destinationFranchiseId, franchiseId),
+      eq(shipments.currentLocationId, franchiseId),
+    ];
+    if (isWarehouse) conditions.push(eq(shipments.status, "ENVIADO_A_BODEGA"));
+    conditions.push(sql`${shipments.status} = 'ENVIADO_A_DESTINO' AND ${shipments.destinationFranchiseId} = ${franchiseId}`);
 
-      const allShipments = await db.select().from(shipments).where(or(...conditions));
-      const pending = allShipments.filter((s) => s.status !== "RECIBIDO_EN_DESTINO" && s.status !== "CANCELADO");
+    const allShipments = await db.select().from(shipments).where(or(...conditions));
+    const pending = allShipments.filter((s) => s.status !== "RECIBIDO_EN_DESTINO" && s.status !== "CANCELADO");
 
-      return {
-        total: allShipments.length,
-        pending: pending.length,
-        delivered: allShipments.filter((s) => s.status === "RECIBIDO_EN_DESTINO").length,
-        inTransit: allShipments.filter((s) => s.status === "ENVIADO_A_BODEGA" || s.status === "ENVIADO_A_DESTINO").length,
-        inWarehouse: allShipments.filter((s) => s.status === "RECIBIDO_EN_BODEGA").length,
-        cancelled: allShipments.filter((s) => s.status === "CANCELADO").length,
-      };
-    }),
+    return {
+      total: allShipments.length,
+      pending: pending.length,
+      delivered: allShipments.filter((s) => s.status === "RECIBIDO_EN_DESTINO").length,
+      inTransit: allShipments.filter((s) => s.status === "ENVIADO_A_BODEGA" || s.status === "ENVIADO_A_DESTINO").length,
+      inWarehouse: allShipments.filter((s) => s.status === "RECIBIDO_EN_BODEGA").length,
+      cancelled: allShipments.filter((s) => s.status === "CANCELADO").length,
+    };
+  }),
 
+  // ─── Pending count (for sidebar badge) ─────────────────────────
   pendingCount: franchiseAuthedQuery.query(async ({ ctx }) => {
-      const db = getDb();
-      const franchiseId = ctx.franchiseUser!.franchiseId;
-      const userFranchise = await db.select().from(franchises).where(eq(franchises.id, franchiseId)).limit(1);
-      const isWarehouse = userFranchise[0]?.isWarehouse === 1;
+    const db = getDb();
+    const franchiseId = ctx.franchiseUser!.franchiseId;
+    const userFranchise = await db.select().from(franchises).where(eq(franchises.id, franchiseId)).limit(1);
+    const isWarehouse = userFranchise[0]?.isWarehouse === 1;
 
-      const conditions: any[] = [
-        sql`${shipments.status} = 'ENVIADO_A_DESTINO' AND ${shipments.destinationFranchiseId} = ${franchiseId}`,
-      ];
+    const conditions: any[] = [
+      sql`${shipments.status} = 'ENVIADO_A_DESTINO' AND ${shipments.destinationFranchiseId} = ${franchiseId}`,
+    ];
 
-      if (isWarehouse) {
-        conditions.push(eq(shipments.status, "ENVIADO_A_BODEGA"));
-      } else {
-        conditions.push(sql`${shipments.status} = 'CREADO' AND ${shipments.originFranchiseId} = ${franchiseId}`);
-      }
+    if (isWarehouse) {
+      conditions.push(eq(shipments.status, "ENVIADO_A_BODEGA"));
+    } else {
+      conditions.push(sql`${shipments.status} = 'CREADO' AND ${shipments.originFranchiseId} = ${franchiseId}`);
+    }
 
-      const countResult = await db
-        .select({ count: sql<number>`COUNT(*)` })
-        .from(shipments)
-        .where(or(...conditions));
+    const countResult = await db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(shipments)
+      .where(or(...conditions));
 
-      return countResult[0]?.count || 0;
-    }),
+    return countResult[0]?.count || 0;
+  }),
+
+  // ─── Get Boleta (printable receipt for package) ────────────────
   getBoleta: publicQuery
     .input(z.object({ id: z.number() }))
     .query(async ({ input }) => {
@@ -491,22 +525,24 @@ export const shipmentRouter = createRouter({
         .where(inArray(shipments.id, input.ids))
         .orderBy(desc(shipments.createdAt));
 
-      const allowedIds = result.filter(s =>
+      // Filter: user can only see shipments related to their franchise
+      const filtered = result.filter(s =>
         s.originFranchiseId === franchiseId ||
         s.destinationFranchiseId === franchiseId ||
         s.currentLocationId === franchiseId ||
         (isWarehouse && (s.status === "ENVIADO_A_BODEGA" || s.status === "RECIBIDO_EN_BODEGA" || s.status === "ENVIADO_A_DESTINO"))
       );
 
-      if (allowedIds.length === 0) {
+      if (filtered.length === 0) {
         return { shipments: [], totalPackages: 0, generatedAt: new Date() };
       }
 
-      const allowedIdNumbers = allowedIds.map(s => s.id);
+      // Get items for allowed shipments only
+      const allowedIds = filtered.map(s => s.id);
       const items = await db
         .select()
         .from(shipmentItems)
-        .where(inArray(shipmentItems.shipmentId, allowedIdNumbers));
+        .where(inArray(shipmentItems.shipmentId, allowedIds));
 
       const itemsByShipment = new Map<number, typeof items>();
       for (const item of items) {
@@ -518,12 +554,12 @@ export const shipmentRouter = createRouter({
       const franchiseMap = new Map(allFranchises.map(f => [f.id, f]));
 
       return {
-        shipments: allowedIds.map(s => ({
+        shipments: filtered.map(s => ({
           ...s,
           items: itemsByShipment.get(s.id) || [],
           destinationFranchise: franchiseMap.get(s.destinationFranchiseId),
         })),
-        totalPackages: allowedIds.length,
+        totalPackages: filtered.length,
         generatedAt: new Date(),
       };
     }),

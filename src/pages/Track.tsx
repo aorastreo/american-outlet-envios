@@ -75,29 +75,20 @@ export default function Track() {
     }
   };
 
-  // Auto-detect route type: check tracking history OR pickup franchise codes
-  const hasRouteStatus = useMemo(() => {
-    return shipment?.tracking?.some((t: any) => t.status === "EN_RUTA" || t.status === "EN_PARADA") || false;
-  }, [shipment]);
+  // Backend tells us directly if this is a pickup route
+  const isPickupRoute = shipment?.isPickupRoute || false;
 
   const originIsWarehouse = useMemo(() => {
     return shipment?.originFranchise?.isWarehouse === 1;
   }, [shipment]);
 
-  const pickupCodes = ["grecia", "san_ramon", "palmares"];
-  const isPickupDestination = useMemo(() => {
-    const code = shipment?.destinationFranchise?.code?.toLowerCase() || "";
-    const name = shipment?.destinationFranchise?.displayName?.toLowerCase() || "";
-    return pickupCodes.includes(code) || name.includes("recogida");
-  }, [shipment]);
-
-  // Use route timeline if: tracking has EN_RUTA/EN_PARADA OR destination is pickup point
+  // Use route timeline if backend says it's a pickup route
   const timelineSteps = useMemo(() => {
-    if (hasRouteStatus || isPickupDestination) {
+    if (isPickupRoute) {
       return originIsWarehouse ? directPickupTimeline : pickupTimeline;
     }
     return originIsWarehouse ? directStoreTimeline : storeTimeline;
-  }, [hasRouteStatus, isPickupDestination, originIsWarehouse]);
+  }, [isPickupRoute, originIsWarehouse]);
 
   const currentStepIndex = shipment ? timelineSteps.findIndex((s) => s.status === shipment.status) : -1;
 
