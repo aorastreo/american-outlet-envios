@@ -75,22 +75,18 @@ export default function Track() {
     }
   };
 
-  // Check if pickup route: use backend flag OR check destination franchise ID directly
-  const pickupIds = [5, 6, 7]; // Grecia=5, San Ramon=6, Palmares=7
-  const isPickupRoute = shipment?.isPickupRoute === true ||
-                        pickupIds.includes(shipment?.destinationFranchiseId || 0);
+  // Ultra simple: is this a pickup point? Grecia=5, SanRamon=6, Palmares=7
+  const destId = shipment?.destinationFranchiseId;
+  const isPickup = destId === 5 || destId === 6 || destId === 7;
 
   const originIsWarehouse = useMemo(() => {
     return shipment?.originFranchise?.isWarehouse === 1;
   }, [shipment]);
 
-  // Use route timeline if pickup route
-  const timelineSteps = useMemo(() => {
-    if (isPickupRoute) {
-      return originIsWarehouse ? directPickupTimeline : pickupTimeline;
-    }
-    return originIsWarehouse ? directStoreTimeline : storeTimeline;
-  }, [isPickupRoute, originIsWarehouse]);
+  // Pickup = route timeline, Store = store timeline
+  const timelineSteps = isPickup
+    ? (originIsWarehouse ? directPickupTimeline : pickupTimeline)
+    : (originIsWarehouse ? directStoreTimeline : storeTimeline);
 
   const currentStepIndex = shipment ? timelineSteps.findIndex((s) => s.status === shipment.status) : -1;
 
