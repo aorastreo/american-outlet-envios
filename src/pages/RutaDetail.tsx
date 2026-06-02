@@ -519,12 +519,8 @@ export default function RutaDetail() {
                       {
                         onSuccess: () => {
                           toast.success("Envios asignados exitosamente");
-                          // Wait for dialog to close then refresh data
-                          setTimeout(() => {
-                            utils.route.getById.refetch({ id: routeId });
-                            utils.route.pendingByPickupPoint.refetch();
-                            utils.route.list.refetch();
-                          }, 300);
+                          // Force full page refresh to show updated data
+                          window.location.reload();
                         },
                         onError: (err) => toast.error(err.message),
                       }
