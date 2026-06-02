@@ -1,11 +1,12 @@
 import { z } from "zod";
-import { eq, inArray, asc, and } from "drizzle-orm";
+import { eq, and, inArray, asc } from "drizzle-orm";
 import { createRouter, franchiseAuthedQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { deliveryRoutes, routeStops, routeShipments, shipments, shipmentItems, shipmentTracking, franchises } from "@db/schema";
 import { TRPCError } from "@trpc/server";
 
 export const routeRouter = createRouter({
+  // ─── Create Route ──────────────────────────────────────────────
   create: franchiseAuthedQuery
     .input(z.object({
       name: z.string().min(1).max(255),
@@ -33,19 +34,21 @@ export const routeRouter = createRouter({
       return { success: true, routeId };
     }),
 
+  // ─── List Routes ───────────────────────────────────────────────
   list: franchiseAuthedQuery
     .input(z.object({
       status: z.enum(["PLANIFICADA", "EN_RUTA", "COMPLETADA", "CANCELADA"]).optional(),
     }).optional())
     .query(async ({ input }) => {
       const db = getDb();
-      const conditions = input?.status ? eq(deliveryRoutes.status, input.status) : undefined;
-      const result = conditions
-        ? await db.select().from(deliveryRoutes).where(conditions).orderBy(deliveryRoutes.createdAt)
-        : await db.select().from(deliveryRoutes).orderBy(deliveryRoutes.createdAt);
-      return result;
+      let query = db.select().from(deliveryRoutes).orderBy(deliveryRoutes.createdAt);
+      if (input?.status) {
+        query = query.where(eq(deliveryRoutes.status, input.status)) as any;
+      }
+      return await query;
     }),
 
+  // ─── Get Route with Stops and Shipments ────────────────────────
   getById: franchiseAuthedQuery
     .input(z.object({ id: z.number() }))
     .query(async ({ input }) => {
@@ -120,6 +123,8 @@ export const routeRouter = createRouter({
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
       }
     }),
+
+  // ─── Assign Shipments to Stop ──────────────────────────────────
   assignShipments: franchiseAuthedQuery
     .input(z.object({
       routeId: z.number(),
@@ -128,13 +133,33 @@ export const routeRouter = createRouter({
     }))
     .mutation(async ({ input, ctx }) => {
       const db = getDb();
+
+      // Get pickup point franchise IDs
+      const allFranchises = await db.select().from(franchises);
+      const pickupIds = allFranchises
+        .filter(f => f.displayName?.toLowerCase().includes("recogida"))
+        .map(f => f.id);
+
       for (const shipmentId of input.shipmentIds) {
+        // Validate: only pickup point shipments can be assigned to routes
+        const shipment = await db.select().from(shipments).where(eq(shipments.id, shipmentId)).limit(1);
+        if (shipment.length === 0) {
+          throw new TRPCError({ code: "NOT_FOUND", message: `Envio ${shipmentId} no encontrado` });
+        }
+        if (!pickupIds.includes(shipment[0].destinationFranchiseId)) {
+          const destFranchise = allFranchises.find(f => f.id === shipment[0].destinationFranchiseId);
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: `El envio ${shipment[0].trackingNumber} va a ${destFranchise?.displayName || "tienda"} - solo envios a puntos de recogida pueden ir en ruta de camion`
+          });
+        }
+
         await db.insert(routeShipments).values({
           routeId: input.routeId,
           stopId: input.stopId,
           shipmentId,
         }).onDuplicateKeyUpdate({ set: { stopId: input.stopId } });
-
+        // Track: EN_RUTA
         await db.insert(shipmentTracking).values({
           shipmentId,
           status: "EN_RUTA",
@@ -146,6 +171,7 @@ export const routeRouter = createRouter({
       return { success: true };
     }),
 
+  // ─── Remove Shipment from Route ────────────────────────────────
   removeShipment: franchiseAuthedQuery
     .input(z.object({ routeShipmentId: z.number() }))
     .mutation(async ({ input }) => {
@@ -154,6 +180,7 @@ export const routeRouter = createRouter({
       return { success: true };
     }),
 
+  // ─── Move Shipment to Different Stop ────────────────────────────
   moveShipment: franchiseAuthedQuery
     .input(z.object({
       routeShipmentId: z.number(),
@@ -167,6 +194,7 @@ export const routeRouter = createRouter({
       return { success: true };
     }),
 
+  // ─── Update Route Status ───────────────────────────────────────
   updateStatus: franchiseAuthedQuery
     .input(z.object({
       id: z.number(),
@@ -178,6 +206,7 @@ export const routeRouter = createRouter({
       return { success: true };
     }),
 
+  // ─── Update Stop Status (LLEGADO / COMPLETADO) ─────────────────
   updateStop: franchiseAuthedQuery
     .input(z.object({
       stopId: z.number(),
@@ -189,6 +218,7 @@ export const routeRouter = createRouter({
       const updateData: Record<string, any> = { status: input.status };
       if (input.status === "LLEGADO") {
         updateData.arrivalTime = new Date();
+        // Track EN_PARADA for all assigned shipments
         const stopData = await db.select().from(routeStops).where(eq(routeStops.id, input.stopId)).limit(1);
         const cityName = stopData[0]?.cityName || "parada";
         const assigned = await db.select().from(routeShipments).where(eq(routeShipments.stopId, input.stopId));
@@ -210,6 +240,7 @@ export const routeRouter = createRouter({
       return { success: true };
     }),
 
+  // ─── Mark Shipment as Delivered / Not Collected ────────────────
   updateShipmentStatus: franchiseAuthedQuery
     .input(z.object({
       routeShipmentId: z.number(),
@@ -226,6 +257,7 @@ export const routeRouter = createRouter({
 
       await db.update(routeShipments).set(updateData).where(eq(routeShipments.id, input.routeShipmentId));
 
+      // Get shipmentId for tracking
       const rsData = await db.select().from(routeShipments).where(eq(routeShipments.id, input.routeShipmentId)).limit(1);
       if (rsData.length > 0 && input.status === "ENTREGADO") {
         await db.insert(shipmentTracking).values({
@@ -240,18 +272,28 @@ export const routeRouter = createRouter({
       return { success: true };
     }),
 
+  // ─── Get Available Shipments (in warehouse, NOT assigned, ONLY pickup points) ──
   availableShipments: franchiseAuthedQuery
     .input(z.object({ stopId: z.number().optional() }).optional())
     .query(async ({ input }) => {
       const db = getDb();
 
+      // Get all pickup point franchise IDs (displayName contains "recogida")
+      const allFranchises = await db.select().from(franchises);
+      const pickupFranchises = allFranchises.filter(f =>
+        f.displayName?.toLowerCase().includes("recogida")
+      );
+      const pickupIds = pickupFranchises.map(f => f.id);
+
+      if (pickupIds.length === 0) return [];
+
       let destinationFranchiseId: number | null = null;
 
+      // If stopId provided, filter by that stop's specific destination
       if (input?.stopId) {
         const stop = await db.select().from(routeStops).where(eq(routeStops.id, input.stopId)).limit(1);
         if (stop.length > 0) {
-          const allFranchises = await db.select().from(franchises);
-          const matchingFranchise = allFranchises.find(f =>
+          const matchingFranchise = pickupFranchises.find(f =>
             f.displayName?.toLowerCase().includes(stop[0].cityName.toLowerCase()) ||
             f.name.toLowerCase() === stop[0].cityName.toLowerCase()
           );
@@ -261,27 +303,23 @@ export const routeRouter = createRouter({
         }
       }
 
-      const allFranchises = await db.select().from(franchises);
-      const pickupFranchises = allFranchises.filter(f =>
-        f.displayName?.toLowerCase().includes("recogida")
-      );
-      const pickupIds = pickupFranchises.map(f => f.id);
-
-      if (pickupIds.length === 0) return [];
-
+      // Get shipments in warehouse
       const allShipments = await db.select().from(shipments)
         .where(eq(shipments.status, "RECIBIDO_EN_BODEGA"));
 
       if (allShipments.length === 0) return [];
 
+      // Filter: only pickup point destinations
       const pickupShipments = allShipments.filter(s => pickupIds.includes(s.destinationFranchiseId));
 
+      // Further filter by specific stop destination if provided
       const filteredShipments = destinationFranchiseId
         ? pickupShipments.filter(s => s.destinationFranchiseId === destinationFranchiseId)
         : pickupShipments;
 
       if (filteredShipments.length === 0) return [];
 
+      // Exclude already assigned to routes
       const assigned = await db.select({ shipmentId: routeShipments.shipmentId }).from(routeShipments)
         .where(eq(routeShipments.status, "ASIGNADO"));
       const assignedIds = new Set(assigned.map(a => a.shipmentId));
@@ -302,6 +340,7 @@ export const routeRouter = createRouter({
       }));
     }),
 
+  // ─── Get Pending Shipments by Pickup Point ─────────────────────
   pendingByPickupPoint: franchiseAuthedQuery
     .query(async () => {
       const db = getDb();
@@ -319,10 +358,10 @@ export const routeRouter = createRouter({
 
       if (pending.length === 0) return [];
 
+      // Exclude already assigned
       const assigned = await db.select({ shipmentId: routeShipments.shipmentId }).from(routeShipments)
         .where(eq(routeShipments.status, "ASIGNADO"));
       const assignedIds = new Set(assigned.map(a => a.shipmentId));
-
       const available = pending.filter(s => !assignedIds.has(s.id));
 
       if (available.length === 0) return [];
@@ -338,6 +377,7 @@ export const routeRouter = createRouter({
         destinationFranchise: franchiseMap.get(s.destinationFranchiseId),
       }));
 
+      // Group by destination
       const grouped = pickupIds.map(pickupId => {
         const point = franchiseMap.get(pickupId);
         const shipmentsForPoint = enriched.filter(s => s.destinationFranchiseId === pickupId);
