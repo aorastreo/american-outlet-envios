@@ -174,11 +174,15 @@ export default function ShipmentDetail() {
     }
   }
 
-  // Auto-detect route type from tracking history
+  // Auto-detect route type: check tracking history OR pickup franchise codes
   const hasRouteStatus = shipment.tracking?.some((t: any) => t.status === "EN_RUTA" || t.status === "EN_PARADA") || false;
 
+  const pickupCodes = ["grecia", "san_ramon", "palmares"];
+  const destCode = shipment.destinationFranchise?.code?.toLowerCase() || "";
+  const destName = shipment.destinationFranchise?.displayName?.toLowerCase() || "";
+  const isPickupDestination = pickupCodes.includes(destCode) || destName.includes("recogida");
+
   // Choose correct timeline: route timeline if tracking has EN_RUTA/EN_PARADA OR destination is pickup
-  const isPickupDestination = shipment.destinationFranchise?.displayName?.toLowerCase().includes("recogida") || false;
   let timelineSteps;
   if (hasRouteStatus || isPickupDestination) {
     timelineSteps = originIsWarehouse ? directPickupTimeline : pickupTimeline;

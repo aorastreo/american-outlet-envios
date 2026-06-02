@@ -75,7 +75,7 @@ export default function Track() {
     }
   };
 
-  // Auto-detect route type from tracking history
+  // Auto-detect route type: check tracking history OR pickup franchise codes
   const hasRouteStatus = useMemo(() => {
     return shipment?.tracking?.some((t: any) => t.status === "EN_RUTA" || t.status === "EN_PARADA") || false;
   }, [shipment]);
@@ -84,8 +84,11 @@ export default function Track() {
     return shipment?.originFranchise?.isWarehouse === 1;
   }, [shipment]);
 
+  const pickupCodes = ["grecia", "san_ramon", "palmares"];
   const isPickupDestination = useMemo(() => {
-    return shipment?.destinationFranchise?.displayName?.toLowerCase().includes("recogida") || false;
+    const code = shipment?.destinationFranchise?.code?.toLowerCase() || "";
+    const name = shipment?.destinationFranchise?.displayName?.toLowerCase() || "";
+    return pickupCodes.includes(code) || name.includes("recogida");
   }, [shipment]);
 
   // Use route timeline if: tracking has EN_RUTA/EN_PARADA OR destination is pickup point
