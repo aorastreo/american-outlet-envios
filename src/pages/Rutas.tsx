@@ -1,7 +1,8 @@
-import { useState } from "react";
-import { Link } from "react-router";
+import { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router";
 import FranchiseLayout from "@/components/FranchiseLayout";
 import { trpc } from "@/providers/trpc";
+import { useFranchiseAuth } from "@/hooks/useFranchiseAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -19,6 +20,20 @@ const statusConfig: Record<string, { color: string; label: string; icon: React.E
 };
 
 export default function Rutas() {
+  const navigate = useNavigate();
+  const { user, isLoading: authLoading } = useFranchiseAuth();
+
+  // Solo Bodega y Chofer pueden acceder a Rutas
+  useEffect(() => {
+    if (!authLoading && user) {
+      const isWarehouse = user?.franchise?.isWarehouse === 1;
+      const isDriver = user?.username === "chofer";
+      if (!isWarehouse && !isDriver) {
+        navigate("/dashboard");
+      }
+    }
+  }, [user, authLoading, navigate]);
+
   const [createDialog, setCreateDialog] = useState(false);
   const [pendingDialog, setPendingDialog] = useState(false);
   const [routeName, setRouteName] = useState("");
@@ -102,6 +117,7 @@ export default function Rutas() {
           </div>
         </div>
 
+        {/* Pending Summary Cards */}
         {pendingByCity && pendingByCity.length > 0 && (
           <div className="grid grid-cols-3 gap-3">
             {pendingByCity.map((group) => (
@@ -167,11 +183,12 @@ export default function Rutas() {
                   </Card>
                 </Link>
               );
-n            })}
+            })}
           </div>
         )}
       </div>
 
+      {/* Create Route Dialog */}
       <Dialog open={createDialog} onOpenChange={setCreateDialog}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
@@ -227,6 +244,7 @@ n            })}
         </DialogContent>
       </Dialog>
 
+      {/* Pending Shipments Dialog */}
       <Dialog open={pendingDialog} onOpenChange={setPendingDialog}>
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>

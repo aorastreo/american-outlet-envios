@@ -2,11 +2,29 @@ import { Link, useLocation } from "react-router";
 import { useState } from "react";
 import { useFranchiseAuth } from "@/hooks/useFranchiseAuth";
 import { trpc } from "@/providers/trpc";
-import { Package, Plus, Search, LayoutDashboard, LogOut, ChevronRight, Menu, Truck } from "lucide-react";
+import {
+  LayoutDashboard,
+  Package,
+  Plus,
+  LogOut,
+  Menu,
+  ChevronRight,
+  Truck,
+  Search,
+} from "lucide-react";
 
 const logoUrl = "/logo.jpg";
 
-const allNavItems = [
+// Menu para tiendas normales (sin acceso a Rutas)
+const storeNavItems = [
+  { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { path: "/envios", label: "Mis Envios", icon: Package },
+  { path: "/enviar", label: "Crear Envio", icon: Plus },
+  { path: "/rastrear", label: "Rastrear", icon: Search },
+];
+
+// Menu para Bodega (acceso a todo incluyendo Rutas)
+const warehouseNavItems = [
   { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { path: "/envios", label: "Mis Envios", icon: Package },
   { path: "/enviar", label: "Crear Envio", icon: Plus },
@@ -14,6 +32,7 @@ const allNavItems = [
   { path: "/rastrear", label: "Rastrear", icon: Search },
 ];
 
+// Menu para Chofer (solo Rutas)
 const driverNavItems = [
   { path: "/rutas", label: "Mis Rutas", icon: Truck },
 ];
@@ -90,9 +109,14 @@ export default function FranchiseLayout({
           </div>
         </div>
 
-        {/* Navigation */}
+        {/* Navigation - Solo Bodega y Chofer ven Rutas */}
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-          {((user?.username === "chofer") ? driverNavItems : allNavItems).map((item) => {
+          {(user?.username === "chofer"
+            ? driverNavItems
+            : user?.franchise?.isWarehouse
+            ? warehouseNavItems
+            : storeNavItems
+          ).map((item) => {
             const isActive = location.pathname === item.path;
             return (
               <Link

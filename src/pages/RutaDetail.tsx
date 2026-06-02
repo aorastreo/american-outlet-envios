@@ -1,13 +1,17 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router";
 import FranchiseLayout from "@/components/FranchiseLayout";
 import { trpc } from "@/providers/trpc";
+import { useFranchiseAuth } from "@/hooks/useFranchiseAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Truck, MapPin, Phone, Package, CheckCircle, XCircle, Play, ArrowLeft, ChevronRight, AlertCircle, Clock, User, Calendar, ArrowUpRight, MessageCircle } from "lucide-react";
+import {
+  Truck, MapPin, Phone, Package, CheckCircle, XCircle, Play, ArrowLeft,
+  ChevronRight, AlertCircle, Clock, User, Calendar, ArrowUpRight, MessageCircle,
+} from "lucide-react";
 import toast from "react-hot-toast";
 
 const routeStatusConfig: Record<string, { color: string; label: string }> = {
@@ -33,7 +37,19 @@ export default function RutaDetail() {
   const { id } = useParams<{ id: string }>();
   const routeId = parseInt(id || "0");
   const navigate = useNavigate();
+  const { user, isLoading: authLoading } = useFranchiseAuth();
   const utils = trpc.useUtils();
+
+  // Solo Bodega y Chofer pueden acceder a Rutas
+  useEffect(() => {
+    if (!authLoading && user) {
+      const isWarehouse = user?.franchise?.isWarehouse === 1;
+      const isDriver = user?.username === "chofer";
+      if (!isWarehouse && !isDriver) {
+        navigate("/dashboard");
+      }
+    }
+  }, [user, authLoading, navigate]);
 
   const { data: route, isLoading } = trpc.route.getById.useQuery(
     { id: routeId },
@@ -62,6 +78,7 @@ export default function RutaDetail() {
     onSuccess: () => { utils.route.getById.invalidate({ id: routeId }); toast.success("Envio movido"); },
     onError: (err) => toast.error(err.message),
   });
+
   const assignMutation = trpc.route.assignShipments.useMutation({
     onSuccess: () => {
       utils.route.getById.invalidate({ id: routeId });
@@ -73,7 +90,7 @@ export default function RutaDetail() {
     onError: (err) => toast.error(err.message),
   });
 
-   const { data: availableShipments } = trpc.route.availableShipments.useQuery(
+  const { data: availableShipments } = trpc.route.availableShipments.useQuery(
     assignDialog ? { stopId: assignDialog } : undefined,
     { enabled: assignDialog !== null }
   );
@@ -103,7 +120,7 @@ export default function RutaDetail() {
   if (!route) {
     return (
       <FranchiseLayout>
-        <div className="text-center py-12 text-[#404040]">Ruta no encontrada</div>
+        <div className="text-center py-12 text-[#8A8A8A]">Ruta no encontrada</div>
       </FranchiseLayout>
     );
   }
@@ -114,8 +131,9 @@ export default function RutaDetail() {
   return (
     <FranchiseLayout>
       <div className="max-w-4xl mx-auto space-y-6">
+        {/* Header */}
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate("/rutas")} className="text-[#404040] hover:text-[#C8102E]">
+          <button onClick={() => navigate("/rutas")} className="text-[#8A8A8A] hover:text-[#C8102E]">
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div className="flex-1">
@@ -127,13 +145,14 @@ export default function RutaDetail() {
                 </Badge>
               )}
             </div>
-            <p className="text-sm text-[#404040] mt-1">
+            <p className="text-sm text-[#8A8A8A] mt-1">
               <Calendar className="w-3.5 h-3.5 inline mr-1" />
               {new Date(route.createdAt).toLocaleDateString("es-CR", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
             </p>
           </div>
         </div>
 
+        {/* Summary */}
         <div className="grid grid-cols-4 gap-3">
           {[
             { label: "Asignados", value: route.summary.totalAssigned, color: "text-blue-700", bg: "bg-blue-50" },
@@ -143,13 +162,14 @@ export default function RutaDetail() {
           ].map((s) => (
             <Card key={s.label}>
               <CardContent className={`p-3 ${s.bg}`}>
-                <p className="text-xs text-[#404040] uppercase tracking-wider font-semibold">{s.label}</p>
+                <p className="text-xs text-[#8A8A8A] uppercase tracking-wider font-semibold">{s.label}</p>
                 <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
               </CardContent>
             </Card>
           ))}
         </div>
 
+        {/* Route Actions */}
         {route.status === "PLANIFICADA" && (
           <Button
             onClick={() => updateRouteMutation.mutate({ id: routeId, status: "EN_RUTA" })}
@@ -171,6 +191,7 @@ export default function RutaDetail() {
           </Button>
         )}
 
+        {/* Stops */}
         <div className="space-y-4">
           <h2 className="text-lg font-semibold text-[#1A1A1A] flex items-center gap-2">
             <MapPin className="w-5 h-5 text-[#C8102E]" />
@@ -185,12 +206,13 @@ export default function RutaDetail() {
             return (
               <Card key={stop.id} className={`border-2 ${isCurrent ? "border-[#C8102E]" : "border-[#F0F0F0]"}`}>
                 <CardContent className="p-4">
+                  {/* Stop Header */}
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-3">
                       <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
                         stop.status === "COMPLETADO" ? "bg-[#1B6B3E] text-white" :
                         stop.status === "LLEGADO" ? "bg-[#B8860B] text-white" :
-                        isCurrent ? "bg-[#C8102E] text-white" : "bg-[#F0F0F0] text-[#404040]"
+                        isCurrent ? "bg-[#C8102E] text-white" : "bg-[#F0F0F0] text-[#8A8A8A]"
                       }`}>
                         {idx + 1}
                       </div>
@@ -198,7 +220,7 @@ export default function RutaDetail() {
                         <p className="font-semibold text-[#1A1A1A]">{stop.cityName}</p>
                         <div className="flex items-center gap-2 text-xs">
                           {stopCfg && <Badge variant="secondary" className={stopCfg.color}>{stopCfg.label}</Badge>}
-                          <span className="text-[#404040]">
+                          <span className="text-[#8A8A8A]">
                             {stop.totalShipments} envio{stop.totalShipments !== 1 ? "s" : ""}
                             {stop.delivered > 0 && ` (${stop.delivered} entregados)`}
                           </span>
@@ -231,6 +253,7 @@ export default function RutaDetail() {
                     </div>
                   </div>
 
+                  {/* Shipments */}
                   {stop.shipments.length > 0 && (
                     <div className="space-y-2 mt-3 pt-3 border-t border-[#F0F0F0]">
                       {stop.shipments.map((rs: any) => {
@@ -241,7 +264,7 @@ export default function RutaDetail() {
                           <div key={rs.id} className="flex items-center gap-3 p-2 rounded-lg bg-[#F7F7F7]">
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 flex-wrap">
-                                                                <span className="inline-block bg-[#1A1A1A] text-white text-xs font-mono font-bold px-2 py-0.5 rounded">
+                                <span className="inline-block bg-[#1A1A1A] text-white text-xs font-mono font-bold px-2 py-0.5 rounded">
                                   {s.trackingNumber}
                                 </span>
                                 {shCfg && <Badge variant="secondary" className={shCfg.color}>{shCfg.label}</Badge>}
@@ -254,7 +277,7 @@ export default function RutaDetail() {
                                 <span className="flex items-center gap-1"><User className="w-3 h-3" />{s.senderName}</span>
                                 <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{s.senderPhone}</span>
                               </div>
-                              <p className="text-xs text-[#404040] mt-0.5 truncate">
+                              <p className="text-xs text-[#8A8A8A] mt-0.5 truncate">
                                 {s.items?.map((i: any) => `${i.description} x${i.quantity}`).join(", ")}
                               </p>
                             </div>
@@ -273,8 +296,8 @@ export default function RutaDetail() {
                                 >
                                   <option value="">Mover a...</option>
                                   {route.stops
-                                    .filter((otherStop) => otherStop.id !== stop.id)
-                                    .map((otherStop) => (
+                                    .filter((otherStop: any) => otherStop.id !== stop.id)
+                                    .map((otherStop: any) => (
                                       <option key={otherStop.id} value={otherStop.id}>
                                         {otherStop.cityName}
                                       </option>
@@ -315,6 +338,7 @@ export default function RutaDetail() {
                     </div>
                   )}
 
+                  {/* Assign shipments button */}
                   {(route.status === "PLANIFICADA" || route.status === "EN_RUTA") && stop.status !== "COMPLETADO" && (
                     <Button
                       variant="outline"
@@ -333,6 +357,7 @@ export default function RutaDetail() {
         </div>
       </div>
 
+      {/* Assign Shipments Dialog */}
       <Dialog open={assignDialog !== null} onOpenChange={() => { setAssignDialog(null); setSelectedShipmentIds([]); }}>
         <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
           <DialogHeader>
@@ -342,14 +367,14 @@ export default function RutaDetail() {
             </DialogTitle>
           </DialogHeader>
           {!availableShipments || availableShipments.length === 0 ? (
-            <div className="text-center py-8 text-[#404040]">
+            <div className="text-center py-8 text-[#8A8A8A]">
               <Package className="w-10 h-10 text-[#D4D4D4] mx-auto mb-2" />
-                            <p>No hay envios disponibles para esta parada</p>
-                            <p className="text-xs mt-1">Solo se muestran envios en bodega con destino a esta ciudad</p>
+              <p>No hay envios disponibles para esta parada</p>
+              <p className="text-xs mt-1">Solo se muestran envios en bodega con destino a esta ciudad</p>
             </div>
           ) : (
             <div className="space-y-2">
-              <p className="text-sm text-[#404040]">{availableShipments.length} envios disponibles</p>
+              <p className="text-sm text-[#8A8A8A]">{availableShipments.length} envios disponibles</p>
               {availableShipments.map((s) => (
                 <div
                   key={s.id}
@@ -369,7 +394,7 @@ export default function RutaDetail() {
                         <span className="text-xs font-mono font-bold text-[#1A1A1A]">{s.trackingNumber}</span>
                         <span className="text-xs text-[#525252]">{s.senderName}</span>
                       </div>
-                      <p className="text-xs text-[#404040] truncate">
+                      <p className="text-xs text-[#8A8A8A] truncate">
                         {s.items?.map((i: any) => `${i.description} x${i.quantity}`).join(", ")}
                       </p>
                     </div>

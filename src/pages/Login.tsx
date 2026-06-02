@@ -21,7 +21,6 @@ import {
   Package,
   Shield,
 } from "lucide-react";
-
 const logoUrl = "/logo.jpg";
 
 export default function Login() {
@@ -31,6 +30,7 @@ export default function Login() {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
+  // Solo franquicias que tienen acceso al sistema (puntos de recogida NO tienen login)
   const franchises = [
     { value: "los_chiles", label: "Los Chiles" },
     { value: "pavon", label: "Pavon" },
@@ -38,12 +38,9 @@ export default function Login() {
     { value: "boca_arenal", label: "Boca Arenal" },
     { value: "florencia", label: "Florencia" },
     { value: "fortuna", label: "Fortuna" },
-        { value: "ciudad_quesada", label: "Ciudad Quesada" },
+    { value: "ciudad_quesada", label: "Ciudad Quesada" },
     { value: "puerto_viejo", label: "Puerto Viejo" },
     { value: "ganga_santa_rosa", label: "Ganga Santa Rosa" },
-        { value: "grecia", label: "Recogida - Grecia" },
-    { value: "san_ramon", label: "Recogida - San Ramon" },
-    { value: "palmares", label: "Recogida - Palmares" },
     { value: "bodega_sabana", label: "Bodega Sabana" },
     { value: "chofer", label: "Chofer - Rutas" },
     { value: "bodega", label: "Bodega" },
@@ -75,6 +72,7 @@ export default function Login() {
         return;
       }
 
+      // Store user in localStorage for session
       localStorage.setItem("franchise_user", JSON.stringify(data.user));
       navigate("/dashboard");
     } catch (err: any) {
@@ -85,6 +83,7 @@ export default function Login() {
 
   return (
     <div className="min-h-screen bg-[#F7F7F7] flex items-center justify-center p-4">
+      {/* Back to home */}
       <div className="fixed top-4 left-4 z-10">
         <Link
           to="/"
@@ -96,6 +95,7 @@ export default function Login() {
       </div>
 
       <div className="w-full max-w-md">
+        {/* Logo */}
         <div className="text-center mb-8">
           <img
             src={logoUrl}
@@ -112,6 +112,7 @@ export default function Login() {
 
         <Card className="border-[#D4D4D4] shadow-sm">
           <CardContent className="p-6 space-y-6">
+            {/* Features */}
             <div className="grid grid-cols-3 gap-2 text-center mb-2">
               {[
                 { icon: Package, label: "Gestion" },

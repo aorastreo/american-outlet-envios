@@ -16,6 +16,7 @@ function hashPassword(password: string): string {
   return createHash("sha256").update(password).digest("hex");
 }
 
+// Todas las franquicias (incluye puntos de recogida para envios)
 const franchiseData = [
   { name: "Los Chiles", displayName: "American Outlet Los Chiles", code: "los_chiles", isWarehouse: 0 },
   { name: "Pavon", displayName: "American Outlet Pavon", code: "pavon", isWarehouse: 0 },
@@ -32,6 +33,9 @@ const franchiseData = [
   { name: "Palmares", displayName: "Recogida - Palmares", code: "palmares", isWarehouse: 0 },
   { name: "Bodega", displayName: "American Outlet Bodega", code: "bodega", isWarehouse: 1 },
 ];
+
+// Solo franquicias que tienen login (excluye puntos de recogida)
+const loginFranchiseData = franchiseData.filter(f => !f.displayName.toLowerCase().includes("recogida"));
 
 async function initTables() {
   try {
@@ -154,6 +158,7 @@ async function runSeed() {
     console.log("[seed] Running database seed...");
     const db = getDb();
 
+    // 1. Create ALL franchises (including pickup points as destinations)
     for (const f of franchiseData) {
       const existing = await db
         .select()
@@ -161,9 +166,21 @@ async function runSeed() {
         .where(eq(franchises.code, f.code));
 
       if (existing.length === 0) {
-        const result = await db.insert(franchises).values(f);
-        const franchiseId = Number(result[0].insertId);
+        await db.insert(franchises).values(f);
+        console.log(`[seed] Created franchise: ${f.displayName}`);
+      } else {
+        console.log(`[seed] Franchise exists: ${f.displayName}`);
+      }
+    }
 
+    // 2. Create login users ONLY for stores (NOT pickup points)
+    for (const f of loginFranchiseData) {
+      const existingFranchise = await db.select().from(franchises).where(eq(franchises.code, f.code)).limit(1);
+      if (existingFranchise.length === 0) continue;
+      const franchiseId = existingFranchise[0].id;
+
+      const existingUser = await db.select().from(franchiseUsers).where(eq(franchiseUsers.username, f.code)).limit(1);
+      if (existingUser.length === 0) {
         await db.insert(franchiseUsers).values({
           franchiseId,
           username: f.code,
@@ -172,10 +189,9 @@ async function runSeed() {
           role: f.isWarehouse ? "admin" : "staff",
           isActive: 1,
         });
-
-        console.log(`[seed] Created: ${f.displayName} (user: ${f.code} / pass: american2025)`);
+        console.log(`[seed] Created user: ${f.displayName} (user: ${f.code} / pass: american2025)`);
       } else {
-        console.log(`[seed] Already exists: ${f.displayName}`);
+        console.log(`[seed] User exists: ${f.code}`);
       }
     }
 
@@ -236,9 +252,24 @@ app.post("/api/auth/login", async (c) => {
 
     const db = getDb();
 
-    // ─── AUTO-SEED: Ensure all franchises and users exist ───
+    // ─── AUTO-SEED: Ensure all franchises exist, but only create login users for real stores ───
     console.log("[login] Running auto-seed...");
+
+    // 1. Ensure ALL franchises exist (including pickup points as destinations)
     for (const f of franchiseData) {
+      try {
+        const existingFranchise = await db.select().from(franchises).where(eq(franchises.code, f.code)).limit(1);
+        if (existingFranchise.length === 0) {
+          await db.insert(franchises).values(f);
+          console.log(`[login][seed] Created franchise: ${f.displayName}`);
+        }
+      } catch (e: any) {
+        console.error(`[login][seed] ERROR creating franchise ${f.code}:`, e.message);
+      }
+    }
+
+    // 2. Ensure login users exist ONLY for stores (NOT pickup points)
+    for (const f of loginFranchiseData) {
       try {
         // 1. Ensure franchise exists
         const existingFranchise = await db.select().from(franchises).where(eq(franchises.code, f.code)).limit(1);
@@ -545,8 +576,8 @@ app.get("/api/repair-users", async (c) => {
     const db = getDb();
     const results: Array<{ action: string; code: string; details: string }> = [];
 
-    // Repair all franchise users
-    for (const f of franchiseData) {
+    // Repair login users (only for stores, NOT pickup points)
+    for (const f of loginFranchiseData) {
       try {
         const existingFranchise = await db.select().from(franchises).where(eq(franchises.code, f.code)).limit(1);
         let franchiseId: number;
