@@ -98,11 +98,7 @@ export default function RutaDetail() {
 
   const assignMutation = trpc.route.assignShipments.useMutation({
     onSuccess: () => {
-      // Close dialog immediately
-      setAssignDialog(null);
-      setSelectedShipmentIds([]);
-      setSearchFilter("");
-      // Invalidate all related queries to refresh UI
+      // Refresh all related data
       utils.route.getById.invalidate({ id: routeId });
       utils.route.availableShipments.invalidate();
       utils.route.pendingByPickupPoint.invalidate();
@@ -511,7 +507,14 @@ export default function RutaDetail() {
               <Button
                 onClick={() => {
                   if (assignDialog && selectedShipmentIds.length > 0) {
-                    assignMutation.mutate({ routeId, stopId: assignDialog, shipmentIds: selectedShipmentIds });
+                    const stopId = assignDialog;
+                    const shipmentIds = [...selectedShipmentIds];
+                    // Close dialog and clear state immediately
+                    setAssignDialog(null);
+                    setSelectedShipmentIds([]);
+                    setSearchFilter("");
+                    // Then execute mutation
+                    assignMutation.mutate({ routeId, stopId, shipmentIds });
                   }
                 }}
                 className="w-full bg-[#C8102E] hover:bg-[#9B0B22]"
