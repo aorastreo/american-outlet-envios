@@ -97,11 +97,18 @@ export default function RutaDetail() {
 
   const assignMutation = trpc.route.assignShipments.useMutation({
     onSuccess: () => {
-      utils.route.getById.refetch({ id: routeId });
-      utils.route.pendingByPickupPoint.refetch();
-      utils.route.list.refetch();
+      // Clear selection and close panel
       setSelectedShipmentIds([]);
       setSearchFilter("");
+      setExpandedStopId(null);
+      // Invalidate all route queries to force fresh data
+      utils.route.getById.invalidate();
+      utils.route.pendingByPickupPoint.invalidate();
+      utils.route.list.invalidate();
+      // Also trigger a direct refetch after a microtask
+      Promise.resolve().then(() => {
+        utils.route.getById.refetch({ id: routeId });
+      });
       toast.success("Envios asignados");
     },
     onError: (err) => toast.error(err.message),
