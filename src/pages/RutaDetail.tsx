@@ -513,8 +513,19 @@ export default function RutaDetail() {
                     setAssignDialog(null);
                     setSelectedShipmentIds([]);
                     setSearchFilter("");
-                    // Then execute mutation
-                    assignMutation.mutate({ routeId, stopId, shipmentIds });
+                    // Execute mutation with callbacks that force refresh
+                    assignMutation.mutate(
+                      { routeId, stopId, shipmentIds },
+                      {
+                        onSuccess: () => {
+                          utils.route.getById.refetch({ id: routeId });
+                          utils.route.pendingByPickupPoint.refetch();
+                          utils.route.list.refetch();
+                          toast.success("Envios asignados exitosamente");
+                        },
+                        onError: (err) => toast.error(err.message),
+                      }
+                    );
                   }
                 }}
                 className="w-full bg-[#C8102E] hover:bg-[#9B0B22]"
