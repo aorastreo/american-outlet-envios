@@ -97,18 +97,6 @@ export default function RutaDetail() {
 
   const assignMutation = trpc.route.assignShipments.useMutation({
     onSuccess: () => {
-      // Clear selection and close panel
-      setSelectedShipmentIds([]);
-      setSearchFilter("");
-      setExpandedStopId(null);
-      // Invalidate all route queries to force fresh data
-      utils.route.getById.invalidate();
-      utils.route.pendingByPickupPoint.invalidate();
-      utils.route.list.invalidate();
-      // Also trigger a direct refetch after a microtask
-      Promise.resolve().then(() => {
-        utils.route.getById.refetch({ id: routeId });
-      });
       toast.success("Envios asignados");
     },
     onError: (err) => toast.error(err.message),
@@ -480,6 +468,11 @@ export default function RutaDetail() {
                             onClick={() => {
                               if (selectedShipmentIds.length > 0) {
                                 assignMutation.mutate({ routeId, stopId: stop.id, shipmentIds: selectedShipmentIds });
+                                // Close panel and reload page immediately to show updated data
+                                setExpandedStopId(null);
+                                setSelectedShipmentIds([]);
+                                setSearchFilter("");
+                                window.location.reload();
                               }
                             }}
                             className="w-full bg-[#C8102E] hover:bg-[#9B0B22]"
