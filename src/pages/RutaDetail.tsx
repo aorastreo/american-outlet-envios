@@ -518,10 +518,13 @@ export default function RutaDetail() {
                       { routeId, stopId, shipmentIds },
                       {
                         onSuccess: () => {
-                          utils.route.getById.refetch({ id: routeId });
-                          utils.route.pendingByPickupPoint.refetch();
-                          utils.route.list.refetch();
                           toast.success("Envios asignados exitosamente");
+                          // Wait for dialog to close then refresh data
+                          setTimeout(() => {
+                            utils.route.getById.refetch({ id: routeId });
+                            utils.route.pendingByPickupPoint.refetch();
+                            utils.route.list.refetch();
+                          }, 300);
                         },
                         onError: (err) => toast.error(err.message),
                       }
