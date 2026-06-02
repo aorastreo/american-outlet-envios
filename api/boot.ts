@@ -686,6 +686,44 @@ app.get("/api/debug/users", async (c) => {
 });
 
 // ─── REPAIR: Clean up shipments wrongly assigned to routes ───
+// Debug: Ver datos completos de un envio por tracking number
+app.get("/api/debug/track-raw", async (c) => {
+  try {
+    const providedToken = c.req.query("token");
+    const expectedToken = process.env.INIT_TABLES_SECRET;
+    if (expectedToken && providedToken !== expectedToken) {
+      return c.json({ error: "Acceso denegado" }, 403);
+    }
+
+    const db = getDb();
+    const trackingNumber = c.req.query("trackingNumber");
+    if (!trackingNumber) return c.json({ error: "trackingNumber requerido" }, 400);
+
+    const shipment = await db.select().from(shipments).where(eq(shipments.trackingNumber, trackingNumber)).limit(1);
+    if (shipment.length === 0) return c.json({ error: "No encontrado" }, 404);
+
+    const allFranchises = await db.select().from(franchises);
+    const franchiseMap = new Map(allFranchises.map(f => [f.id, f]));
+    const destFranchise = franchiseMap.get(shipment[0].destinationFranchiseId);
+
+    const pickupCodes = ["grecia", "san_ramon", "palmares"];
+    const isPickupRoute = pickupCodes.includes(destFranchise?.code?.toLowerCase() || "") ||
+                          (destFranchise?.displayName?.toLowerCase() || "").includes("recogida");
+
+    return c.json({
+      trackingNumber,
+      destinationFranchiseId: shipment[0].destinationFranchiseId,
+      destinationCode: destFranchise?.code,
+      destinationName: destFranchise?.displayName,
+      isPickupRoute,
+      pickupCodes,
+      status: shipment[0].status,
+    });
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
 // Debug: Ver estados reales de un envio
 app.get("/api/debug/shipment-tracking", async (c) => {
   try {
