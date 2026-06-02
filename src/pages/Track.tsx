@@ -135,6 +135,15 @@ export default function Track() {
               <p className="text-3xl font-bold font-mono tracking-wider">{shipment.trackingNumber}</p>
             </div>
 
+            {/* DEBUG: Show raw values */}
+            <Card className="bg-yellow-50 border-yellow-300">
+              <CardContent className="p-3">
+                <p className="text-xs font-mono text-yellow-800">
+                  DEBUG: destId={shipment?.destinationFranchiseId}, isPickup={shipment?.destinationFranchiseId === 5 || shipment?.destinationFranchiseId === 6 || shipment?.destinationFranchiseId === 7 ? "YES" : "NO"}, originWarehouse={originIsWarehouse ? "YES" : "NO"}
+                </p>
+              </CardContent>
+            </Card>
+
             {/* Direct flow badge */}
             {originIsWarehouse && (
               <Card className="bg-[#FFF5F5] border-[#C8102E]/20">
