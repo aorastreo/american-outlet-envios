@@ -8,7 +8,7 @@ import { createOAuthCallbackHandler } from "./kimi/auth";
 import { Paths } from "@contracts/constants";
 import { getDb } from "./queries/connection";
 import { franchises, franchiseUsers, shipments, shipmentTracking, routeShipments } from "@db/schema";
-import { inArray } from "drizzle-orm";
+import { inArray, sql } from "drizzle-orm";
 import { createHash } from "crypto";
 import { eq } from "drizzle-orm";
 import mysql from "mysql2/promise";
@@ -769,10 +769,41 @@ app.get("/api/repair-route-shipments", async (c) => {
       }
     }
 
+    // 7. SECOND PASS: Clean EN_RUTA/EN_PARADA tracking for ALL non-pickup shipments
+    // This catches shipments that were removed from routes but still have bad tracking entries
+    const nonPickupShipments = await db.select().from(shipments)
+      .where(sql`${shipments.destinationFranchiseId} NOT IN (${pickupIds.join(",")})`);
+
+    let cleanedTrackingCount = 0;
+    for (const s of nonPickupShipments) {
+      const trackingEntries = await db.select().from(shipmentTracking)
+        .where(eq(shipmentTracking.shipmentId, s.id));
+
+      const badEntries = trackingEntries.filter(t =>
+        t.status === "EN_RUTA" || t.status === "EN_PARADA"
+      );
+
+      if (badEntries.length > 0) {
+        for (const entry of badEntries) {
+          await db.delete(shipmentTracking).where(eq(shipmentTracking.id, entry.id));
+        }
+        cleanedTrackingCount += badEntries.length;
+        results.push({
+          action: "cleaned_orphan_tracking",
+          trackingNumber: s.trackingNumber,
+          details: `Eliminados ${badEntries.length} registros huérfanos (EN_RUTA/EN_PARADA) - va a ${allFranchises.find(f => f.id === s.destinationFranchiseId)?.displayName || "tienda"}`
+        });
+      }
+    }
+
+    const totalFixed = badShipmentIds.length + cleanedTrackingCount;
+
     return c.json({
       success: true,
-      message: `Reparados ${badShipmentIds.length} envios mal asignados a rutas`,
-      fixed: badShipmentIds.length,
+      message: totalFixed > 0 
+        ? `Reparados ${badShipmentIds.length} envios en rutas + ${cleanedTrackingCount} registros de tracking huérfanos limpiados`
+        : "Todos los envios son correctos",
+      fixed: totalFixed,
       details: results,
     });
   } catch (err: any) {
