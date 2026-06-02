@@ -62,32 +62,52 @@ export default function RutaDetail() {
   const [searchFilter, setSearchFilter] = useState("");
 
   const updateRouteMutation = trpc.route.updateStatus.useMutation({
-    onSuccess: () => { utils.route.getById.invalidate({ id: routeId }); utils.route.list.invalidate(); toast.success("Estado actualizado"); },
+    onSuccess: () => {
+      utils.route.getById.invalidate({ id: routeId });
+      utils.route.list.invalidate();
+      utils.route.pendingByPickupPoint.invalidate();
+      toast.success("Estado actualizado");
+    },
     onError: (err) => toast.error(err.message),
   });
 
   const updateStopMutation = trpc.route.updateStop.useMutation({
-    onSuccess: () => utils.route.getById.invalidate({ id: routeId }),
+    onSuccess: () => {
+      utils.route.getById.invalidate({ id: routeId });
+      utils.route.list.invalidate();
+    },
     onError: (err) => toast.error(err.message),
   });
 
   const updateShipmentMutation = trpc.route.updateShipmentStatus.useMutation({
-    onSuccess: () => utils.route.getById.invalidate({ id: routeId }),
+    onSuccess: () => {
+      utils.route.getById.invalidate({ id: routeId });
+      utils.route.list.invalidate();
+    },
     onError: (err) => toast.error(err.message),
   });
 
   const moveShipmentMutation = trpc.route.moveShipment.useMutation({
-    onSuccess: () => { utils.route.getById.invalidate({ id: routeId }); toast.success("Envio movido"); },
+    onSuccess: () => {
+      utils.route.getById.invalidate({ id: routeId });
+      utils.route.list.invalidate();
+      toast.success("Envio movido");
+    },
     onError: (err) => toast.error(err.message),
   });
 
   const assignMutation = trpc.route.assignShipments.useMutation({
     onSuccess: () => {
+      // Invalidate all related queries to refresh UI
       utils.route.getById.invalidate({ id: routeId });
       utils.route.availableShipments.invalidate();
-      setAssignDialog(null);
+      utils.route.pendingByPickupPoint.invalidate();
+      utils.route.list.invalidate();
       setSelectedShipmentIds([]);
-      toast.success("Envios asignados");
+      setSearchFilter("");
+      toast.success("Envios asignados exitosamente");
+      // Close dialog after a short delay so user sees the toast
+      setTimeout(() => setAssignDialog(null), 800);
     },
     onError: (err) => toast.error(err.message),
   });
