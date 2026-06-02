@@ -8,9 +8,8 @@ import { createOAuthCallbackHandler } from "./kimi/auth";
 import { Paths } from "@contracts/constants";
 import { getDb } from "./queries/connection";
 import { franchises, franchiseUsers, shipments, shipmentTracking, routeShipments } from "@db/schema";
-import { inArray, sql } from "drizzle-orm";
+import { inArray, notInArray, eq } from "drizzle-orm";
 import { createHash } from "crypto";
-import { eq } from "drizzle-orm";
 import mysql from "mysql2/promise";
 
 function hashPassword(password: string): string {
@@ -771,8 +770,9 @@ app.get("/api/repair-route-shipments", async (c) => {
 
     // 7. SECOND PASS: Clean EN_RUTA/EN_PARADA tracking for ALL non-pickup shipments
     // This catches shipments that were removed from routes but still have bad tracking entries
-    const nonPickupShipments = await db.select().from(shipments)
-      .where(sql`${shipments.destinationFranchiseId} NOT IN (${pickupIds.join(",")})`);
+    const nonPickupShipments = pickupIds.length > 0
+      ? await db.select().from(shipments).where(notInArray(shipments.destinationFranchiseId, pickupIds))
+      : [];
 
     let cleanedTrackingCount = 0;
     for (const s of nonPickupShipments) {
