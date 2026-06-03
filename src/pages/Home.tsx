@@ -47,26 +47,49 @@ export default function Home() {
     CANCELADO: { color: "bg-red-50 text-red-700", label: "Cancelado", icon: AlertTriangle },
   };
 
+  // Detect pickup route: Grecia=5, San Ramon=6, Palmares=7
+  const destId = shipment?.destinationFranchiseId;
+  const isPickup = destId === 5 || destId === 6 || destId === 7;
+
   const originIsWarehouse = useMemo(() => {
     return shipment?.originFranchise?.isWarehouse === 1;
   }, [shipment]);
 
   const timelineSteps = useMemo(() => {
-    if (originIsWarehouse) {
-      return [
-        { status: "CREADO", label: "Creado", desc: "Envio registrado" },
-        { status: "ENVIADO_A_DESTINO", label: "Enviado a Destino", desc: "Bodega envio a tienda" },
-        { status: "RECIBIDO_EN_DESTINO", label: "Entregado", desc: "Tienda recibio" },
-      ];
+    if (isPickup) {
+      // Pickup point route: includes EN_RUTA and EN_PARADA
+      return originIsWarehouse
+        ? [
+            { status: "CREADO", label: "Creado", desc: "Envio registrado" },
+            { status: "ENVIADO_A_DESTINO", label: "Enviado a Destino", desc: "Bodega envio directo" },
+            { status: "EN_RUTA", label: "En Ruta", desc: "Asignado a camion" },
+            { status: "EN_PARADA", label: "En Parada", desc: "Camion en punto de recogida" },
+            { status: "RECIBIDO_EN_DESTINO", label: "Entregado", desc: "Cliente recibio" },
+          ]
+        : [
+            { status: "CREADO", label: "Creado", desc: "Envio registrado" },
+            { status: "ENVIADO_A_BODEGA", label: "Enviado a Bodega", desc: "Tienda envio a bodega" },
+            { status: "RECIBIDO_EN_BODEGA", label: "En Bodega", desc: "Bodega recibio" },
+            { status: "EN_RUTA", label: "En Ruta", desc: "Asignado a camion" },
+            { status: "EN_PARADA", label: "En Parada", desc: "Camion en punto de recogida" },
+            { status: "RECIBIDO_EN_DESTINO", label: "Entregado", desc: "Cliente recibio" },
+          ];
     }
-    return [
-      { status: "CREADO", label: "Creado", desc: "Envio registrado" },
-      { status: "ENVIADO_A_BODEGA", label: "Enviado a Bodega", desc: "Tienda envio a bodega" },
-      { status: "RECIBIDO_EN_BODEGA", label: "En Bodega", desc: "Bodega recibio" },
-      { status: "ENVIADO_A_DESTINO", label: "Enviado a Destino", desc: "Bodega envio a tienda" },
-      { status: "RECIBIDO_EN_DESTINO", label: "Entregado", desc: "Tienda recibio" },
-    ];
-  }, [originIsWarehouse]);
+    // Regular store route
+    return originIsWarehouse
+      ? [
+          { status: "CREADO", label: "Creado", desc: "Envio registrado" },
+          { status: "ENVIADO_A_DESTINO", label: "Enviado a Destino", desc: "Bodega envio a tienda" },
+          { status: "RECIBIDO_EN_DESTINO", label: "Entregado", desc: "Tienda recibio" },
+        ]
+      : [
+          { status: "CREADO", label: "Creado", desc: "Envio registrado" },
+          { status: "ENVIADO_A_BODEGA", label: "Enviado a Bodega", desc: "Tienda envio a bodega" },
+          { status: "RECIBIDO_EN_BODEGA", label: "En Bodega", desc: "Bodega recibio" },
+          { status: "ENVIADO_A_DESTINO", label: "Enviado a Destino", desc: "Bodega envio a tienda" },
+          { status: "RECIBIDO_EN_DESTINO", label: "Entregado", desc: "Tienda recibio" },
+        ];
+  }, [isPickup, originIsWarehouse]);
 
   const currentStepIndex = shipment
     ? timelineSteps.findIndex((s) => s.status === shipment.status)
