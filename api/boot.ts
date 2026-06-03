@@ -685,6 +685,28 @@ app.get("/api/debug/users", async (c) => {
   }
 });
 
+// ─── REPAIR: Fix shipment_tracking ENUM to include EN_RUTA and EN_PARADA ───
+app.get("/api/fix-tracking-table", async (c) => {
+  try {
+    const providedToken = c.req.query("token");
+    const expectedToken = process.env.INIT_TABLES_SECRET;
+    if (expectedToken && providedToken !== expectedToken) {
+      return c.json({ error: "Acceso denegado" }, 403);
+    }
+
+    const connection = await mysql.createConnection(env.databaseUrl);
+    await connection.execute(`
+      ALTER TABLE shipment_tracking 
+      MODIFY status ENUM('CREADO','ENVIADO_A_BODEGA','RECIBIDO_EN_BODEGA','ENVIADO_A_DESTINO','RECIBIDO_EN_DESTINO','EN_RUTA','EN_PARADA','CANCELADO') NOT NULL
+    `);
+    await connection.end();
+
+    return c.json({ success: true, message: "Tabla shipment_tracking actualizada con EN_RUTA y EN_PARADA" });
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message }, 500);
+  }
+});
+
 // ─── REPAIR: Fix EN_RUTA tracking for a specific route ───
 app.get("/api/fix-route-tracking", async (c) => {
   try {
@@ -719,15 +741,19 @@ app.get("/api/fix-route-tracking", async (c) => {
         const hasEnRuta = existing.some(t => t.status === "EN_RUTA");
 
         if (!hasEnRuta) {
-          await db.insert(shipmentTracking).values({
-            shipmentId: rs.shipmentId,
-            status: "EN_RUTA",
-            locationId: 0,
-            notes: `Asignado a ruta - en ruta hacia ${stop.cityName}`,
-            createdBy: bodegaUserId,
-          });
-          await db.update(shipments).set({ status: "EN_RUTA" }).where(eq(shipments.id, rs.shipmentId));
-          results.push({ shipmentId: rs.shipmentId, action: "created_EN_RUTA" });
+          try {
+            // Use raw SQL to get better error details
+            const connection = await mysql.createConnection(env.databaseUrl);
+            await connection.execute(
+              `INSERT INTO shipment_tracking (shipmentId, status, locationId, notes, createdBy) VALUES (?, 'EN_RUTA', 0, ?, ?)`,
+              [rs.shipmentId, `Asignado a ruta - en ruta hacia ${stop.cityName}`, bodegaUserId]
+            );
+            await connection.end();
+            await db.update(shipments).set({ status: "EN_RUTA" }).where(eq(shipments.id, rs.shipmentId));
+            results.push({ shipmentId: rs.shipmentId, action: "created_EN_RUTA" });
+          } catch (insertErr: any) {
+            results.push({ shipmentId: rs.shipmentId, action: "error: " + insertErr.message });
+          }
         }
       }
     }
