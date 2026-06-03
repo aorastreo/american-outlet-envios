@@ -7,7 +7,7 @@ import { env } from "./lib/env";
 import { createOAuthCallbackHandler } from "./kimi/auth";
 import { Paths } from "@contracts/constants";
 import { getDb } from "./queries/connection";
-import { franchises, franchiseUsers, shipments, shipmentTracking, routeShipments } from "@db/schema";
+import { franchises, franchiseUsers, shipments, shipmentTracking, routeShipments, routeStops } from "@db/schema";
 import { inArray, notInArray, eq } from "drizzle-orm";
 import { createHash } from "crypto";
 import mysql from "mysql2/promise";
@@ -682,6 +682,57 @@ app.get("/api/debug/users", async (c) => {
     });
   } catch (err: any) {
     return c.json({ error: err.message }, 500);
+  }
+});
+
+// ─── REPAIR: Fix EN_RUTA tracking for a specific route ───
+app.get("/api/fix-route-tracking", async (c) => {
+  try {
+    const providedToken = c.req.query("token");
+    const expectedToken = process.env.INIT_TABLES_SECRET;
+    if (expectedToken && providedToken !== expectedToken) {
+      return c.json({ error: "Acceso denegado" }, 403);
+    }
+
+    const routeId = parseInt(c.req.query("routeId") || "0");
+    if (!routeId) return c.json({ error: "routeId requerido" }, 400);
+
+    const db = getDb();
+    const results: Array<{ shipmentId: number; action: string }> = [];
+
+    // Get stops for this route
+    const stops = await db.select().from(routeStops).where(eq(routeStops.routeId, routeId));
+    for (const stop of stops) {
+      const assigned = await db.select().from(routeShipments).where(eq(routeShipments.stopId, stop.id));
+      for (const rs of assigned) {
+        // Check if EN_RUTA tracking exists
+        const existing = await db.select().from(shipmentTracking)
+          .where(eq(shipmentTracking.shipmentId, rs.shipmentId));
+        const hasEnRuta = existing.some(t => t.status === "EN_RUTA");
+
+        if (!hasEnRuta) {
+          await db.insert(shipmentTracking).values({
+            shipmentId: rs.shipmentId,
+            status: "EN_RUTA",
+            locationId: 0,
+            notes: `Asignado a ruta - en ruta hacia ${stop.cityName}`,
+            createdBy: 0,
+          });
+          await db.update(shipments).set({ status: "EN_RUTA" }).where(eq(shipments.id, rs.shipmentId));
+          results.push({ shipmentId: rs.shipmentId, action: "created_EN_RUTA" });
+        }
+      }
+    }
+
+    return c.json({
+      success: true,
+      routeId,
+      fixed: results.length,
+      message: results.length > 0 ? `Reparados ${results.length} envios` : "Nada que reparar",
+      details: results,
+    });
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message }, 500);
   }
 });
 
