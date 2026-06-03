@@ -770,6 +770,67 @@ app.get("/api/fix-route-tracking", async (c) => {
   }
 });
 
+// ─── DIAGNOSTIC: Show full route state with shipment details ───
+app.get("/api/debug/route-state", async (c) => {
+  try {
+    const providedToken = c.req.query("token");
+    const expectedToken = process.env.INIT_TABLES_SECRET;
+    if (expectedToken && providedToken !== expectedToken) {
+      return c.json({ error: "Acceso denegado" }, 403);
+    }
+
+    const routeId = parseInt(c.req.query("routeId") || "0");
+    if (!routeId) return c.json({ error: "routeId requerido" }, 400);
+
+    const db = getDb();
+
+    // 1. Get route
+    const route = await db.select().from(deliveryRoutes).where(eq(deliveryRoutes.id, routeId)).limit(1);
+
+    // 2. Get stops
+    const stops = await db.select().from(routeStops).where(eq(routeStops.routeId, routeId));
+
+    // 3. For each stop, get shipments and their tracking
+    const stopsWithShipments = [];
+    for (const stop of stops) {
+      const assigned = await db.select().from(routeShipments).where(eq(routeShipments.stopId, stop.id));
+      const shipmentsWithTracking = [];
+      for (const rs of assigned) {
+        const shipmentData = await db.select().from(shipments).where(eq(shipments.id, rs.shipmentId)).limit(1);
+        const tracking = await db.select().from(shipmentTracking).where(eq(shipmentTracking.shipmentId, rs.shipmentId));
+        shipmentsWithTracking.push({
+          routeShipmentId: rs.id,
+          shipmentId: rs.shipmentId,
+          trackingNumber: shipmentData[0]?.trackingNumber || "?",
+          status: shipmentData[0]?.status || "?",
+          hasEnRutaTracking: tracking.some(t => t.status === "EN_RUTA"),
+          hasEnParadaTracking: tracking.some(t => t.status === "EN_PARADA"),
+          allTracking: tracking.map(t => ({ status: t.status, notes: t.notes })),
+        });
+      }
+      stopsWithShipments.push({
+        stopId: stop.id,
+        cityName: stop.cityName,
+        status: stop.status,
+        shipments: shipmentsWithTracking,
+      });
+    }
+
+    return c.json({
+      route: route[0] || null,
+      stops: stopsWithShipments,
+      summary: {
+        totalStops: stops.length,
+        totalShipments: stopsWithShipments.reduce((sum, s) => sum + s.shipments.length, 0),
+        shipmentsWithEnRuta: stopsWithShipments.reduce((sum, s) => sum + s.shipments.filter(sh => sh.hasEnRutaTracking).length, 0),
+        shipmentsWithoutEnRuta: stopsWithShipments.reduce((sum, s) => sum + s.shipments.filter(sh => !sh.hasEnRutaTracking).length, 0),
+      },
+    });
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message, stack: err.stack }, 500);
+  }
+});
+
 // ─── REPAIR: Clean up shipments wrongly assigned to routes ───
 // Debug: Ver datos completos de un envio por tracking number
 app.get("/api/debug/track-raw", async (c) => {
