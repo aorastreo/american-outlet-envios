@@ -245,6 +245,7 @@ export const shipmentRouter = createRouter({
         tracking: trackingWithActors,
         originFranchise: franchiseMap.get(shipment[0].originFranchiseId),
         destinationFranchise: destFranchise,
+        destinationFranchiseId: shipment[0].destinationFranchiseId,
         currentLocation: franchiseMap.get(shipment[0].currentLocationId),
         isPickupRoute,
       };
@@ -397,6 +398,7 @@ export const shipmentRouter = createRouter({
         tracking: trackingHistory,
         originFranchise: franchiseMap.get(shipment[0].originFranchiseId),
         destinationFranchise: franchiseMap.get(shipment[0].destinationFranchiseId),
+        destinationFranchiseId: shipment[0].destinationFranchiseId,
         currentLocation: franchiseMap.get(shipment[0].currentLocationId),
         isPickupRoute,
       };
