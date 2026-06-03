@@ -207,9 +207,9 @@ export const shipmentRouter = createRouter({
       const canView = s.originFranchiseId === franchiseId ||
         s.destinationFranchiseId === franchiseId ||
         s.currentLocationId === franchiseId ||
-        (isWarehouse && (s.status === "ENVIADO_A_BODEGA" || s.status === "RECIBIDO_EN_BODEGA" || s.status === "ENVIADO_A_DESTINO"));
+        (isWarehouse && (s.status === "ENVIADO_A_BODEGA" || s.status === "RECIBIDO_EN_BODEGA" || s.status === "ENVIADO_A_DESTINO" || s.status === "EN_RUTA" || s.status === "EN_PARADA"));
       if (!canView) {
-        throw new TRPCError({ code: "FORBIDDEN", message: "No tiene permiso para ver este envio" });
+        return null; // Return null instead of throwing error
       }
 
       const items = await db.select().from(shipmentItems).where(eq(shipmentItems.shipmentId, input.id));
