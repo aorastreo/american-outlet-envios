@@ -140,9 +140,15 @@ export default function Shipments() {
                       <Store className="w-3 h-3" />{shipment.originName}
                     </span>
                     <ArrowRight className="w-4 h-4 text-[#D4D4D4]" />
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-50 text-[#1B6B3E] rounded text-xs font-medium">
-                      {shipment.destinationName}
-                    </span>
+                    {shipment.destinationName?.toLowerCase().includes("recogida") ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-orange-50 text-orange-700 rounded text-xs font-bold border border-orange-200">
+                        <MapPin className="w-3 h-3" />{shipment.destinationName}
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-50 text-[#1B6B3E] rounded text-xs font-medium">
+                        {shipment.destinationName}
+                      </span>
+                    )}
                   </div>
                 </div>
                 <div className="text-right shrink-0 space-y-1">
