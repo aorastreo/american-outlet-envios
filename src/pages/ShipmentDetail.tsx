@@ -73,9 +73,30 @@ export default function ShipmentDetail() {
   const [cancelReason, setCancelReason] = useState("");
   const [dialogOpen, setDialogOpen] = useState<string | null>(null);
 
-  const { data: shipment, isLoading } = trpc.shipment.getById.useQuery(
+  const { data: shipment, isLoading, error: queryError } = trpc.shipment.getById.useQuery(
     { id: shipmentId }, { enabled: shipmentId > 0 }
   );
+
+  if (queryError) {
+    return (
+      <FranchiseLayout>
+        <div className="max-w-4xl mx-auto space-y-6">
+          <div className="flex items-center gap-3">
+            <Button variant="outline" size="sm" onClick={() => navigate("/envios")}><ArrowLeft className="w-4 h-4" /></Button>
+            <h1 className="text-xl font-bold text-[#1A1A1A]">Error</h1>
+          </div>
+          <Card className="border-red-200 bg-red-50">
+            <CardContent className="p-6">
+              <p className="text-red-700">{queryError.message || "No tiene permiso para ver este envio"}</p>
+              <Button variant="outline" className="mt-4" onClick={() => navigate("/envios")}>
+                <ArrowLeft className="w-4 h-4 mr-2" />Volver a Mis Envios
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </FranchiseLayout>
+    );
+  }
 
   const originIsWarehouse = shipment?.originFranchise?.isWarehouse === 1;
   const utils = trpc.useUtils();
