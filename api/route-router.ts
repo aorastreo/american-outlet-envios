@@ -200,9 +200,48 @@ export const routeRouter = createRouter({
       id: z.number(),
       status: z.enum(["PLANIFICADA", "EN_RUTA", "COMPLETADA", "CANCELADA"]),
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const db = getDb();
       await db.update(deliveryRoutes).set({ status: input.status }).where(eq(deliveryRoutes.id, input.id));
+
+      // When route starts (EN_RUTA), track all assigned shipments as EN_RUTA
+      if (input.status === "EN_RUTA") {
+        const routeStopsList = await db.select().from(routeStops).where(eq(routeStops.routeId, input.id));
+        for (const stop of routeStopsList) {
+          const assigned = await db.select().from(routeShipments).where(eq(routeShipments.stopId, stop.id));
+          for (const rs of assigned) {
+            // Insert EN_RUTA tracking entry
+            await db.insert(shipmentTracking).values({
+              shipmentId: rs.shipmentId,
+              status: "EN_RUTA",
+              locationId: 0,
+              notes: `Asignado a ruta de camion - en ruta hacia ${stop.cityName}`,
+              createdBy: ctx.franchiseUser!.id,
+            });
+            // Update main shipment status to EN_RUTA
+            await db.update(shipments).set({ status: "EN_RUTA" }).where(eq(shipments.id, rs.shipmentId));
+          }
+        }
+      }
+
+      // When route completes (COMPLETADA), mark any remaining ASIGNADO shipments as RECIBIDO_EN_DESTINO
+      if (input.status === "COMPLETADA") {
+        const allRouteShipments = await db.select().from(routeShipments).where(eq(routeShipments.routeId, input.id));
+        for (const rs of allRouteShipments) {
+          if (rs.status === "ASIGNADO") {
+            await db.update(routeShipments).set({ status: "ENTREGADO" }).where(eq(routeShipments.id, rs.id));
+            await db.insert(shipmentTracking).values({
+              shipmentId: rs.shipmentId,
+              status: "RECIBIDO_EN_DESTINO",
+              locationId: 0,
+              notes: "Entregado en ruta de camion",
+              createdBy: ctx.franchiseUser!.id,
+            });
+            await db.update(shipments).set({ status: "RECIBIDO_EN_DESTINO" }).where(eq(shipments.id, rs.shipmentId));
+          }
+        }
+      }
+
       return { success: true };
     }),
 
