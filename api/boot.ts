@@ -770,6 +770,56 @@ app.get("/api/fix-route-tracking", async (c) => {
   }
 });
 
+// ─── FIX: Force update shipment status to EN_RUTA for route shipments ───
+app.get("/api/fix-shipment-status", async (c) => {
+  try {
+    const providedToken = c.req.query("token");
+    const expectedToken = process.env.INIT_TABLES_SECRET;
+    if (expectedToken && providedToken !== expectedToken) {
+      return c.json({ error: "Acceso denegado" }, 403);
+    }
+
+    const routeId = parseInt(c.req.query("routeId") || "0");
+    if (!routeId) return c.json({ error: "routeId requerido" }, 400);
+
+    const db = getDb();
+    const results: Array<{ shipmentId: number; trackingNumber: string; oldStatus: string; newStatus: string }> = [];
+
+    // Get stops for this route
+    const stops = await db.select().from(routeStops).where(eq(routeStops.routeId, routeId));
+    for (const stop of stops) {
+      const assigned = await db.select().from(routeShipments).where(eq(routeShipments.stopId, stop.id));
+      for (const rs of assigned) {
+        const shipmentData = await db.select().from(shipments).where(eq(shipments.id, rs.shipmentId)).limit(1);
+        if (shipmentData.length === 0) continue;
+        
+        const oldStatus = shipmentData[0].status;
+        
+        // Force update to EN_RUTA regardless of current status
+        if (oldStatus !== "EN_RUTA" && oldStatus !== "EN_PARADA" && oldStatus !== "RECIBIDO_EN_DESTINO") {
+          await db.update(shipments).set({ status: "EN_RUTA" }).where(eq(shipments.id, rs.shipmentId));
+          results.push({
+            shipmentId: rs.shipmentId,
+            trackingNumber: shipmentData[0].trackingNumber,
+            oldStatus,
+            newStatus: "EN_RUTA",
+          });
+        }
+      }
+    }
+
+    return c.json({
+      success: true,
+      routeId,
+      fixed: results.length,
+      message: results.length > 0 ? `Actualizados ${results.length} envios a EN_RUTA` : "Nada que actualizar",
+      details: results,
+    });
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message }, 500);
+  }
+});
+
 // ─── DIAGNOSTIC: Show full route state with shipment details ───
 app.get("/api/debug/route-state", async (c) => {
   try {
