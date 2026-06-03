@@ -698,6 +698,14 @@ app.get("/api/fix-route-tracking", async (c) => {
     if (!routeId) return c.json({ error: "routeId requerido" }, 400);
 
     const db = getDb();
+
+    // Get bodega user ID (franchise code "bodega")
+    const bodegaFranchise = await db.select().from(franchises).where(eq(franchises.code, "bodega")).limit(1);
+    if (bodegaFranchise.length === 0) return c.json({ error: "Bodega not found" }, 500);
+
+    const bodegaUser = await db.select().from(franchiseUsers).where(eq(franchiseUsers.franchiseId, bodegaFranchise[0].id)).limit(1);
+    const bodegaUserId = bodegaUser.length > 0 ? bodegaUser[0].id : 1;
+
     const results: Array<{ shipmentId: number; action: string }> = [];
 
     // Get stops for this route
@@ -716,7 +724,7 @@ app.get("/api/fix-route-tracking", async (c) => {
             status: "EN_RUTA",
             locationId: 0,
             notes: `Asignado a ruta - en ruta hacia ${stop.cityName}`,
-            createdBy: 0,
+            createdBy: bodegaUserId,
           });
           await db.update(shipments).set({ status: "EN_RUTA" }).where(eq(shipments.id, rs.shipmentId));
           results.push({ shipmentId: rs.shipmentId, action: "created_EN_RUTA" });
