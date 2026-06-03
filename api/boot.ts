@@ -770,6 +770,28 @@ app.get("/api/fix-route-tracking", async (c) => {
   }
 });
 
+// ─── FIX: Fix shipments table ENUM to include EN_RUTA and EN_PARADA ───
+app.get("/api/fix-shipments-table", async (c) => {
+  try {
+    const providedToken = c.req.query("token");
+    const expectedToken = process.env.INIT_TABLES_SECRET;
+    if (expectedToken && providedToken !== expectedToken) {
+      return c.json({ error: "Acceso denegado" }, 403);
+    }
+
+    const connection = await mysql.createConnection(env.databaseUrl);
+    await connection.execute(`
+      ALTER TABLE shipments 
+      MODIFY status ENUM('CREADO','ENVIADO_A_BODEGA','RECIBIDO_EN_BODEGA','ENVIADO_A_DESTINO','RECIBIDO_EN_DESTINO','EN_RUTA','EN_PARADA','CANCELADO') NOT NULL
+    `);
+    await connection.end();
+
+    return c.json({ success: true, message: "Tabla shipments actualizada con EN_RUTA y EN_PARADA" });
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message }, 500);
+  }
+});
+
 // ─── FIX: Force update shipment status to EN_RUTA for route shipments ───
 app.get("/api/fix-shipment-status", async (c) => {
   try {
