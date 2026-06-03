@@ -17,6 +17,8 @@ const statusEnum = z.enum([
   "RECIBIDO_EN_BODEGA",
   "ENVIADO_A_DESTINO",
   "RECIBIDO_EN_DESTINO",
+  "EN_RUTA",
+  "EN_PARADA",
   "CANCELADO",
 ]);
 

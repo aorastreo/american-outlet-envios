@@ -22,8 +22,8 @@ const statusConfig: Record<string, { color: string; label: string; icon: React.E
   ENVIADO_A_BODEGA: { color: "bg-amber-100 text-amber-700", label: "Enviado a Bodega", icon: Send },
   RECIBIDO_EN_BODEGA: { color: "bg-purple-100 text-purple-700", label: "Recibido en Bodega", icon: ClipboardCheck },
   ENVIADO_A_DESTINO: { color: "bg-[#FFF5F5] text-[#C8102E]", label: "Enviado a Destino", icon: Truck },
-  EN_RUTA: { color: "bg-blue-100 text-blue-700", label: "En Ruta de Camion" },
-  EN_PARADA: { color: "bg-orange-100 text-orange-700", label: "En Punto de Recogida" },
+  EN_RUTA: { color: "bg-blue-100 text-blue-700", label: "En Ruta de Camion", icon: Truck },
+  EN_PARADA: { color: "bg-orange-100 text-orange-700", label: "En Punto de Recogida", icon: MapPin },
   RECIBIDO_EN_DESTINO: { color: "bg-emerald-100 text-emerald-700", label: "Entregado", icon: CheckCircle },
   CANCELADO: { color: "bg-red-100 text-red-700", label: "Cancelado", icon: Ban },
 };
