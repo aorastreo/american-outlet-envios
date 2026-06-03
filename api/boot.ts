@@ -7,7 +7,7 @@ import { env } from "./lib/env";
 import { createOAuthCallbackHandler } from "./kimi/auth";
 import { Paths } from "@contracts/constants";
 import { getDb } from "./queries/connection";
-import { franchises, franchiseUsers, shipments, shipmentTracking, routeShipments, routeStops } from "@db/schema";
+import { franchises, franchiseUsers, shipments, shipmentTracking, routeShipments, routeStops, deliveryRoutes } from "@db/schema";
 import { inArray, notInArray, eq } from "drizzle-orm";
 import { createHash } from "crypto";
 import mysql from "mysql2/promise";
