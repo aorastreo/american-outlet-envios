@@ -431,4 +431,55 @@ export const routeRouter = createRouter({
 
       return grouped;
     }),
+
+  // ─── Repair Tracking for Existing Routes ───────────────────────
+  // Automatically creates EN_RUTA tracking entries for shipments in active routes
+  repairTracking: franchiseAuthedQuery
+    .input(z.object({ routeId: z.number() }))
+    .mutation(async ({ input, ctx }) => {
+      const db = getDb();
+      const results: Array<{ shipmentId: number; action: string }> = [];
+
+      // Get the route
+      const route = await db.select().from(deliveryRoutes).where(eq(deliveryRoutes.id, input.routeId)).limit(1);
+      if (route.length === 0 || route[0].status !== "EN_RUTA") {
+        return { fixed: 0, message: "Route not found or not EN_RUTA", details: [] };
+      }
+
+      // Get all stops and their shipments
+      const stops = await db.select().from(routeStops).where(eq(routeStops.routeId, input.routeId));
+      for (const stop of stops) {
+        const assigned = await db.select().from(routeShipments).where(eq(routeShipments.stopId, stop.id));
+        for (const rs of assigned) {
+          // Check if this shipment already has EN_RUTA tracking
+          const existingTracking = await db.select().from(shipmentTracking)
+            .where(and(
+              eq(shipmentTracking.shipmentId, rs.shipmentId),
+              eq(shipmentTracking.status, "EN_RUTA")
+            ));
+
+          if (existingTracking.length === 0) {
+            // Create EN_RUTA tracking entry
+            await db.insert(shipmentTracking).values({
+              shipmentId: rs.shipmentId,
+              status: "EN_RUTA",
+              locationId: 0,
+              notes: `Asignado a ruta de camion - en ruta hacia ${stop.cityName}`,
+              createdBy: ctx.franchiseUser!.id,
+            });
+
+            // Update main shipment status to EN_RUTA
+            await db.update(shipments).set({ status: "EN_RUTA" }).where(eq(shipments.id, rs.shipmentId));
+
+            results.push({ shipmentId: rs.shipmentId, action: "created_EN_RUTA" });
+          }
+        }
+      }
+
+      return {
+        fixed: results.length,
+        message: results.length > 0 ? `Creados ${results.length} tracking EN_RUTA` : "Todos los envios ya tienen tracking EN_RUTA",
+        details: results,
+      };
+    }),
 });

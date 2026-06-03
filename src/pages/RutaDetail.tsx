@@ -60,6 +60,23 @@ export default function RutaDetail() {
   const [selectedShipmentIds, setSelectedShipmentIds] = useState<number[]>([]);
   const [searchFilter, setSearchFilter] = useState("");
 
+  // Auto-repair tracking for routes that are EN_RUTA but missing EN_RUTA tracking entries
+  const repairMutation = trpc.route.repairTracking.useMutation({
+    onSuccess: (data) => {
+      if (data.fixed > 0) {
+        utils.route.getById.invalidate({ id: routeId });
+        toast.success(`${data.fixed} envios actualizados a En Ruta`);
+      }
+    },
+  });
+
+  useEffect(() => {
+    if (route?.status === "EN_RUTA" && !repairMutation.isPending) {
+      repairMutation.mutate({ routeId });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [route?.status]);
+
   const updateRouteMutation = trpc.route.updateStatus.useMutation({
     onSuccess: () => {
       utils.route.getById.invalidate({ id: routeId });
