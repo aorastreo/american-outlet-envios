@@ -228,3 +228,5 @@ export default function Bitacora() {
         </div>
       </div>
     </div>
+  );
+}

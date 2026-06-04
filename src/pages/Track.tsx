@@ -12,9 +12,8 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-
-function getStatusConfig(status: string) {
-  const configs: Record<string, { color: string; label: string; icon: React.ElementType }> = {
+  function getStatusConfig(status: string) {
+    const configs: Record<string, { color: string; label: string; icon: React.ElementType }> = {
     CREADO: { color: "bg-[#F7F7F7] text-[#404040]", label: "Creado", icon: Package },
     ENVIADO_A_BODEGA: { color: "bg-amber-100 text-amber-700", label: "Enviado a Bodega", icon: Send },
     RECIBIDO_EN_BODEGA: { color: "bg-purple-100 text-purple-700", label: "Recibido en Bodega", icon: ClipboardCheck },

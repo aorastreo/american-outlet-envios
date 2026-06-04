@@ -36,7 +36,7 @@ export default function Home() {
     }
   };
 
-  function getStatusConfig(status: string) {
+    function getStatusConfig(status: string) {
     const configs: Record<string, { color: string; label: string; icon: React.ElementType }> = {
       CREADO: { color: "bg-slate-100 text-[#1A1A1A]", label: "Creado", icon: Package },
       ENVIADO_A_BODEGA: { color: "bg-amber-50 text-[#B8860B]", label: "Enviado a Bodega", icon: Send },
