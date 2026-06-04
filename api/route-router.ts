@@ -483,4 +483,67 @@ export const routeRouter = createRouter({
         details: results,
       };
     }),
+  repairEnParada: franchiseAuthedQuery
+    .mutation(async ({ ctx }) => {
+      const db = getDb();
+      const results: { shipmentId: number; action: string }[] = [];
+
+      // Find all route shipments whose stop is LLEGADO or COMPLETADO
+      // but shipment status is still EN_RUTA (should be EN_PARADA)
+      const allRouteShipments = await db
+        .select()
+        .from(routeShipments)
+        .innerJoin(routeStops, eq(routeShipments.stopId, routeStops.id))
+        .where(
+          and(
+            inArray(routeStops.status, ["LLEGADO", "COMPLETADO"]),
+          )
+        );
+
+      for (const row of allRouteShipments) {
+        const rs = row.route_shipments;
+        const stop = row.route_stops;
+
+        // Check if shipment status is still EN_RUTA
+        const shipmentData = await db
+          .select()
+          .from(shipments)
+          .where(eq(shipments.id, rs.shipmentId))
+          .limit(1);
+
+        if (shipmentData[0]?.status === "EN_RUTA") {
+          // Update shipment status to EN_PARADA
+          await db.update(shipments)
+            .set({ status: "EN_PARADA" })
+            .where(eq(shipments.id, rs.shipmentId));
+
+          // Check if EN_PARADA tracking already exists
+          const existingTracking = await db
+            .select()
+            .from(shipmentTracking)
+            .where(and(
+              eq(shipmentTracking.shipmentId, rs.shipmentId),
+              eq(shipmentTracking.status, "EN_PARADA"),
+            ));
+
+          if (existingTracking.length === 0) {
+            await db.insert(shipmentTracking).values({
+              shipmentId: rs.shipmentId,
+              status: "EN_PARADA",
+              locationId: 0,
+              notes: `Camion llego a ${stop.cityName} - punto de recogida (reparacion)`,
+              createdBy: ctx.franchiseUser!.id,
+            });
+          }
+
+          results.push({ shipmentId: rs.shipmentId, action: "updated_to_EN_PARADA" });
+        }
+      }
+
+      return {
+        fixed: results.length,
+        message: results.length > 0 ? `Actualizados ${results.length} envios a EN_PARADA` : "Todos los envios ya tienen el estado correcto`,
+        details: results,
+      };
+    }),
 });
