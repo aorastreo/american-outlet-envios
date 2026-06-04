@@ -1,3 +1,4 @@
+// v9-rebuild-force
 import { useParams, useNavigate } from "react-router";
 import FranchiseLayout from "@/components/FranchiseLayout";
 import { trpc } from "@/providers/trpc";
