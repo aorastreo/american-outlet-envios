@@ -12,12 +12,15 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Truck, Plus, MapPin, Package, ChevronRight, AlertCircle, Play, CheckCircle, XCircle, ClipboardList } from "lucide-react";
 import toast from "react-hot-toast";
 
-const statusConfig: Record<string, { color: string; label: string; icon: React.ElementType }> = {
-  PLANIFICADA: { color: "bg-blue-50 text-blue-700", label: "Planificada", icon: AlertCircle },
-  EN_RUTA: { color: "bg-amber-50 text-[#B8860B]", label: "En Ruta", icon: Play },
-  COMPLETADA: { color: "bg-emerald-50 text-[#1B6B3E]", label: "Completada", icon: CheckCircle },
-  CANCELADA: { color: "bg-red-50 text-red-700", label: "Cancelada", icon: XCircle },
-};
+function getStatusConfig(status: string) {
+  const configs: Record<string, { color: string; label: string; icon: React.ElementType }> = {
+    PLANIFICADA: { color: "bg-blue-50 text-blue-700", label: "Planificada", icon: AlertCircle },
+    EN_RUTA: { color: "bg-amber-50 text-[#B8860B]", label: "En Ruta", icon: Play },
+    COMPLETADA: { color: "bg-emerald-50 text-[#1B6B3E]", label: "Completada", icon: CheckCircle },
+    CANCELADA: { color: "bg-red-50 text-red-700", label: "Cancelada", icon: XCircle },
+  };
+  return configs[status] || { color: "bg-gray-100 text-gray-500", label: status, icon: AlertCircle };
+}
 
 export default function Rutas() {
   const navigate = useNavigate();
@@ -161,7 +164,7 @@ export default function Rutas() {
         ) : (
           <div className="space-y-3">
             {routes.map((route) => {
-              const cfg = statusConfig[route.status];
+              const cfg = getStatusConfig(route.status);
               return (
                 <Link to={`/rutas/${route.id}`} key={route.id}>
                   <Card className="hover:shadow-md transition-shadow cursor-pointer border-[#F0F0F0] hover:border-[#C8102E]/20">

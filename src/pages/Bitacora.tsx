@@ -29,7 +29,7 @@ export default function Bitacora() {
 
   if (!data || data.shipments.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-screen text-[#404040] gap-4">
+      <div className="flex flex-col items-center justify-center h-screen text-[#8A8A8A] gap-4">
         <Package className="w-12 h-12 text-[#D4D4D4]" />
         <p>No se seleccionaron envios para la bitacora</p>
         <Button onClick={() => window.close()} variant="outline">Cerrar</Button>
@@ -78,15 +78,15 @@ export default function Bitacora() {
               />
               <div>
                 <h1 className="text-2xl font-black text-[#1A1A1A] tracking-tight leading-none">American Outlet</h1>
-                <p className="text-base font-bold text-[#404040] leading-none mt-1">Bitacora de Entrega</p>
+                <p className="text-base font-bold text-[#8A8A8A] leading-none mt-1">Bitacora de Entrega</p>
               </div>
             </div>
             <div className="text-right">
-              <p className="text-[10px] text-[#525252] uppercase tracking-wider">Fecha</p>
+              <p className="text-[10px] text-[#525252] uppercase tracking-wider font-semibold">Fecha</p>
               <p className="text-lg font-mono font-bold text-[#1A1A1A]">
                 {format(new Date(generatedAt), "dd/MM/yyyy", { locale: es })}
               </p>
-              <p className="text-[10px] text-[#525252]">{format(new Date(generatedAt), "HH:mm", { locale: es })}</p>
+              <p className="text-[10px] text-[#525252] font-semibold">{format(new Date(generatedAt), "HH:mm", { locale: es })}</p>
             </div>
           </div>
         </div>
@@ -94,16 +94,16 @@ export default function Bitacora() {
         {/* === ROUTE INFO === */}
         <div className="grid grid-cols-[1fr_auto_1fr] border-[3px] border-slate-900 rounded-lg overflow-hidden mb-4">
           <div className="px-5 py-3 border-r border-[#F0F0F0]">
-            <p className="text-[9px] uppercase tracking-[0.15em] text-[#525252] font-semibold mb-1 flex items-center gap-1">
+            <p className="text-[9px] uppercase tracking-[0.15em] text-[#525252] font-bold mb-1 flex items-center gap-1">
               <MapPin className="w-3 h-3" /> Origen
             </p>
             <p className="text-lg font-bold text-[#1A1A1A]">{originName}</p>
           </div>
           <div className="flex items-center justify-center px-3">
-            <ArrowRight className="w-5 h-5 text-[#525252]" />
+            <ArrowRight className="w-5 h-5 text-[#A3A3A3]" />
           </div>
           <div className="px-5 py-3 border-l border-[#F0F0F0]">
-            <p className="text-[9px] uppercase tracking-[0.15em] text-[#525252] font-semibold mb-1 flex items-center gap-1">
+            <p className="text-[9px] uppercase tracking-[0.15em] text-[#525252] font-bold mb-1 flex items-center gap-1">
               <MapPin className="w-3 h-3" /> Destino
             </p>
             <p className="text-lg font-bold text-[#1A1A1A]">{destinationName}</p>
@@ -114,7 +114,7 @@ export default function Bitacora() {
         <div className="border-[3px] border-slate-900 rounded-lg overflow-hidden mb-4">
           <div className="bg-[#F7F7F7] border-b-[3px] border-slate-900 px-4 py-2.5 flex items-center justify-between">
             <p className="text-xs font-black text-[#1A1A1A] uppercase tracking-wider">Paquetes ({totalPackages})</p>
-            <p className="text-[10px] text-[#404040]">{shipments.length} envio{shipments.length !== 1 ? "s" : ""}</p>
+            <p className="text-[10px] text-[#8A8A8A]">{shipments.length} envio{shipments.length !== 1 ? "s" : ""}</p>
           </div>
           <table className="w-full">
             <thead>
@@ -129,24 +129,24 @@ export default function Bitacora() {
             <tbody>
               {shipments.map((s, idx) => (
                 <tr key={s.id} className="border-b border-slate-100 last:border-0">
-                  <td className="px-4 py-2.5 text-sm font-mono text-[#404040]">{idx + 1}</td>
+                  <td className="px-4 py-2.5 text-sm font-mono text-[#525252] font-semibold">{idx + 1}</td>
                   <td className="px-4 py-2.5">
                     <p className="text-sm font-mono font-bold text-[#1A1A1A]">{s.trackingNumber}</p>
-                   {s.invoiceNumber && (
-                      <span className="inline-block bg-[#1A1A1A] text-white text-sm font-mono font-bold px-3 py-1 mt-1 rounded tracking-wide">
+                    {s.invoiceNumber && (
+                      <span className="inline-block bg-[#C8102E] text-white text-xs font-mono font-bold px-2 py-1 rounded mt-1 tracking-wide">
                         FACT: {s.invoiceNumber}
                       </span>
                     )}
                   </td>
                   <td className="px-4 py-2.5">
                     <p className="text-sm font-semibold text-[#1A1A1A]">{s.senderName}</p>
-                    <p className="text-[10px] text-[#404040]">{s.senderPhone}</p>
+                    <p className="text-[10px] text-[#525252] font-medium">{s.senderPhone}</p>
                   </td>
                   <td className="px-4 py-2.5">
                     <p className="text-sm text-[#404040]">
                       {s.items?.map((item: { description: string; quantity: number }) => `${item.description} x${item.quantity}`).join(", ")}
                     </p>
-                    <p className="text-[10px] text-[#525252]">
+                    <p className="text-[10px] text-[#525252] font-medium">
                       {s.items?.reduce((sum: number, item: { quantity: number }) => sum + item.quantity, 0) || 0} unidad{((s.items?.reduce((sum: number, item: { quantity: number }) => sum + item.quantity, 0) || 0)) !== 1 ? "es" : ""}
                     </p>
                   </td>
@@ -169,11 +169,11 @@ export default function Bitacora() {
             <div className="border-b-2 border-[#D4D4D4] h-14 mb-2"></div>
             <div className="grid grid-cols-2 gap-2 text-xs text-[#404040]">
               <div>
-                <p className="text-[9px] uppercase text-[#525252]">Nombre completo</p>
+                <p className="text-[9px] uppercase text-[#525252] font-semibold">Nombre completo</p>
                 <div className="border-b border-[#F0F0F0] h-5"></div>
               </div>
               <div>
-                <p className="text-[9px] uppercase text-[#525252]">Fecha y hora</p>
+                <p className="text-[9px] uppercase text-[#525252] font-semibold">Fecha y hora</p>
                 <div className="border-b border-[#F0F0F0] h-5"></div>
               </div>
             </div>
@@ -185,11 +185,11 @@ export default function Bitacora() {
             <div className="border-b-2 border-[#D4D4D4] h-14 mb-2"></div>
             <div className="grid grid-cols-2 gap-2 text-xs text-[#404040]">
               <div>
-                <p className="text-[9px] uppercase text-[#525252]">Nombre completo</p>
+                <p className="text-[9px] uppercase text-[#525252] font-semibold">Nombre completo</p>
                 <div className="border-b border-[#F0F0F0] h-5"></div>
               </div>
               <div>
-                <p className="text-[9px] uppercase text-[#525252]">Fecha y hora</p>
+                <p className="text-[9px] uppercase text-[#525252] font-semibold">Fecha y hora</p>
                 <div className="border-b border-[#F0F0F0] h-5"></div>
               </div>
             </div>
@@ -201,15 +201,15 @@ export default function Bitacora() {
           <p className="text-[10px] uppercase tracking-wider text-[#404040] font-bold mb-3">Informacion del Chofer</p>
           <div className="grid grid-cols-3 gap-4">
             <div>
-              <p className="text-[9px] text-[#525252] uppercase mb-1">Nombre</p>
+              <p className="text-[9px] text-[#525252] uppercase mb-1 font-semibold">Nombre</p>
               <div className="border-b-2 border-[#D4D4D4] h-6"></div>
             </div>
             <div>
-              <p className="text-[9px] text-[#525252] uppercase mb-1">Telefono</p>
+              <p className="text-[9px] text-[#525252] uppercase mb-1 font-semibold">Telefono</p>
               <div className="border-b-2 border-[#D4D4D4] h-6"></div>
             </div>
             <div>
-              <p className="text-[9px] text-[#525252] uppercase mb-1">Placa del vehiculo</p>
+              <p className="text-[9px] text-[#525252] uppercase mb-1 font-semibold">Placa del vehiculo</p>
               <div className="border-b-2 border-[#D4D4D4] h-6"></div>
             </div>
           </div>
@@ -222,11 +222,9 @@ export default function Bitacora() {
         </div>
 
         {/* === FOOTER === */}
-        <div className="flex items-center justify-between text-[10px] text-[#525252] pt-2 border-t border-[#F0F0F0]">
-          <p>American Outlet - Sistema de Envios</p>
-          <p>Generada: {format(new Date(generatedAt), "dd/MM/yyyy HH:mm", { locale: es })}</p>
+        <div className="flex items-center justify-between text-[10px] text-[#525252] pt-2 border-t border-[#D4D4D4]">
+          <p className="font-medium">American Outlet - Sistema de Envios</p>
+          <p className="font-medium">Generada: {format(new Date(generatedAt), "dd/MM/yyyy HH:mm", { locale: es })}</p>
         </div>
       </div>
     </div>
-  );
-}

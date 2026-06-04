@@ -13,16 +13,19 @@ import {
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
-const statusConfig: Record<string, { color: string; label: string; icon: React.ElementType }> = {
-  CREADO: { color: "bg-[#F7F7F7] text-[#404040]", label: "Creado", icon: Package },
-  ENVIADO_A_BODEGA: { color: "bg-amber-100 text-amber-700", label: "Enviado a Bodega", icon: Send },
-  RECIBIDO_EN_BODEGA: { color: "bg-purple-100 text-purple-700", label: "Recibido en Bodega", icon: ClipboardCheck },
-  ENVIADO_A_DESTINO: { color: "bg-[#FFF5F5] text-[#C8102E]", label: "Enviado a Destino", icon: Truck },
-  EN_RUTA: { color: "bg-blue-100 text-blue-700", label: "En Ruta de Camion" },
-  EN_PARADA: { color: "bg-orange-100 text-orange-700", label: "En Punto de Recogida" },
-  RECIBIDO_EN_DESTINO: { color: "bg-emerald-100 text-emerald-700", label: "Entregado", icon: CheckCircle },
-  CANCELADO: { color: "bg-red-100 text-red-700", label: "Cancelado", icon: AlertTriangle },
-};
+function getStatusConfig(status: string) {
+  const configs: Record<string, { color: string; label: string; icon: React.ElementType }> = {
+    CREADO: { color: "bg-[#F7F7F7] text-[#404040]", label: "Creado", icon: Package },
+    ENVIADO_A_BODEGA: { color: "bg-amber-100 text-amber-700", label: "Enviado a Bodega", icon: Send },
+    RECIBIDO_EN_BODEGA: { color: "bg-purple-100 text-purple-700", label: "Recibido en Bodega", icon: ClipboardCheck },
+    ENVIADO_A_DESTINO: { color: "bg-[#FFF5F5] text-[#C8102E]", label: "Enviado a Destino", icon: Truck },
+    EN_RUTA: { color: "bg-blue-100 text-blue-700", label: "En Ruta de Camion", icon: Truck },
+    EN_PARADA: { color: "bg-orange-100 text-orange-700", label: "En Punto de Recogida", icon: MapPin },
+    RECIBIDO_EN_DESTINO: { color: "bg-emerald-100 text-emerald-700", label: "Entregado", icon: CheckCircle },
+    CANCELADO: { color: "bg-red-100 text-red-700", label: "Cancelado", icon: AlertTriangle },
+  };
+  return configs[status] || { color: "bg-gray-100 text-gray-500", label: status, icon: Package };
+}
 
 // Timeline para envios a TIENDAS NORMALES (sin EN_RUTA ni EN_PARADA)
 const storeTimeline = [
@@ -153,7 +156,7 @@ export default function Track() {
                     <div className="flex items-center gap-3 flex-wrap">
                       {shipment.invoiceNumber && <p className="text-sm text-[#8A8A8A]">Factura: #{shipment.invoiceNumber}</p>}
                       {(() => {
-                        const cfg = statusConfig[shipment.status];
+                        const cfg = getStatusConfig(shipment.status);
                         return cfg ? <Badge variant="secondary" className={cfg.color}><cfg.icon className="w-3 h-3 mr-1" />{cfg.label}</Badge> : null;
                       })()}
                     </div>
@@ -230,7 +233,7 @@ export default function Track() {
                   <div className="absolute left-2 top-0 bottom-0 w-0.5 bg-[#F0F0F0]" />
                   <div className="space-y-6">
                     {shipment.tracking?.map((track, index) => {
-                      const cfg = statusConfig[track.status];
+                      const cfg = getStatusConfig(track.status);
                       return (
                         <div key={track.id} className="relative">
                           <div className={`absolute -left-4 w-3 h-3 rounded-full border-2 ${index === 0 ? "bg-[#C8102E] border-blue-600" : "bg-white border-[#D4D4D4]"}`} />

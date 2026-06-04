@@ -13,16 +13,19 @@ import { Package, Search, ArrowRight, User, Send, ClipboardCheck, Truck, CheckCi
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
-const statusConfig: Record<string, { color: string; label: string; icon: React.ElementType }> = {
-  CREADO: { color: "bg-slate-100 text-[#1A1A1A] hover:bg-slate-200", label: "Creado", icon: Package },
-  ENVIADO_A_BODEGA: { color: "bg-amber-50 text-[#B8860B] hover:bg-amber-100", label: "Enviado a Bodega", icon: Send },
-  RECIBIDO_EN_BODEGA: { color: "bg-purple-50 text-purple-700 hover:bg-purple-100", label: "En Bodega", icon: ClipboardCheck },
-  EN_RUTA: { color: "bg-blue-50 text-blue-700 hover:bg-blue-100", label: "En Ruta de Camion", icon: Truck },
-  EN_PARADA: { color: "bg-orange-50 text-orange-700 hover:bg-orange-100", label: "En Punto de Recogida", icon: MapPin },
-  ENVIADO_A_DESTINO: { color: "bg-[#FFF5F5] text-[#C8102E] hover:bg-[#FFE0E0]", label: "Enviado a Destino", icon: Truck },
-  RECIBIDO_EN_DESTINO: { color: "bg-emerald-50 text-[#1B6B3E] hover:bg-emerald-100", label: "Entregado", icon: CheckCircle },
-  CANCELADO: { color: "bg-red-50 text-red-700 hover:bg-red-100", label: "Cancelado", icon: Package },
-};
+function getStatusConfig(status: string) {
+  const configs: Record<string, { color: string; label: string; icon: React.ElementType }> = {
+    CREADO: { color: "bg-slate-100 text-[#1A1A1A] hover:bg-slate-200", label: "Creado", icon: Package },
+    ENVIADO_A_BODEGA: { color: "bg-amber-50 text-[#B8860B] hover:bg-amber-100", label: "Enviado a Bodega", icon: Send },
+    RECIBIDO_EN_BODEGA: { color: "bg-purple-50 text-purple-700 hover:bg-purple-100", label: "En Bodega", icon: ClipboardCheck },
+    EN_RUTA: { color: "bg-blue-50 text-blue-700 hover:bg-blue-100", label: "En Ruta de Camion", icon: Truck },
+    EN_PARADA: { color: "bg-orange-50 text-orange-700 hover:bg-orange-100", label: "En Punto de Recogida", icon: MapPin },
+    ENVIADO_A_DESTINO: { color: "bg-[#FFF5F5] text-[#C8102E] hover:bg-[#FFE0E0]", label: "Enviado a Destino", icon: Truck },
+    RECIBIDO_EN_DESTINO: { color: "bg-emerald-50 text-[#1B6B3E] hover:bg-emerald-100", label: "Entregado", icon: CheckCircle },
+    CANCELADO: { color: "bg-red-50 text-red-700 hover:bg-red-100", label: "Cancelado", icon: Package },
+  };
+  return configs[status] || { color: "bg-gray-100 text-gray-500 hover:bg-gray-200", label: status, icon: Package };
+}
 
 export default function Shipments() {
   const [searchParams] = useSearchParams();
@@ -110,7 +113,7 @@ export default function Shipments() {
   }, [shipments, isWarehouse]);
 
   const renderShipmentCard = (shipment: (typeof filteredShipments)[0]) => {
-    const cfg = statusConfig[shipment.status];
+    const cfg = getStatusConfig(shipment.status);
     const isSelected = selectedIds.includes(shipment.id);
     return (
       <div key={shipment.id} className="relative group">

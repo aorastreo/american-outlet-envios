@@ -22,16 +22,19 @@ import { Link } from "react-router";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
-const statusConfig: Record<string, { color: string; label: string }> = {
-  CREADO: { color: "bg-slate-100 text-[#1A1A1A]", label: "Creado" },
-  ENVIADO_A_BODEGA: { color: "bg-amber-50 text-[#B8860B]", label: "Enviado a Bodega" },
-  RECIBIDO_EN_BODEGA: { color: "bg-purple-50 text-purple-700", label: "En Bodega" },
-  EN_RUTA: { color: "bg-blue-50 text-blue-700", label: "En Ruta de Camion" },
-  EN_PARADA: { color: "bg-orange-50 text-orange-700", label: "En Punto de Recogida" },
-  ENVIADO_A_DESTINO: { color: "bg-[#FFF5F5] text-[#C8102E]", label: "Enviado a Destino" },
-  RECIBIDO_EN_DESTINO: { color: "bg-emerald-50 text-[#1B6B3E]", label: "Entregado" },
-  CANCELADO: { color: "bg-red-50 text-red-700", label: "Cancelado" },
-};
+function getStatusConfig(status: string) {
+  const configs: Record<string, { color: string; label: string }> = {
+    CREADO: { color: "bg-slate-100 text-[#1A1A1A]", label: "Creado" },
+    ENVIADO_A_BODEGA: { color: "bg-amber-50 text-[#B8860B]", label: "Enviado a Bodega" },
+    RECIBIDO_EN_BODEGA: { color: "bg-purple-50 text-purple-700", label: "En Bodega" },
+    EN_RUTA: { color: "bg-blue-50 text-blue-700", label: "En Ruta de Camion" },
+    EN_PARADA: { color: "bg-orange-50 text-orange-700", label: "En Punto de Recogida" },
+    ENVIADO_A_DESTINO: { color: "bg-[#FFF5F5] text-[#C8102E]", label: "Enviado a Destino" },
+    RECIBIDO_EN_DESTINO: { color: "bg-emerald-50 text-[#1B6B3E]", label: "Entregado" },
+    CANCELADO: { color: "bg-red-50 text-red-700", label: "Cancelado" },
+  };
+  return configs[status] || { color: "bg-gray-100 text-gray-500", label: status };
+}
 
 export default function Dashboard() {
   const { user } = useFranchiseAuth();
@@ -284,7 +287,7 @@ export default function Dashboard() {
           ) : (
             <div className="space-y-3">
               {recentShipments.map((shipment) => {
-                const cfg = statusConfig[shipment.status];
+                const cfg = getStatusConfig(shipment.status);
                 return (
                   <Link to={`/envios/${shipment.id}`} key={shipment.id}>
                     <Card className="hover:shadow-md transition-shadow cursor-pointer border-[#F0F0F0] hover:border-[#C8102E]/20">
