@@ -269,6 +269,7 @@ export const routeRouter = createRouter({
             notes: `Camion llego a ${cityName} - punto de referencia`,
             createdBy: ctx.franchiseUser!.id,
           });
+          await db.update(shipments).set({ status: "EN_PARADA" }).where(eq(shipments.id, rs.shipmentId));
         }
       } else if (input.status === "COMPLETADO") {
         updateData.departureTime = new Date();
