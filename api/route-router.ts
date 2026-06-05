@@ -362,7 +362,7 @@ export const routeRouter = createRouter({
 
       // Get shipments in warehouse
       const allShipments = await db.select().from(shipments)
-        .where(eq(shipments.status, "RECIBIDO_EN_BODEGA"));
+  .where(inArray(shipments.status, ["RECIBIDO_EN_BODEGA", "NO_RECOGIDO"]));
 
       if (allShipments.length === 0) return [];
 
