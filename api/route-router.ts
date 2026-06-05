@@ -542,7 +542,7 @@ export const routeRouter = createRouter({
 
       return {
         fixed: results.length,
-        message: results.length > 0 ? `Actualizados ${results.length} envios a EN_PARADA` : "Todos los envios ya tienen el estado correcto`,
+                message: results.length > 0 ? "Actualizados " + results.length + " envios a EN_PARADA" : "Todos los envios ya tienen el estado correcto",
         details: results,
       };
     }),
