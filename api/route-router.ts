@@ -307,6 +307,8 @@ export const routeRouter = createRouter({
           notes: input.notes?.trim() ? `Recibido por el cliente: ${input.notes.trim()}` : "Recibido por el cliente en punto de recogida",
           createdBy: ctx.franchiseUser!.id,
         });
+        // Update main shipment status to RECIBIDO_EN_DESTINO
+        await db.update(shipments).set({ status: "RECIBIDO_EN_DESTINO" }).where(eq(shipments.id, rsData[0].shipmentId));
       }
 
       return { success: true };
