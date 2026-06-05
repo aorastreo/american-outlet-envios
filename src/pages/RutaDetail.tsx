@@ -118,6 +118,18 @@ export default function RutaDetail() {
     },
     onError: (err) => toast.error(err.message),
   });
+  const repairEnParadaMutation = trpc.route.repairEnParada.useMutation({
+    onSuccess: (data) => {
+      utils.route.getById.invalidate({ id: routeId });
+      utils.route.list.invalidate();
+      if (data.fixed > 0) {
+        toast.success(`Reparados ${data.fixed} envios - ahora aparecen "En Parada"`);
+      } else {
+        toast.success("Todos los envios ya tienen el estado correcto");
+      }
+    },
+    onError: (err) => toast.error(err.message),
+  });
 
   const { data: availableShipments } = trpc.route.availableShipments.useQuery(
     expandedStopId ? { stopId: expandedStopId } : undefined,
@@ -312,17 +324,28 @@ export default function RutaDetail() {
                           Llego
                         </Button>
                       )}
-                      {stop.status === "LLEGADO" && (
-                        <Button
-                          size="sm"
-                          onClick={() => updateStopMutation.mutate({ stopId: stop.id, status: "COMPLETADO" })}
-                          className="bg-[#1B6B3E] hover:bg-[#145a32]"
-                          disabled={updateStopMutation.isPending}
-                        >
-                          <CheckCircle className="w-3.5 h-3.5 mr-1" />
-                          Completar
-                        </Button>
-                      )}
+                     {stop.status === "LLEGADO" && (
+  <>
+    <Button
+      size="sm"
+      onClick={() => updateStopMutation.mutate({ stopId: stop.id, status: "COMPLETADO" })}
+      className="bg-[#1B6B3E] hover:bg-[#145a32]"
+      disabled={updateStopMutation.isPending}
+    >
+      <CheckCircle className="w-3.5 h-3.5 mr-1" />
+      Completar
+    </Button>
+    <Button
+      size="sm"
+      variant="outline"
+      onClick={() => repairEnParadaMutation.mutate()}
+      className="text-[#B8860B] border-[#B8860B] hover:bg-[#B8860B] hover:text-white"
+      disabled={repairEnParadaMutation.isPending}
+    >
+      {repairEnParadaMutation.isPending ? "Reparando..." : "Reparar Estados"}
+    </Button>
+  </>
+)}
                     </div>
                   </div>
 
