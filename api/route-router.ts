@@ -239,6 +239,17 @@ export const routeRouter = createRouter({
             });
             await db.update(shipments).set({ status: "RECIBIDO_EN_DESTINO" }).where(eq(shipments.id, rs.shipmentId));
           }
+          if (rs.status === "NO_RECOGIDO") {
+            await db.update(routeShipments).set({ status: "DEVUELTO_A_BODEGA" }).where(eq(routeShipments.id, rs.id));
+            await db.insert(shipmentTracking).values({
+              shipmentId: rs.shipmentId,
+              status: "RECIBIDO_EN_BODEGA",
+              locationId: 0,
+              notes: "No recogido - devuelto a bodega para siguiente ruta",
+              createdBy: ctx.franchiseUser!.id,
+            });
+            await db.update(shipments).set({ status: "RECIBIDO_EN_BODEGA" }).where(eq(shipments.id, rs.shipmentId));
+          }
         }
       }
 
@@ -299,7 +310,7 @@ export const routeRouter = createRouter({
 
       // Get shipmentId for tracking
       const rsData = await db.select().from(routeShipments).where(eq(routeShipments.id, input.routeShipmentId)).limit(1);
-      if (rsData.length > 0 && input.status === "ENTREGADO") {
+            if (rsData.length > 0 && input.status === "ENTREGADO") {
         await db.insert(shipmentTracking).values({
           shipmentId: rsData[0].shipmentId,
           status: "RECIBIDO_EN_DESTINO",
@@ -307,8 +318,12 @@ export const routeRouter = createRouter({
           notes: input.notes?.trim() ? `Recibido por el cliente: ${input.notes.trim()}` : "Recibido por el cliente en punto de recogida",
           createdBy: ctx.franchiseUser!.id,
         });
-        // Update main shipment status to RECIBIDO_EN_DESTINO
-        await db.update(shipments).set({ status: "RECIBIDO_EN_DESTINO" }).where(eq(shipments.id, rsData[0].shipmentId));
+      }
+      // Update main shipment status
+      if (rsData.length > 0) {
+        await db.update(shipments)
+          .set({ status: input.status === "ENTREGADO" ? "RECIBIDO_EN_DESTINO" : "NO_RECOGIDO" })
+          .where(eq(shipments.id, rsData[0].shipmentId));
       }
 
       return { success: true };
