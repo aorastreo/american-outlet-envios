@@ -195,9 +195,6 @@ export default function ShipmentDetail() {
       if (shipment.status === "RECIBIDO_EN_BODEGA" && isWarehouseUser && !isPickup) {
   availableActions.push({ label: "Enviar a Destino", status: "ENVIADO_A_DESTINO", icon: <Truck className="w-4 h-4" />, color: "bg-[#C8102E] hover:bg-[#9B0B22]", desc: "Confirmar envio a tienda de destino" });
 }
-if (shipment.status === "RECIBIDO_EN_BODEGA" && isWarehouseUser && isPickup) {
-  availableActions.push({ label: "Crear Ruta de Camion", status: "CREAR_RUTA", icon: <Truck className="w-4 h-4" />, color: "bg-blue-600 hover:bg-blue-700", desc: "Este envio va a punto de recogida - crear ruta de camion" });
-}
     }
     if (shipment.status === "ENVIADO_A_DESTINO" && isDestination) {
       availableActions.push({ label: "Confirmar Recepcion", status: "RECIBIDO_EN_DESTINO", icon: <CheckCircle className="w-4 h-4" />, color: "bg-emerald-600 hover:bg-emerald-700", desc: "Confirmar recepcion en destino", needsReceiver: true });
