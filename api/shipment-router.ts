@@ -110,6 +110,10 @@ export const shipmentRouter = createRouter({
       }
 
       if (!bodegaId) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Bodega no configurada" });
+      // Check if this is a pickup route (destination is Grecia=5, SanRamon=6, Palmares=7)
+      const isPickup = [5, 6, 7].includes(input.destinationFranchiseId);
+      const initialStatus = originIsWarehouse && isPickup ? "RECIBIDO_EN_BODEGA" : "CREADO";
+      const trackingNotes = originIsWarehouse && isPickup ? "Envio creado en bodega - listo para ruta de camion" : "Envio creado";
 
       const trackingNumber = await generateTrackingNumber();
 
@@ -121,7 +125,7 @@ export const shipmentRouter = createRouter({
         originFranchiseId: originId,
         destinationFranchiseId: input.destinationFranchiseId,
         currentLocationId: originId,
-        status: "CREADO",
+        status: initialStatus,
         notes: input.notes?.trim() || null,
         createdBy: ctx.franchiseUser!.id,
       });
@@ -130,7 +134,7 @@ export const shipmentRouter = createRouter({
       for (const item of input.items) {
         await db.insert(shipmentItems).values({ shipmentId, description: item.description, quantity: item.quantity, ...(item.details ? { details: item.details } : {}) });
       }
-      await db.insert(shipmentTracking).values({ shipmentId, status: "CREADO", locationId: originId, notes: "Envio creado", createdBy: ctx.franchiseUser!.id });
+      await db.insert(shipmentTracking).values({ shipmentId, status: initialStatus, locationId: originId, notes: trackingNotes, createdBy: ctx.franchiseUser!.id });
 
       return { success: true, shipmentId, trackingNumber };
     }),
