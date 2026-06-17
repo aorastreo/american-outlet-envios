@@ -3,6 +3,7 @@ import { franchiseAuthRouter } from "./franchise-auth-router";
 import { franchiseRouter } from "./franchise-router";
 import { shipmentRouter } from "./shipment-router";
 import { routeRouter } from "./route-router";
+import { nationalShippingRouter } from "./national-shipping-router";
 import { createRouter, publicQuery } from "./middleware";
 
 export const appRouter = createRouter({
@@ -12,6 +13,7 @@ export const appRouter = createRouter({
   franchise: franchiseRouter,
   shipment: shipmentRouter,
   route: routeRouter,
+  nationalShipping: nationalShippingRouter,
 });
 
 export type AppRouter = typeof appRouter;
