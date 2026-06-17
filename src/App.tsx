@@ -5,6 +5,7 @@ import Dashboard from "./pages/Dashboard";
 import Login from "./pages/Login";
 import CreateShipment from "./pages/CreateShipment";
 import CreateNationalShipment from "./pages/CreateNationalShipment";
+import NationalShipments from "./pages/NationalShipments";
 import Shipments from "./pages/Shipments";
 import ShipmentDetail from "./pages/ShipmentDetail";
 import Track from "./pages/Track";
@@ -22,6 +23,7 @@ export default function App() {
       <Route path="/dashboard" element={<Dashboard />} />
       <Route path="/enviar" element={<CreateShipment />} />
 <Route path="/envio-nacional" element={<CreateNationalShipment />} />
+<Route path="/envios-nacionales" element={<NationalShipments />} />
       <Route path="/envios" element={<Shipments />} />
       <Route path="/envios/:id" element={<ShipmentDetail />} />
       <Route path="/rastrear" element={<Track />} />
@@ -30,6 +32,7 @@ export default function App() {
       <Route path="/rutas" element={<Rutas />} />
       <Route path="/rutas/:id" element={<RutaDetail />} />
       <Route path="*" element={<NotFound />} />
+<Route path="/envios-nacionales" element={<NationalShipments />} />
     </Routes>
   );
 }

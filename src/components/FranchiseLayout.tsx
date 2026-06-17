@@ -12,6 +12,7 @@ import {
   Truck,
   Search,
   Globe,
+  ClipboardList,
 } from "lucide-react";
 
 const logoUrl = "/logo.jpg";
@@ -22,6 +23,7 @@ const storeNavItems = [
   { path: "/envios", label: "Mis Envios", icon: Package },
   { path: "/enviar", label: "Crear Envio", icon: Plus },
   { path: "/envio-nacional", label: "Envio Nacional", icon: Globe },
+  { path: "/envios-nacionales", label: "Envios Nacionales", icon: ClipboardList },
   { path: "/rastrear", label: "Rastrear", icon: Search },
 ];
 
@@ -31,6 +33,7 @@ const warehouseNavItems = [
   { path: "/envios", label: "Mis Envios", icon: Package },
   { path: "/enviar", label: "Crear Envio", icon: Plus },
   { path: "/envio-nacional", label: "Envio Nacional", icon: Globe },
+  { path: "/envios-nacionales", label: "Envios Nacionales", icon: ClipboardList },
   { path: "/rutas", label: "Rutas", icon: Truck },
   { path: "/rastrear", label: "Rastrear", icon: Search },
 ];
