@@ -6,6 +6,7 @@ import Login from "./pages/Login";
 import CreateShipment from "./pages/CreateShipment";
 import CreateNationalShipment from "./pages/CreateNationalShipment";
 import NationalShipments from "./pages/NationalShipments";
+import TransportDelivery from "./pages/TransportDelivery";
 import Shipments from "./pages/Shipments";
 import ShipmentDetail from "./pages/ShipmentDetail";
 import Track from "./pages/Track";
@@ -31,7 +32,8 @@ export default function App() {
       <Route path="/bitacora" element={<Bitacora />} />
       <Route path="/rutas" element={<Rutas />} />
       <Route path="/rutas/:id" element={<RutaDetail />} />
-      <Route path="*" element={<NotFound />} />
+     <Route path="/transporte" element={<TransportDelivery />} /> 
+<Route path="*" element={<NotFound />} />
 <Route path="/envios-nacionales" element={<NationalShipments />} />
     </Routes>
   );
