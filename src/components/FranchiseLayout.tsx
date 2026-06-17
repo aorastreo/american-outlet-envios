@@ -11,6 +11,7 @@ import {
   ChevronRight,
   Truck,
   Search,
+  Globe,
 } from "lucide-react";
 
 const logoUrl = "/logo.jpg";
@@ -20,6 +21,7 @@ const storeNavItems = [
   { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { path: "/envios", label: "Mis Envios", icon: Package },
   { path: "/enviar", label: "Crear Envio", icon: Plus },
+  { path: "/envio-nacional", label: "Envio Nacional", icon: Globe },
   { path: "/rastrear", label: "Rastrear", icon: Search },
 ];
 
@@ -28,10 +30,10 @@ const warehouseNavItems = [
   { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { path: "/envios", label: "Mis Envios", icon: Package },
   { path: "/enviar", label: "Crear Envio", icon: Plus },
+  { path: "/envio-nacional", label: "Envio Nacional", icon: Globe },
   { path: "/rutas", label: "Rutas", icon: Truck },
   { path: "/rastrear", label: "Rastrear", icon: Search },
 ];
-
 // Menu para Chofer (solo Rutas)
 const driverNavItems = [
   { path: "/rutas", label: "Mis Rutas", icon: Truck },

@@ -4,6 +4,7 @@ import Home from "./pages/Home";
 import Dashboard from "./pages/Dashboard";
 import Login from "./pages/Login";
 import CreateShipment from "./pages/CreateShipment";
+import CreateNationalShipment from "./pages/CreateNationalShipment";
 import Shipments from "./pages/Shipments";
 import ShipmentDetail from "./pages/ShipmentDetail";
 import Track from "./pages/Track";
@@ -20,6 +21,7 @@ export default function App() {
       <Route path="/login" element={<Login />} />
       <Route path="/dashboard" element={<Dashboard />} />
       <Route path="/enviar" element={<CreateShipment />} />
+<Route path="/envio-nacional" element={<CreateNationalShipment />} />
       <Route path="/envios" element={<Shipments />} />
       <Route path="/envios/:id" element={<ShipmentDetail />} />
       <Route path="/rastrear" element={<Track />} />
