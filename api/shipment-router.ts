@@ -463,28 +463,6 @@ export const shipmentRouter = createRouter({
       throw new TRPCError({ code: "NOT_FOUND", message: "Numero de rastreo no encontrado" });
     }),
 
-      const items = await db.select().from(shipmentItems).where(eq(shipmentItems.shipmentId, shipment[0].id));
-      const trackingHistory = await db.select().from(shipmentTracking).where(eq(shipmentTracking.shipmentId, shipment[0].id)).orderBy(shipmentTracking.createdAt);
-
-      const allFranchises = await db.select().from(franchises);
-      const franchiseMap = new Map(allFranchises.map(f => [f.id, f]));
-
-      const destFranchise = franchiseMap.get(shipment[0].destinationFranchiseId);
-      const pickupCodes = ["grecia", "san_ramon", "palmares"];
-      const isPickupRoute = pickupCodes.includes(destFranchise?.code?.toLowerCase() || "") ||
-                            (destFranchise?.displayName?.toLowerCase() || "").includes("recogida");
-
-      return {
-        ...shipment[0],
-        items,
-        tracking: trackingHistory,
-        originFranchise: franchiseMap.get(shipment[0].originFranchiseId),
-        destinationFranchise: franchiseMap.get(shipment[0].destinationFranchiseId),
-        destinationFranchiseId: shipment[0].destinationFranchiseId,
-        currentLocation: franchiseMap.get(shipment[0].currentLocationId),
-        isPickupRoute,
-      };
-    }),
 
   // ─── Stats ─────────────────────────────────────────────────────
   stats: franchiseAuthedQuery.query(async ({ ctx }) => {
