@@ -22,7 +22,10 @@ import { es } from "date-fns/locale";
     EN_PARADA: { color: "bg-orange-100 text-orange-700", label: "En Punto de Recogida", icon: MapPin },
     RECIBIDO_EN_DESTINO: { color: "bg-emerald-100 text-emerald-700", label: "Entregado", icon: CheckCircle },
     CANCELADO: { color: "bg-red-100 text-red-700", label: "Cancelado", icon: AlertTriangle },
-  };
+    SOLICITADO_RECOLECCION: { color: "bg-amber-100 text-amber-700", label: "Solicitado Recoleccion", icon: Clock },
+  RECOLECTADO: { color: "bg-blue-100 text-blue-700", label: "En Transito", icon: Truck },
+  ENTREGADO: { color: "bg-emerald-100 text-emerald-700", label: "Entregado", icon: CheckCircle },
+};
   return configs[status] || { color: "bg-gray-100 text-gray-500", label: status, icon: Package };
 }
 
@@ -55,6 +58,13 @@ const directPickupTimeline = [
 ];
 
 // Timeline para envio DIRECTO de bodega a TIENDA
+// Timeline para ENVIOS NACIONALES
+const nationalTimeline = [
+  { status: "CREADO", label: "Creado", desc: "Envio registrado" },
+  { status: "SOLICITADO_RECOLECCION", label: "Solicitado Recoleccion", desc: "Esperando recoleccion" },
+  { status: "RECOLECTADO", label: "En Transito", desc: "Transportista en camino" },
+  { status: "ENTREGADO", label: "Entregado", desc: "Cliente recibio" },
+];
 const directStoreTimeline = [
   { status: "CREADO", label: "Creado", desc: "Envio registrado" },
   { status: "ENVIADO_A_DESTINO", label: "Enviado a Destino", desc: "Bodega envio a tienda" },
@@ -65,10 +75,22 @@ export default function Track() {
   const [trackingNumber, setTrackingNumber] = useState("");
   const [searchedTracking, setSearchedTracking] = useState("");
 
-  const { data: shipment, isLoading, isError } = trpc.shipment.track.useQuery(
+  // Check if it's a national shipment (AN-XXXX) or local (AO-XXXX)
+  const isNational = searchedTracking.toUpperCase().startsWith("AN");
+
+  const { data: localShipment, isLoading: localLoading, isError: localError } = trpc.shipment.track.useQuery(
     { trackingNumber: searchedTracking },
-    { enabled: searchedTracking.length > 0, retry: false }
+    { enabled: searchedTracking.length > 0 && !isNational, retry: false }
   );
+
+  const { data: nationalShipment, isLoading: nationalLoading, isError: nationalError } = trpc.nationalShipping.track.useQuery(
+    { trackingNumber: searchedTracking },
+    { enabled: searchedTracking.length > 0 && isNational, retry: false }
+  );
+
+  const shipment = nationalShipment || localShipment;
+  const isLoading = nationalLoading || localLoading;
+  const isError = (isNational && nationalError) || (!isNational && localError);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -86,7 +108,9 @@ export default function Track() {
   }, [shipment]);
 
   // Pickup = route timeline, Store = store timeline
-  const timelineSteps = isPickup
+  const timelineSteps = isNational
+  ? nationalTimeline
+  : isPickup
     ? (originIsWarehouse ? directPickupTimeline : pickupTimeline)
     : (originIsWarehouse ? directStoreTimeline : storeTimeline);
 
