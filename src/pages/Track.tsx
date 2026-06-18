@@ -96,7 +96,7 @@ export default function Track() {
   }, [shipment]);
 
   // Pickup = route timeline, Store = store timeline
-  const timelineSteps = searchedTracking.toUpperCase().startsWith("AN")
+  const timelineSteps = shipment?.isNational
   ? nationalTimeline
   : isPickup
     ? (originIsWarehouse ? directPickupTimeline : pickupTimeline)
@@ -148,6 +148,15 @@ export default function Track() {
               <p className="text-blue-100 text-sm mb-1">Numero de Rastreo</p>
               <p className="text-3xl font-bold font-mono tracking-wider">{shipment.trackingNumber}</p>
             </div>
+            {/* National shipment badge */}
+            {shipment?.isNational && (
+              <Card className="bg-blue-50 border-blue-200">
+                <CardContent className="p-3 flex items-center gap-2">
+                  <Truck className="w-4 h-4 text-blue-700" />
+                  <span className="text-sm text-blue-700 font-medium">Envio Nacional - Entrega a domicilio</span>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Direct flow badge */}
             {originIsWarehouse && (
@@ -178,7 +187,7 @@ export default function Track() {
                     <div className="flex items-center gap-4 mt-2 text-sm text-[#525252] flex-wrap">
                       <span className="flex items-center gap-1"><MapPin className="w-4 h-4" />De: {shipment.originFranchise?.displayName}</span>
                       <span>→</span>
-                      <span className="flex items-center gap-1"><MapPin className="w-4 h-4" />Para: {shipment.destinationFranchise?.displayName}</span>
+                                            <span className="flex items-center gap-1"><MapPin className="w-4 h-4" />Para: {shipment.isNational ? `${shipment.receiverName} - ${shipment.destinationFranchise?.displayName}` : shipment.destinationFranchise?.displayName}</span>
                     </div>
                   </div>
                   <div className="text-right">
@@ -218,21 +227,35 @@ export default function Track() {
               </CardContent>
             </Card>
 
-            {/* Items */}
+                        {/* Items / Content */}
             <Card>
               <CardContent className="p-6">
-                <h3 className="font-semibold text-[#1A1A1A] mb-4">Articulos ({shipment.items?.length || 0})</h3>
-                <div className="space-y-3">
-                  {shipment.items?.map((item) => (
-                    <div key={item.id} className="flex items-center justify-between p-3 bg-[#F7F7F7] rounded-lg">
-                      <div className="flex-1">
-                        <p className="font-medium text-[#1A1A1A]">{item.description}</p>
-                        {item.details && <p className="text-sm text-[#8A8A8A]">{item.details}</p>}
-                      </div>
-                      <Badge variant="secondary">Cant: {item.quantity}</Badge>
+                {shipment.isNational ? (
+                  <>
+                    <h3 className="font-semibold text-[#1A1A1A] mb-4">Contenido del Envio</h3>
+                    <div className="p-3 bg-[#F7F7F7] rounded-lg">
+                      <p className="font-medium text-[#1A1A1A]">{shipment.receiverName}</p>
+                      <p className="text-sm text-[#8A8A8A]">{shipment.province}, {shipment.canton}, {shipment.district}</p>
+                      <p className="text-sm text-[#525252] mt-2">{shipment.description}</p>
+                      {shipment.notes && <p className="text-sm text-[#8A8A8A] mt-1">Notas: {shipment.notes}</p>}
                     </div>
-                  ))}
-                </div>
+                  </>
+                ) : (
+                  <>
+                    <h3 className="font-semibold text-[#1A1A1A] mb-4">Articulos ({shipment.items?.length || 0})</h3>
+                    <div className="space-y-3">
+                      {shipment.items?.map((item) => (
+                        <div key={item.id} className="flex items-center justify-between p-3 bg-[#F7F7F7] rounded-lg">
+                          <div className="flex-1">
+                            <p className="font-medium text-[#1A1A1A]">{item.description}</p>
+                            {item.details && <p className="text-sm text-[#8A8A8A]">{item.details}</p>}
+                          </div>
+                          <Badge variant="secondary">Cant: {item.quantity}</Badge>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
               </CardContent>
             </Card>
 
