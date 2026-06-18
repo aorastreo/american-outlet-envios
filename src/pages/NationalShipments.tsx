@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Package, Search, Truck, MapPin, CheckCircle, Clock, ClipboardList, Filter, X } from "lucide-react";
+import { Package, Search, Truck, MapPin, CheckCircle, Clock, ClipboardList, Filter, X, User } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
