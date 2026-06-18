@@ -75,19 +75,10 @@ export default function Track() {
   const [trackingNumber, setTrackingNumber] = useState("");
   const [searchedTracking, setSearchedTracking] = useState("");
 
-  const { data: localShipment, isLoading: localLoading, isError: localError } = trpc.shipment.track.useQuery(
+  const { data: shipment, isLoading, isError } = trpc.shipment.track.useQuery(
     { trackingNumber: searchedTracking },
-    { enabled: searchedTracking.length > 0 && !searchedTracking.toUpperCase().startsWith("AN"), retry: false }
+    { enabled: searchedTracking.length > 0, retry: false }
   );
-
-  const { data: nationalShipment, isLoading: nationalLoading, isError: nationalError } = trpc.nationalShipping.track.useQuery(
-    { trackingNumber: searchedTracking },
-    { enabled: searchedTracking.length > 0 && searchedTracking.toUpperCase().startsWith("AN"), retry: false }
-  );
-
-  const shipment = nationalShipment || localShipment;
-  const isLoading = nationalLoading || localLoading;
-  const isError = (isNational && nationalError) || (!isNational && localError);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();

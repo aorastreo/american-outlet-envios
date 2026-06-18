@@ -8,6 +8,7 @@ import {
   shipmentTracking,
   franchises,
   franchiseUsers,
+  nationalShipments,
 } from "@db/schema";
 import { TRPCError } from "@trpc/server";
 
@@ -376,8 +377,91 @@ export const shipmentRouter = createRouter({
     .input(z.object({ trackingNumber: z.string().min(1) }))
     .query(async ({ input }) => {
       const db = getDb();
-      const shipment = await db.select().from(shipments).where(eq(shipments.trackingNumber, input.trackingNumber)).limit(1);
-      if (shipment.length === 0) throw new TRPCError({ code: "NOT_FOUND", message: "Numero de rastreo no encontrado" });
+
+      // 1. Try local shipments first (AO-XXXX)
+      const localShipment = await db.select().from(shipments).where(eq(shipments.trackingNumber, input.trackingNumber)).limit(1);
+
+      if (localShipment.length > 0) {
+        const s = localShipment[0];
+        const items = await db.select().from(shipmentItems).where(eq(shipmentItems.shipmentId, s.id));
+        const trackingHistory = await db.select().from(shipmentTracking).where(eq(shipmentTracking.shipmentId, s.id)).orderBy(shipmentTracking.createdAt);
+        const allFranchises = await db.select().from(franchises);
+        const franchiseMap = new Map(allFranchises.map(f => [f.id, f]));
+        const destFranchise = franchiseMap.get(s.destinationFranchiseId);
+        const pickupCodes = ["grecia", "san_ramon", "palmares"];
+        const isPickupRoute = pickupCodes.includes(destFranchise?.code?.toLowerCase() || "") ||
+                              (destFranchise?.displayName?.toLowerCase() || "").includes("recogida");
+
+        return {
+          ...s,
+          items,
+          tracking: trackingHistory,
+          originFranchise: franchiseMap.get(s.originFranchiseId),
+          destinationFranchise: destFranchise,
+          destinationFranchiseId: s.destinationFranchiseId,
+          currentLocation: franchiseMap.get(s.currentLocationId),
+          isPickupRoute,
+          isNational: false,
+        };
+      }
+
+      // 2. Try national shipments (AN-XXXX)
+      const nationalShipment = await db.select().from(nationalShipments).where(eq(nationalShipments.trackingNumber, input.trackingNumber)).limit(1);
+
+      if (nationalShipment.length > 0) {
+        const s = nationalShipment[0];
+        const allFranchises = await db.select().from(franchises);
+        const franchiseMap = new Map(allFranchises.map(f => [f.id, f]));
+        const originFranchise = franchiseMap.get(s.originFranchiseId);
+
+        // Build pseudo-tracking history
+        const pseudoTracking = [
+          { id: 1, shipmentId: s.id, status: "CREADO", locationId: 0, notes: "Envio creado", createdBy: s.createdBy, createdAt: s.createdAt },
+        ];
+        if (s.status === "SOLICITADO_RECOLECCION" || s.status === "RECOLECTADO" || s.status === "ENTREGADO") {
+          pseudoTracking.push({ id: 2, shipmentId: s.id, status: "SOLICITADO_RECOLECCION", locationId: 0, notes: "Recoleccion solicitada", createdBy: s.createdBy, createdAt: s.createdAt });
+        }
+        if (s.status === "RECOLECTADO" || s.status === "ENTREGADO") {
+          pseudoTracking.push({ id: 3, shipmentId: s.id, status: "RECOLECTADO", locationId: 0, notes: "En transito hacia destino", createdBy: s.createdBy, createdAt: s.createdAt });
+        }
+        if (s.status === "ENTREGADO") {
+          pseudoTracking.push({ id: 4, shipmentId: s.id, status: "ENTREGADO", locationId: 0, notes: `Entregado a ${s.deliveredTo || "cliente"}`, createdBy: s.createdBy, createdAt: s.deliveredAt || s.createdAt });
+        }
+
+        return {
+          id: s.id,
+          trackingNumber: s.trackingNumber,
+          invoiceNumber: null,
+          senderName: originFranchise?.displayName || "Tienda",
+          senderPhone: s.senderPhone || "",
+          originFranchiseId: s.originFranchiseId,
+          destinationFranchiseId: 0,
+          currentLocationId: 0,
+          status: s.status,
+          receiverName: s.receiverName,
+          notes: s.notes,
+          createdBy: s.createdBy,
+          createdAt: s.createdAt,
+          updatedAt: s.updatedAt,
+          items: [],
+          tracking: pseudoTracking,
+          originFranchise,
+          destinationFranchise: {
+            id: 0,
+            name: `${s.province}, ${s.canton}`,
+            displayName: `${s.province}, ${s.canton}`,
+            code: "NACIONAL",
+            isWarehouse: 0,
+          },
+          destinationFranchiseId: 0,
+          currentLocation: originFranchise,
+          isPickupRoute: true,
+          isNational: true,
+        };
+      }
+
+      throw new TRPCError({ code: "NOT_FOUND", message: "Numero de rastreo no encontrado" });
+    }),
 
       const items = await db.select().from(shipmentItems).where(eq(shipmentItems.shipmentId, shipment[0].id));
       const trackingHistory = await db.select().from(shipmentTracking).where(eq(shipmentTracking.shipmentId, shipment[0].id)).orderBy(shipmentTracking.createdAt);
