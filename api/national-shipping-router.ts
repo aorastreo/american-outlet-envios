@@ -247,27 +247,4 @@ export const nationalShippingRouter = createRouter({
         deliveredTo: s.deliveredTo,
       };
     }),
-
-      if (result.length === 0) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "Envio no encontrado" });
-      }
-
-      const s = result[0];
-      return {
-        trackingNumber: s.trackingNumber,
-        status: s.status,
-        receiverName: s.receiverName,
-        province: s.province,
-        canton: s.canton,
-        district: s.district,
-        packageSize: s.packageSize,
-        shippingCost: s.shippingCost,
-        paymentMethod: s.paymentMethod,
-        paymentStatus: s.paymentStatus,
-        externalTrackingCode: s.externalTrackingCode,
-        createdAt: s.createdAt,
-        deliveredAt: s.deliveredAt,
-        deliveredTo: s.deliveredTo,
-      };
-    }),
 });
