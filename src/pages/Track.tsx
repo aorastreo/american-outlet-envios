@@ -75,17 +75,14 @@ export default function Track() {
   const [trackingNumber, setTrackingNumber] = useState("");
   const [searchedTracking, setSearchedTracking] = useState("");
 
-  // Check if it's a national shipment (AN-XXXX) or local (AO-XXXX)
-  const isNational = searchedTracking.toUpperCase().startsWith("AN");
-
   const { data: localShipment, isLoading: localLoading, isError: localError } = trpc.shipment.track.useQuery(
     { trackingNumber: searchedTracking },
-    { enabled: searchedTracking.length > 0 && !isNational, retry: false }
+    { enabled: searchedTracking.length > 0 && !searchedTracking.toUpperCase().startsWith("AN"), retry: false }
   );
 
   const { data: nationalShipment, isLoading: nationalLoading, isError: nationalError } = trpc.nationalShipping.track.useQuery(
     { trackingNumber: searchedTracking },
-    { enabled: searchedTracking.length > 0 && isNational, retry: false }
+    { enabled: searchedTracking.length > 0 && searchedTracking.toUpperCase().startsWith("AN"), retry: false }
   );
 
   const shipment = nationalShipment || localShipment;
@@ -108,7 +105,7 @@ export default function Track() {
   }, [shipment]);
 
   // Pickup = route timeline, Store = store timeline
-  const timelineSteps = isNational
+  const timelineSteps = searchedTracking.toUpperCase().startsWith("AN")
   ? nationalTimeline
   : isPickup
     ? (originIsWarehouse ? directPickupTimeline : pickupTimeline)
