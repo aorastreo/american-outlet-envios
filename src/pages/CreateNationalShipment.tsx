@@ -134,9 +134,6 @@ export default function CreateNationalShipment() {
   const [packageSize, setPackageSize] = useState<"PEQUENO" | "MEDIANO" | "GRANDE">("PEQUENO");
   const [paymentMethod, setPaymentMethod] = useState<"PAGA_ORIGEN" | "COBRA_DESTINO">("COBRA_DESTINO");
   const [error, setError] = useState("");
-  const [successDialog, setSuccessDialog] = useState(false);
-  const [createdTrackingNumber, setCreatedTrackingNumber] = useState("");
-  const [copied, setCopied] = useState(false);
 
   const utils = trpc.useUtils();
 
@@ -145,10 +142,9 @@ export default function CreateNationalShipment() {
   const distritos = province && canton ? (COSTA_RICA_DATA[province]?.[canton] || []) : [];
 
   const createMutation = trpc.nationalShipping.create.useMutation({
-    onSuccess: (data) => {
+    onSuccess: () => {
       utils.nationalShipping.list.invalidate();
-      setCreatedTrackingNumber(data.trackingNumber);
-      setSuccessDialog(true);
+      navigate("/envios-nacionales");
     },
     onError: (err) => {
       setError(err.message);
