@@ -1063,6 +1063,46 @@ app.get("/api/repair-route-shipments", async (c) => {
   }
 });
 
+// ─── FIX: Recreate national_shipments table with correct schema ───
+app.get("/api/fix-national-table", async (c) => {
+  try {
+    const providedToken = c.req.query("token");
+    const expectedToken = process.env.INIT_TABLES_SECRET;
+    if (expectedToken && providedToken !== expectedToken) {
+      return c.json({ error: "Acceso denegado" }, 403);
+    }
+
+    const connection = await mysql.createConnection(env.databaseUrl);
+
+    await connection.execute("DROP TABLE IF EXISTS national_shipments");
+
+    await connection.execute(`
+      CREATE TABLE national_shipments (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        franchiseId BIGINT UNSIGNED NOT NULL,
+        receiverName VARCHAR(255) NOT NULL,
+        receiverPhone VARCHAR(50) NOT NULL,
+        province VARCHAR(50) NOT NULL,
+        canton VARCHAR(50) NOT NULL,
+        district VARCHAR(50) NOT NULL,
+        deliveryAddress TEXT NOT NULL,
+        description VARCHAR(255) NOT NULL,
+        notes TEXT,
+        packageSize ENUM("PEQUENO","MEDIANO","GRANDE") NOT NULL,
+        paymentMethod ENUM("PAGA_ORIGEN","COBRA_DESTINO") NOT NULL,
+        createdBy BIGINT UNSIGNED NOT NULL,
+        createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+        updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP NOT NULL
+      )
+    `);
+
+    await connection.end();
+    return c.json({ success: true, message: "Tabla national_shipments recreada correctamente" });
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message }, 500);
+  }
+});
+
 app.route("/api/backup", backupApp);
 app.get(Paths.oauthCallback, createOAuthCallbackHandler());
 app.all("/api/trpc/*", async (c) => {
