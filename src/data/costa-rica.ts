@@ -136,5 +136,5 @@ export function getCantones(provinceName: string): string[] {
 export function getDistricts(provinceName: string, cantonName: string): string[] {
   const province = COSTA_RICA.find((p) => p.name === provinceName);
   const canton = province?.cantones.find((c) => c.name === cantonName);
-n  return canton?.districts ?? [];
+  return canton?.districts ?? [];
 }
