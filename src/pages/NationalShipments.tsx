@@ -114,3 +114,22 @@ export default function NationalShipments() {
                     <div className="text-right shrink-0">
                       <p className="text-xs text-[#A3A3A3]">
                {s.createdAt ? format(new Date(s.createdAt), "dd/MM/yyyy", { locale: es }) : "-"}
+                      </p>
+                      <button
+                        onClick={() => { if (confirm("Eliminar este envio?")) deleteMutation.mutate({ id: s.id }); }}
+                        className="text-red-400 hover:text-red-600 mt-2"
+                        title="Eliminar"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+    </FranchiseLayout>
+  );
+}
