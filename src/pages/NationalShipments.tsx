@@ -113,4 +113,4 @@ export default function NationalShipments() {
                     </div>
                     <div className="text-right shrink-0">
                       <p className="text-xs text-[#A3A3A3]">
-                        {s.createdAt ? format(new
+               {s.createdAt ? format(new Date(s.createdAt), "dd/MM/yyyy", { locale: es }) : "-"}
