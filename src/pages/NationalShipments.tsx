@@ -29,7 +29,6 @@ export default function NationalShipments() {
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
     return (
-      s.trackingNumber.toLowerCase().includes(q) ||
       s.receiverName.toLowerCase().includes(q) ||
       s.province.toLowerCase().includes(q)
     );
@@ -89,14 +88,14 @@ export default function NationalShipments() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-3 flex-wrap">
                         <span className="inline-block bg-[#1A1A1A] text-white text-xs font-mono font-bold px-2 py-0.5 rounded">
-                          {s.trackingNumber}
+                          
                         </span>
                         <Badge variant="secondary" className={
                           s.packageSize === "PEQUENO" ? "bg-emerald-50 text-emerald-700" :
                           s.packageSize === "MEDIANO" ? "bg-blue-50 text-blue-700" :
                           "bg-purple-50 text-purple-700"
                         }>
-                          {s.packageSize === "PEQUENO" ? "Pequeno" : s.packageSize === "MEDIANO" ? "Mediano" : "Grande"} - ¢{s.shippingCost?.toLocaleString()}
+                          {s.packageSize === "PEQUENO" ? "Pequeno" : s.packageSize === "MEDIANO" ? "Mediano" : "Grande"} - ¢{COST_MAP[s.packageSize]?.toLocaleString()}
                         </Badge>
                         <Badge variant="secondary" className={
                           s.paymentMethod === "PAGA_ORIGEN" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"

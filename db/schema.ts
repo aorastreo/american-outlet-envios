@@ -159,47 +159,21 @@ export type RouteShipment = typeof routeShipments.$inferSelect;
 export type InsertRouteShipment = typeof routeShipments.$inferInsert;
 
 // ─── National Shipments ─────────────────────────────────────────
+
+// ─── National Shipments (registro simple, sin rastreo) ────────────
 export const nationalShipments = mysqlTable("national_shipments", {
   id: serial("id").primaryKey(),
-  trackingNumber: varchar("trackingNumber", { length: 50 }).notNull().unique(),
-  senderName: varchar("senderName", { length: 255 }).notNull(),
-  senderPhone: varchar("senderPhone", { length: 50 }).notNull(),
-  originFranchiseId: bigint("originFranchiseId", { mode: "number", unsigned: true }).notNull(),
-  
-  // Destinatario
+  franchiseId: bigint("franchiseId", { mode: "number", unsigned: true }).notNull(),
   receiverName: varchar("receiverName", { length: 255 }).notNull(),
   receiverPhone: varchar("receiverPhone", { length: 50 }).notNull(),
-  receiverId: varchar("receiverId", { length: 50 }),
-  receiverEmail: varchar("receiverEmail", { length: 320 }),
-  
-  // Direccion de entrega
   province: varchar("province", { length: 50 }).notNull(),
   canton: varchar("canton", { length: 50 }).notNull(),
   district: varchar("district", { length: 50 }).notNull(),
   deliveryAddress: text("deliveryAddress").notNull(),
-  
-  // Contenido
-  description: text("description").notNull(),
+  description: varchar("description", { length: 255 }).notNull(),
   notes: text("notes"),
-  
-  // Tamano y costo
   packageSize: mysqlEnum("packageSize", ["PEQUENO", "MEDIANO", "GRANDE"]).notNull(),
-  shippingCost: int("shippingCost").notNull(),
-  
-  // Estado
-  status: mysqlEnum("status", ["CREADO", "SOLICITADO_RECOLECCION", "RECOLECTADO", "ENTREGADO"]).default("CREADO").notNull(),
-  
-  // Quien paga
-  paymentMethod: mysqlEnum("paymentMethod", ["PAGA_ORIGEN", "COBRA_DESTINO"]).default("COBRA_DESTINO").notNull(),
-  paymentStatus: mysqlEnum("paymentStatus", ["PENDIENTE", "PAGADO"]).default("PENDIENTE").notNull(),
-  
-  // Codigo de rastreo externo (empresa transportista)
-  externalTrackingCode: varchar("externalTrackingCode", { length: 100 }),
-  
-  // Quien recibio (al entregar)
-  deliveredTo: varchar("deliveredTo", { length: 255 }),
-  deliveredAt: timestamp("deliveredAt"),
-  
+  paymentMethod: mysqlEnum("paymentMethod", ["PAGA_ORIGEN", "COBRA_DESTINO"]).notNull(),
   createdBy: bigint("createdBy", { mode: "number", unsigned: true }).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().notNull().$onUpdate(() => new Date()),
