@@ -29,8 +29,8 @@ export default function App() {
       <Route path="/bitacora" element={<Bitacora />} />
       <Route path="/rutas" element={<Rutas />} />
       <Route path="/rutas/:id" element={<RutaDetail />} />
-      <Route path="/envios-nacionales" element={<NationalShipments />} />
       <Route path="/envios-nacionales/nuevo" element={<CreateNationalShipment />} />
+      <Route path="/envios-nacionales" element={<NationalShipments />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
