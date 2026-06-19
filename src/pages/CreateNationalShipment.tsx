@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router";
 import FranchiseLayout from "@/components/FranchiseLayout";
 import { trpc } from "@/providers/trpc";
@@ -10,16 +10,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Send, AlertCircle, Package, User, Phone, MapPin, FileText, CreditCard } from "lucide-react";
+import { COSTA_RICA, getCantones, getDistricts } from "@/data/costa-rica";
 
-const PROVINCIAS = [
-  "San Jose",
-  "Alajuela",
-  "Cartago",
-  "Heredia",
-  "Guanacaste",
-  "Puntarenas",
-  "Limon",
-];
+const PROVINCIAS = COSTA_RICA.map((p) => p.name);
 
 const PACKAGE_SIZES = [
   { value: "PEQUENO", label: "Pequeno - ¢1,000", price: 1000 },
@@ -47,6 +40,8 @@ export default function CreateNationalShipment() {
   const [error, setError] = useState("");
 
   const utils = trpc.useUtils();
+  const cantones = useMemo(() => getCantones(province), [province]);
+  const distritos = useMemo(() => getDistricts(province, canton), [province, canton]);
 
   const createMutation = trpc.nationalShipping.create.useMutation({
     onSuccess: () => {
@@ -57,6 +52,17 @@ export default function CreateNationalShipment() {
       setError(err.message);
     },
   });
+
+  const handleProvinceChange = (value: string) => {
+    setProvince(value);
+    setCanton("");
+    setDistrict("");
+  };
+
+  const handleCantonChange = (value: string) => {
+    setCanton(value);
+    setDistrict("");
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -102,6 +108,8 @@ export default function CreateNationalShipment() {
             )}
 
             <form onSubmit={handleSubmit} className="space-y-4">
+
+              {/* Destinatario */}
               <div className="space-y-2">
                 <Label htmlFor="receiverName" className="flex items-center gap-1">
                   <User className="h-4 w-4 text-blue-600" />
@@ -116,6 +124,7 @@ export default function CreateNationalShipment() {
                 />
               </div>
 
+              {/* Telefono */}
               <div className="space-y-2">
                 <Label htmlFor="receiverPhone" className="flex items-center gap-1">
                   <Phone className="h-4 w-4 text-blue-600" />
@@ -130,12 +139,13 @@ export default function CreateNationalShipment() {
                 />
               </div>
 
+              {/* Provincia */}
               <div className="space-y-2">
                 <Label className="flex items-center gap-1">
                   <MapPin className="h-4 w-4 text-blue-600" />
                   Provincia *
                 </Label>
-                <Select value={province} onValueChange={setProvince}>
+                <Select value={province} onValueChange={handleProvinceChange}>
                   <SelectTrigger>
                     <SelectValue placeholder="Seleccione una provincia" />
                   </SelectTrigger>
@@ -149,29 +159,47 @@ export default function CreateNationalShipment() {
                 </Select>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="canton">Canton *</Label>
-                  <Input
-                    id="canton"
-                    value={canton}
-                    onChange={(e) => setCanton(e.target.value)}
-                    placeholder="Canton"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="district">Distrito *</Label>
-                  <Input
-                    id="district"
-                    value={district}
-                    onChange={(e) => setDistrict(e.target.value)}
-                    placeholder="Distrito"
-                    required
-                  />
-                </div>
+              {/* Canton */}
+              <div className="space-y-2">
+                <Label className="flex items-center gap-1">
+                  <MapPin className="h-4 w-4 text-blue-600" />
+                  Canton *
+                </Label>
+                <Select value={canton} onValueChange={handleCantonChange} disabled={!province || cantones.length === 0}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={province ? "Seleccione un canton" : "Primero seleccione provincia"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {cantones.map((c) => (
+                      <SelectItem key={c} value={c}>
+                        {c}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
+              {/* Distrito */}
+              <div className="space-y-2">
+                <Label className="flex items-center gap-1">
+                  <MapPin className="h-4 w-4 text-blue-600" />
+                  Distrito *
+                </Label>
+                <Select value={district} onValueChange={setDistrict} disabled={!canton || distritos.length === 0}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={canton ? "Seleccione un distrito" : "Primero seleccione canton"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {distritos.map((d) => (
+                      <SelectItem key={d} value={d}>
+                        {d}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Direccion exacta */}
               <div className="space-y-2">
                 <Label htmlFor="deliveryAddress" className="flex items-center gap-1">
                   <MapPin className="h-4 w-4 text-blue-600" />
@@ -187,6 +215,7 @@ export default function CreateNationalShipment() {
                 />
               </div>
 
+              {/* Contenido */}
               <div className="space-y-2">
                 <Label htmlFor="description" className="flex items-center gap-1">
                   <FileText className="h-4 w-4 text-blue-600" />
@@ -201,6 +230,7 @@ export default function CreateNationalShipment() {
                 />
               </div>
 
+              {/* Notas opcionales */}
               <div className="space-y-2">
                 <Label htmlFor="notes">Notas adicionales (opcional)</Label>
                 <Textarea
@@ -212,6 +242,8 @@ export default function CreateNationalShipment() {
                 />
               </div>
 
+
+              {/* Tarifa / Tamano */}
               <div className="space-y-2">
                 <Label className="flex items-center gap-1">
                   <Package className="h-4 w-4 text-blue-600" />
@@ -231,11 +263,12 @@ export default function CreateNationalShipment() {
                 </Select>
                 {selectedPackage && (
                   <p className="text-sm text-green-600 font-medium">
-                    Tarifa: ¢{selectedPackage.price.toLocaleString()}
+                    Tarifa: &cent;{selectedPackage.price.toLocaleString()}
                   </p>
                 )}
               </div>
 
+              {/* Metodo de pago */}
               <div className="space-y-2">
                 <Label className="flex items-center gap-1">
                   <CreditCard className="h-4 w-4 text-blue-600" />
@@ -255,6 +288,7 @@ export default function CreateNationalShipment() {
                 </Select>
               </div>
 
+              {/* Botones */}
               <div className="flex gap-3 pt-4">
                 <Button
                   type="button"
