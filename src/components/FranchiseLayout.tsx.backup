@@ -12,6 +12,7 @@ import {
   Truck,
   Search,
   Globe,
+  ClipboardList,
 } from "lucide-react";
 
 const logoUrl = "/logo.jpg";
@@ -21,7 +22,8 @@ const storeNavItems = [
   { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { path: "/envios", label: "Mis Envios", icon: Package },
   { path: "/enviar", label: "Crear Envio", icon: Plus },
-  { path: "/envios-nacionales", label: "Envios Nacionales", icon: Globe },
+  { path: "/envio-nacional", label: "Envio Nacional", icon: Globe },
+  { path: "/envios-nacionales", label: "Envios Nacionales", icon: ClipboardList },
   { path: "/rastrear", label: "Rastrear", icon: Search },
 ];
 
@@ -30,11 +32,11 @@ const warehouseNavItems = [
   { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { path: "/envios", label: "Mis Envios", icon: Package },
   { path: "/enviar", label: "Crear Envio", icon: Plus },
-  { path: "/envios-nacionales", label: "Envios Nacionales", icon: Globe },
+  { path: "/envio-nacional", label: "Envio Nacional", icon: Globe },
+  { path: "/envios-nacionales", label: "Envios Nacionales", icon: ClipboardList },
   { path: "/rutas", label: "Rutas", icon: Truck },
   { path: "/rastrear", label: "Rastrear", icon: Search },
 ];
-
 // Menu para Chofer (solo Rutas)
 const driverNavItems = [
   { path: "/rutas", label: "Mis Rutas", icon: Truck },
@@ -112,7 +114,7 @@ export default function FranchiseLayout({
           </div>
         </div>
 
-        {/* Navigation */}
+        {/* Navigation - Solo Bodega y Chofer ven Rutas */}
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
           {(user?.username === "chofer"
             ? driverNavItems
