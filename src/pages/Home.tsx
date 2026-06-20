@@ -16,6 +16,13 @@ import { es } from "date-fns/locale";
 
 const logoUrl = "/logo.jpg";
 
+function cleanName(name: string | undefined): string {
+  if (!name) return "";
+  const upper = name.toUpperCase();
+  if (upper.includes("GANGA")) return "Ganga Santa Rosa";
+  return name.replace(/AMERICAN OUTLET\s*/i, "").trim() || name;
+}
+
 export default function Home() {
   const [trackingNumber, setTrackingNumber] = useState("");
   const [searchedTracking, setSearchedTracking] = useState("");
@@ -256,12 +263,12 @@ export default function Home() {
                     <div className="flex items-center gap-4 mt-2 text-sm text-[#525252] flex-wrap">
                       <span className="flex items-center gap-1">
                         <MapPin className="w-4 h-4 text-[#C8102E]" />
-                        De: {shipment.originFranchise?.displayName}
+                        De: {cleanName(shipment.originFranchise?.displayName)}
                       </span>
                       <span className="text-[#D4D4D4]">→</span>
                       <span className="flex items-center gap-1">
                         <MapPin className="w-4 h-4 text-[#C8102E]" />
-                        Para: {shipment.destinationFranchise?.displayName}
+                        Para: {cleanName(shipment.destinationFranchise?.displayName)}
                       </span>
                     </div>
                   </div>
