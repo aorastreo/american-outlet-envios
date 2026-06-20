@@ -12,7 +12,15 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-  function getStatusConfig(status: string) {
+  function cleanName(name: string | undefined): string {
+  if (!name) return "";
+  const upper = name.toUpperCase();
+  if (upper.includes("GANGA")) return "Ganga Santa Rosa";
+  return name.replace(/AMERICAN OUTLET\s*/i, "").trim() || name;
+}
+
+function getStatusConfig(status: string) {
+
     const configs: Record<string, { color: string; label: string; icon: React.ElementType }> = {
     CREADO: { color: "bg-[#F7F7F7] text-[#404040]", label: "Creado", icon: Package },
     ENVIADO_A_BODEGA: { color: "bg-amber-100 text-amber-700", label: "Enviado a Bodega", icon: Send },
@@ -167,9 +175,9 @@ export default function Track() {
                       <span className="flex items-center gap-1"><Phone className="w-4 h-4" />{shipment.senderPhone}</span>
                     </div>
                     <div className="flex items-center gap-4 mt-2 text-sm text-[#525252] flex-wrap">
-                      <span className="flex items-center gap-1"><MapPin className="w-4 h-4" />De: {shipment.originFranchise?.displayName}</span>
-                      <span>→</span>
-                       <span className="flex items-center gap-1"><MapPin className="w-4 h-4" />Para: {shipment.destinationFranchise?.displayName}</span>
+                      <span className="flex items-center gap-1"><MapPin className="w-4 h-4" />De: {cleanName(shipment.originFranchise?.displayName)}</span>
+                      <span className="text-[#D4D4D4]">→</span>
+                      <span className="flex items-center gap-1"><MapPin className="w-4 h-4" />Para: {cleanName(shipment.destinationFranchise?.displayName)}</span>
                     </div>
                   </div>
                   <div className="text-right">
