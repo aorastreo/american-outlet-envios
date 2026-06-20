@@ -5,7 +5,7 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
 
-const isGanga = (name: string | undefined) => (name || "").toLowerCase().includes("ganga");
+const logoUrl = "/logo.jpg";
 
 export default function Boleta() {
   const { id } = useParams<{ id: string }>();
@@ -80,16 +80,16 @@ export default function Boleta() {
             <div className="flex items-center gap-4">
               {/* Logo */}
               <img
-                src={isGanga(shipment.originFranchise?.displayName || shipment.originFranchise?.name) ? "/logo-ganga.jpg" : "/logo.jpg"}
-                alt={isGanga(shipment.originFranchise?.displayName || shipment.originFranchise?.name) ? "Ganga Santa Rosa" : "American Outlet"}
+                src={logoUrl}
+                alt="American Outlet"
                 className="w-16 h-16 object-contain rounded-lg"
               />
               <div>
                 <h1 className="text-2xl font-black text-[#1A1A1A] tracking-tight leading-none">
-                  {isGanga(shipment.originFranchise?.displayName || shipment.originFranchise?.name) ? "Ganga Santa Rosa" : "American Outlet"}
+                  American Outlet
                 </h1>
                 <p className="text-base font-bold text-[#404040] leading-none mt-1">
-                  {isGanga(shipment.originFranchise?.displayName || shipment.originFranchise?.name) ? "Ganga Santa Rosa" : (shipment.originFranchise?.displayName || shipment.originFranchise?.name || "Los Chiles")}
+                  {shipment.originFranchise?.displayName || shipment.originFranchise?.name || "Los Chiles"}
                 </p>
               </div>
             </div>

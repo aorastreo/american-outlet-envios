@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
-const isGanga = (name: string | undefined) => (name || "").toLowerCase().includes("ganga");
+const logoUrl = "/logo.jpg";
 
 export default function Bitacora() {
   const [searchParams] = useSearchParams();
@@ -72,14 +72,12 @@ export default function Bitacora() {
           <div className="px-6 py-4 flex items-center justify-between">
             <div className="flex items-center gap-4">
               <img
-                src={isGanga(originName) || isGanga(destinationName) ? "/logo-ganga.jpg" : "/logo.jpg"}
-                alt={isGanga(originName) || isGanga(destinationName) ? "Ganga Santa Rosa" : "American Outlet"}
+                src={logoUrl}
+                alt="American Outlet"
                 className="w-16 h-16 object-contain rounded-lg"
               />
               <div>
-                <h1 className="text-2xl font-black text-[#1A1A1A] tracking-tight leading-none">
-                  {isGanga(originName) || isGanga(destinationName) ? "Ganga Santa Rosa" : "American Outlet"}
-                </h1>
+                <h1 className="text-2xl font-black text-[#1A1A1A] tracking-tight leading-none">American Outlet</h1>
                 <p className="text-base font-bold text-[#8A8A8A] leading-none mt-1">Bitacora de Entrega</p>
               </div>
             </div>
@@ -225,7 +223,7 @@ export default function Bitacora() {
 
         {/* === FOOTER === */}
         <div className="flex items-center justify-between text-[10px] text-[#525252] pt-2 border-t border-[#D4D4D4]">
-          <p className="font-medium">{isGanga(originName) || isGanga(destinationName) ? "Ganga Santa Rosa" : "American Outlet"} - Sistema de Envios</p>
+          <p className="font-medium">American Outlet - Sistema de Envios</p>
           <p className="font-medium">Generada: {format(new Date(generatedAt), "dd/MM/yyyy HH:mm", { locale: es })}</p>
         </div>
       </div>
