@@ -559,12 +559,14 @@ export const shipmentRouter = createRouter({
       }
 
       const allFranchises = await db.select().from(franchises);
-      const franchiseMap = new Map(allFranchises.map(f => [f.id, f]));
+      const franchiseMap = new Map(allFranchises.map(f => [f.id, { ...f, displayName: cleanFranchiseName(f.displayName) }]));
 
       return {
         shipments: filtered.map(s => ({
           ...s,
           items: itemsByShipment.get(s.id) || [],
+          originDisplayName: cleanFranchiseName(s.originDisplayName),
+          destinationDisplayName: cleanFranchiseName(s.destinationDisplayName),
           destinationFranchise: franchiseMap.get(s.destinationFranchiseId),
         })),
         totalPackages: filtered.length,
