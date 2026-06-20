@@ -3,7 +3,7 @@ import { trpc } from "@/providers/trpc";
 import { Printer, Package, MapPin, Phone, User, Store } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-const logoUrl = "/logo-ganga.jpg";
+const isGanga = (name: string | undefined) => (name || "").toLowerCase().includes("ganga");
 
 const COST_MAP: Record<string, number> = {
   PEQUENO: 1000,
@@ -71,14 +71,16 @@ export default function BoletaNacional() {
           <div className="border-b-[3px] border-slate-900 px-6 py-4 flex items-center justify-between bg-white">
             <div className="flex items-center gap-4">
               <img
-                src={logoUrl}
-                alt="Ganga Santa Rosa"
+                src={isGanga(franchiseName) ? "/logo-ganga.jpg" : "/logo.jpg"}
+                alt={isGanga(franchiseName) ? "Ganga Santa Rosa" : "American Outlet"}
                 className="w-16 h-16 object-contain rounded-lg"
               />
               <div>
-                               <h1 className="text-2xl font-black text-[#1A1A1A] tracking-tight leading-none">Ganga Santa Rosa</h1>
+                <h1 className="text-2xl font-black text-[#1A1A1A] tracking-tight leading-none">
+                  {isGanga(franchiseName) ? "Ganga Santa Rosa" : "American Outlet"}
+                </h1>
                 <p className="text-base font-bold text-[#404040] leading-none mt-1">Envio Nacional</p>
-n              </div>
+              </div>
             </div>
             <div className="text-right">
               <p className="text-[10px] text-[#525252] uppercase tracking-wider font-semibold">Fecha</p>
@@ -176,7 +178,7 @@ n              </div>
           <div className="px-6 py-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <p className="text-xs text-[#525252] uppercase tracking-wider font-medium">
-                                Ganga Santa Rosa - Envios Nacionales
+                             {isGanga(franchiseName) ? "Ganga Santa Rosa" : "American Outlet"} - Envios Nacionales
               </p>
             </div>
             <div className="text-right">
