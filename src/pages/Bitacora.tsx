@@ -7,6 +7,13 @@ import { es } from "date-fns/locale";
 
 const logoUrl = "/logo.jpg";
 
+function cleanName(name: string | undefined): string {
+  if (!name) return "Tienda";
+  const upper = name.toUpperCase();
+  if (upper.includes("GANGA")) return "Ganga Santa Rosa";
+  return name.replace(/AMERICAN OUTLET\s*/i, "").trim() || name;
+}
+
 export default function Bitacora() {
   const [searchParams] = useSearchParams();
   const idsParam = searchParams.get("ids");
@@ -43,10 +50,10 @@ export default function Bitacora() {
   const origins = [...new Set(shipments.map((s) => s.originFranchiseId))];
   const destinations = [...new Set(shipments.map((s) => s.destinationFranchiseId))];
   const originName = origins.length === 1
-    ? (shipments[0]?.originDisplayName || shipments[0]?.originName || "Origen")
+    ? cleanName(shipments[0]?.originDisplayName || shipments[0]?.originName)
     : "Multiples origenes";
   const destinationName = destinations.length === 1
-    ? (shipments[0]?.destinationDisplayName || shipments[0]?.destinationName || "Destino")
+    ? cleanName(shipments[0]?.destinationDisplayName || shipments[0]?.destinationName)
     : "Multiples destinos";
 
   return (

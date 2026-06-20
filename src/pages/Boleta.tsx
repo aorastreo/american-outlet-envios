@@ -7,6 +7,13 @@ import { Button } from "@/components/ui/button";
 
 const logoUrl = "/logo.jpg";
 
+function cleanName(name: string | undefined): string {
+  if (!name) return "Tienda";
+  const upper = name.toUpperCase();
+  if (upper.includes("GANGA")) return "Ganga Santa Rosa";
+  return name.replace(/AMERICAN OUTLET\s*/i, "").trim() || name;
+}
+
 export default function Boleta() {
   const { id } = useParams<{ id: string }>();
   const shipmentId = parseInt(id || "0");
@@ -89,7 +96,7 @@ export default function Boleta() {
                   American Outlet
                 </h1>
                 <p className="text-base font-bold text-[#404040] leading-none mt-1">
-                  {shipment.originFranchise?.displayName || shipment.originFranchise?.name || "Los Chiles"}
+                  {cleanName(shipment.originFranchise?.displayName || shipment.originFranchise?.name)}
                 </p>
               </div>
             </div>
@@ -150,9 +157,7 @@ export default function Boleta() {
               </div>
               <div className="px-4 py-4 flex items-center">
                 <p className="text-xl font-bold text-[#1A1A1A]">
-                  AO{" "}
-                  {(shipment.originFranchise?.displayName || shipment.originFranchise?.name || "LOS CHILES")
-                    .toUpperCase()}
+                  {cleanName(shipment.originFranchise?.displayName || shipment.originFranchise?.name).toUpperCase()}
                 </p>
               </div>
             </div>
@@ -224,7 +229,7 @@ export default function Boleta() {
             <div className="flex items-center gap-3">
               <ArrowRight className="w-5 h-5 text-[#525252]" />
               <p className="text-xs text-[#525252] uppercase tracking-wider">
-                {shipment.originFranchise?.displayName || shipment.originFranchise?.name || ""}
+                {cleanName(shipment.originFranchise?.displayName || shipment.originFranchise?.name)}
                 {" "}
                 <span className="text-[#D4D4D4]">-</span>
                 {" "}
