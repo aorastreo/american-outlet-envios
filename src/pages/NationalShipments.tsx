@@ -5,6 +5,7 @@ import { trpc } from "@/providers/trpc";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -30,6 +31,8 @@ import {
   Phone,
   User,
   CreditCard,
+  FileText,
+  Truck,
 } from "lucide-react";
 
 const COST_MAP: Record<string, number> = {
@@ -52,6 +55,7 @@ const PAYMENT_LABELS: Record<string, { label: string; color: string }> = {
 export default function NationalShipments() {
   const [search, setSearch] = useState("");
   const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
 
   const utils = trpc.useUtils();
   const { data: shipments, isLoading } = trpc.nationalShipping.list.useQuery();
@@ -74,7 +78,32 @@ export default function NationalShipments() {
       s.canton.toLowerCase().includes(q) ||
       s.district.toLowerCase().includes(q)
     );
-n  });
+  });
+
+  const toggleSelection = (id: number) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
+
+  const toggleAll = () => {
+    if (!filteredShipments) return;
+    if (selectedIds.length === filteredShipments.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(filteredShipments.map((s) => s.id));
+    }
+  };
+
+  const openBoleta = (id: number) => {
+    window.open(`/boleta-nacional/${id}`, "_blank");
+  };
+
+  const openBitacora = () => {
+    if (selectedIds.length === 0) return;
+    const idsParam = selectedIds.join(",");
+    window.open(`/bitacora-nacional?ids=${idsParam}`, "_blank");
+  };
 
   const formatDate = (date: Date | null) => {
     if (!date) return "-";
@@ -96,12 +125,23 @@ n  });
             <Package className="h-6 w-6 text-blue-600" />
             Envios Nacionales
           </h1>
-          <Link to="/envios-nacionales/nuevo">
-            <Button className="bg-blue-600 hover:bg-blue-700">
-              <Plus className="h-4 w-4 mr-2" />
-              Nuevo Envio
-            </Button>
-          </Link>
+          <div className="flex gap-2">
+            {selectedIds.length > 0 && (
+              <Button
+                onClick={openBitacora}
+                className="bg-[#C8102E] hover:bg-[#9B0B22]"
+              >
+                <Truck className="h-4 w-4 mr-2" />
+                Bitacora ({selectedIds.length})
+              </Button>
+            )}
+            <Link to="/envios-nacionales/nuevo">
+              <Button className="bg-blue-600 hover:bg-blue-700">
+                <Plus className="h-4 w-4 mr-2" />
+                Nuevo Envio
+              </Button>
+            </Link>
+          </div>
         </div>
 
         {/* Search */}
@@ -130,6 +170,12 @@ n  });
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-[40px]">
+                        <Checkbox
+                          checked={selectedIds.length === filteredShipments.length && filteredShipments.length > 0}
+                          onCheckedChange={toggleAll}
+                        />
+                      </TableHead>
                       <TableHead>Destinatario</TableHead>
                       <TableHead>Telefono</TableHead>
                       <TableHead>Ubicacion</TableHead>
@@ -137,7 +183,7 @@ n  });
                       <TableHead>Tarifa</TableHead>
                       <TableHead>Pago</TableHead>
                       <TableHead>Fecha</TableHead>
-                      <TableHead className="w-[80px]"></TableHead>
+                      <TableHead className="w-[100px]">Acciones</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -147,6 +193,12 @@ n  });
                       const cost = COST_MAP[s.packageSize];
                       return (
                         <TableRow key={s.id} className="hover:bg-gray-50">
+                          <TableCell>
+                            <Checkbox
+                              checked={selectedIds.includes(s.id)}
+                              onCheckedChange={() => toggleSelection(s.id)}
+                            />
+                          </TableCell>
                           <TableCell>
                             <div className="flex items-center gap-2">
                               <User className="h-4 w-4 text-gray-400" />
@@ -185,14 +237,26 @@ n  });
                             {formatDate(s.createdAt)}
                           </TableCell>
                           <TableCell>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setDeleteId(s.id)}
-                              className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                            <div className="flex items-center gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => openBoleta(s.id)}
+                                className="text-blue-600 hover:text-blue-800 hover:bg-blue-50"
+                                title="Boleta"
+                              >
+                                <FileText className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setDeleteId(s.id)}
+                                className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                                title="Eliminar"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
                           </TableCell>
                         </TableRow>
                       );

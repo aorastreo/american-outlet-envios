@@ -13,6 +13,8 @@ import Rutas from "./pages/Rutas";
 import RutaDetail from "./pages/RutaDetail";
 import NationalShipments from "./pages/NationalShipments";
 import CreateNationalShipment from "./pages/CreateNationalShipment";
+import BoletaNacional from "./pages/BoletaNacional";
+import BitacoraNacional from "./pages/BitacoraNacional";
 import NotFound from "./pages/NotFound";
 
 export default function App() {
@@ -31,6 +33,8 @@ export default function App() {
       <Route path="/rutas/:id" element={<RutaDetail />} />
       <Route path="/envios-nacionales/nuevo" element={<CreateNationalShipment />} />
       <Route path="/envios-nacionales" element={<NationalShipments />} />
+      <Route path="/boleta-nacional/:id" element={<BoletaNacional />} />
+      <Route path="/bitacora-nacional" element={<BitacoraNacional />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
