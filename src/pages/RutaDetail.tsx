@@ -146,7 +146,7 @@ export default function RutaDetail() {
   const handleWhatsApp = (phone: string, trackingNumber: string, cityName: string) => {
     const cleanPhone = phone.replace(/\D/g, "");
     const message = encodeURIComponent(
-      `Hola! Su pedido con guia ${trackingNumber} ya esta disponible para recoger en ${cityName}. El camion esta estacionado en el punto de referencia. Por favor pase a recogerlo. Gracias! - Ganga Outlet Santa Rosa`
+      `Hola! Su pedido con guia ${trackingNumber} ya esta disponible para recoger en ${cityName}. El camion esta estacionado en el punto de referencia. Por favor pase a recogerlo. Gracias! - American Outlet`
     );
     window.open(`https://wa.me/506${cleanPhone}?text=${message}`, "_blank");
   };

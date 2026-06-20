@@ -106,12 +106,12 @@ export default function Home() {
           <div className="flex items-center gap-3">
             <img
               src={logoUrl}
-              alt="Ganga Outlet Santa Rosa"
+              alt="American Outlet"
               className="w-11 h-11 rounded-xl object-contain bg-white shadow-sm"
             />
             <div>
               <h1 className="font-bold text-lg text-[#1A1A1A] leading-tight">
-                Ganga Outlet Santa Rosa
+                American Outlet
               </h1>
               <p className="text-[11px] text-[#8A8A8A] uppercase tracking-wider">
                 Sistema de Envios
@@ -501,7 +501,7 @@ export default function Home() {
           <div className="flex items-center justify-center gap-2 mb-1">
             <img src={logoUrl} alt="" className="w-3 h-3 object-contain" />
             <span className="font-medium text-[#1A1A1A]">
-              Ganga Outlet Santa Rosa
+              American Outlet
             </span>
           </div>
           <p className="text-xs">

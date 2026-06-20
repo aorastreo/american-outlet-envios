@@ -99,11 +99,11 @@ export default function Login() {
         <div className="text-center mb-8">
           <img
             src={logoUrl}
-            alt="Ganga Outlet Santa Rosa"
+            alt="American Outlet"
             className="w-16 h-16 rounded-2xl object-contain bg-white mb-4 shadow-lg"
           />
           <h1 className="text-2xl font-bold text-[#1A1A1A]">
-            Ganga Outlet Santa Rosa
+            American Outlet
           </h1>
           <p className="text-sm text-[#8A8A8A] mt-1">
             Acceso para Franquicias
@@ -205,7 +205,7 @@ export default function Login() {
             </form>
 
             <p className="text-center text-xs text-[#A3A3A3]">
-              Sistema exclusivo para franquicias Ganga Outlet Santa Rosa
+              Sistema exclusivo para franquicias American Outlet
             </p>
           </CardContent>
         </Card>

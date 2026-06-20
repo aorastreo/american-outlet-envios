@@ -3,7 +3,7 @@ import { trpc } from "@/providers/trpc";
 import { Printer, Package, MapPin, Phone, User, Store } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-const logoUrl = "/logo.jpg";
+const logoUrl = "/logo-ganga.jpg";
 
 const COST_MAP: Record<string, number> = {
   PEQUENO: 1000,
@@ -72,11 +72,11 @@ export default function BoletaNacional() {
             <div className="flex items-center gap-4">
               <img
                 src={logoUrl}
-                alt="Ganga Outlet Santa Rosa"
+                alt="Ganga"
                 className="w-16 h-16 object-contain rounded-lg"
               />
               <div>
-                <h1 className="text-2xl font-black text-[#1A1A1A] tracking-tight leading-none">Ganga Outlet Santa Rosa</h1>
+                <h1 className="text-2xl font-black text-[#1A1A1A] tracking-tight leading-none">Ganga</h1>
                 <p className="text-base font-bold text-[#404040] leading-none mt-1">Envio Nacional</p>
 n              </div>
             </div>
@@ -176,7 +176,7 @@ n              </div>
           <div className="px-6 py-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <p className="text-xs text-[#525252] uppercase tracking-wider font-medium">
-                Ganga Outlet Santa Rosa - Envios Nacionales
+                Ganga - Envios Nacionales
               </p>
             </div>
             <div className="text-right">
