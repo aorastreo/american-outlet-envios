@@ -48,8 +48,7 @@ const SIZE_LABELS: Record<string, { label: string; color: string }> = {
 };
 
 const PAYMENT_LABELS: Record<string, { label: string; color: string }> = {
-  PAGA_ORIGEN: { label: "Pago", color: "text-green-600 bg-green-50" },
-  COBRA_DESTINO: { label: "Por cobrar", color: "text-orange-600 bg-orange-50" },
+  PAGA_ORIGEN: { label: "Pagado", color: "text-green-600 bg-green-50" },
 };
 
 export default function NationalShipments() {

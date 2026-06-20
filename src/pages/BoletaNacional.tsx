@@ -1,6 +1,6 @@
 import { useParams } from "react-router";
 import { trpc } from "@/providers/trpc";
-import { Printer, Package, MapPin, Phone, User, CreditCard } from "lucide-react";
+import { Printer, Package, MapPin, Phone, User, Store } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const logoUrl = "/logo.jpg";
@@ -44,9 +44,9 @@ export default function BoletaNacional() {
     );
   }
 
+  const franchiseName = (shipment as any).franchiseName || "Tienda";
   const cost = COST_MAP[shipment.packageSize] || 0;
   const sizeLabel = SIZE_LABELS[shipment.packageSize] || shipment.packageSize;
-  const isPaid = shipment.paymentMethod === "PAGA_ORIGEN";
 
   return (
     <div className="min-h-screen bg-white">
@@ -78,13 +78,25 @@ export default function BoletaNacional() {
               <div>
                 <h1 className="text-2xl font-black text-[#1A1A1A] tracking-tight leading-none">American Outlet</h1>
                 <p className="text-base font-bold text-[#404040] leading-none mt-1">Envio Nacional</p>
-              </div>
+n              </div>
             </div>
             <div className="text-right">
               <p className="text-[10px] text-[#525252] uppercase tracking-wider font-semibold">Fecha</p>
               <p className="text-lg font-mono font-bold text-[#1A1A1A]">
                 {shipment.createdAt ? new Date(shipment.createdAt).toLocaleDateString("es-CR") : ""}
               </p>
+            </div>
+          </div>
+
+          {/* ===== TIENDA ORIGEN ===== */}
+          <div className="grid grid-cols-[140px_1fr] border-b-[3px] border-slate-900">
+            <div className="bg-[#C8102E] border-r-[3px] border-slate-900 px-4 flex items-center">
+              <span className="text-sm font-black text-white uppercase tracking-wider">
+                <Store className="w-4 h-4 inline mr-1" /> Envia
+              </span>
+            </div>
+            <div className="px-5 py-4">
+              <p className="text-2xl font-bold text-[#C8102E]">{franchiseName}</p>
             </div>
           </div>
 
@@ -121,7 +133,9 @@ export default function BoletaNacional() {
             </div>
             <div className="px-5 py-4">
               <p className="text-xl font-bold text-[#1A1A1A]">{shipment.province}, {shipment.canton}, {shipment.district}</p>
-              <p className="text-base text-[#404040] mt-1">{shipment.deliveryAddress}</p>
+              <div className="mt-2 p-3 bg-[#FFF5F5] border border-[#C8102E]/20 rounded-lg">
+                <p className="text-base text-[#1A1A1A] font-medium leading-relaxed">{shipment.deliveryAddress}</p>
+n              </div>
             </div>
           </div>
 
@@ -150,16 +164,10 @@ export default function BoletaNacional() {
             </div>
             <div className="grid grid-cols-[140px_1fr]">
               <div className="bg-[#F7F7F7] border-r-[3px] border-slate-900 px-4 flex items-center">
-                <span className="text-sm font-black text-[#1A1A1A] uppercase tracking-wider">
-                  <CreditCard className="w-4 h-4 inline mr-1" /> Pago
-                </span>
+                <span className="text-sm font-black text-[#1A1A1A] uppercase tracking-wider">Estado</span>
               </div>
               <div className="px-4 py-4 flex items-center">
-                {isPaid ? (
-                  <span className="text-lg font-bold text-emerald-700 bg-emerald-50 px-3 py-1 rounded border border-emerald-200">PAGADO</span>
-                ) : (
-                  <span className="text-lg font-bold text-orange-700 bg-orange-50 px-3 py-1 rounded border border-orange-200">COBRAR EN DESTINO - &cent;{cost.toLocaleString()}</span>
-                )}
+                <span className="text-lg font-bold text-emerald-700 bg-emerald-50 px-3 py-1 rounded border border-emerald-200">PAGADO DESDE TIENDA</span>
               </div>
             </div>
           </div>

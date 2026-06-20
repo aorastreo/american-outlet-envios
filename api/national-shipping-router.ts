@@ -2,7 +2,7 @@ import { z } from "zod";
 import { eq, desc } from "drizzle-orm";
 import { createRouter, franchiseAuthedQuery } from "./middleware";
 import { getDb } from "./queries/connection";
-import { nationalShipments } from "@db/schema";
+import { nationalShipments, franchises } from "@db/schema";
 
 export const nationalShippingRouter = createRouter({
   // ─── Create National Shipment ─────────────────────────────────
@@ -18,7 +18,6 @@ export const nationalShippingRouter = createRouter({
         description: z.string().min(1),
         notes: z.string().optional(),
         packageSize: z.enum(["PEQUENO", "MEDIANO", "GRANDE"]),
-        paymentMethod: z.enum(["PAGA_ORIGEN", "COBRA_DESTINO"]),
       })
     )
     .mutation(async ({ input, ctx }) => {
@@ -37,7 +36,7 @@ export const nationalShippingRouter = createRouter({
         description: input.description,
         notes: input.notes,
         packageSize: input.packageSize,
-        paymentMethod: input.paymentMethod,
+        paymentMethod: "PAGA_ORIGEN",
         createdBy,
       });
 
@@ -80,7 +79,17 @@ export const nationalShippingRouter = createRouter({
         throw new Error("No tiene permiso para ver este envio");
       }
 
-      return shipment;
+      // Get franchise name
+      const franchise = await db
+        .select({ displayName: franchises.displayName, name: franchises.name })
+        .from(franchises)
+        .where(eq(franchises.id, franchiseId))
+        .limit(1);
+
+      return {
+        ...shipment,
+        franchiseName: franchise[0]?.displayName || franchise[0]?.name || "Tienda",
+      };
     }),
 
   // ─── Get Bitacora (multiple IDs) ──────────────────────────────
@@ -98,9 +107,19 @@ export const nationalShippingRouter = createRouter({
 
       const filtered = results.filter((s) => input.ids.includes(s.id));
 
+      // Get franchise name
+      const franchise = await db
+        .select({ displayName: franchises.displayName, name: franchises.name })
+        .from(franchises)
+        .where(eq(franchises.id, franchiseId))
+        .limit(1);
+
+      const franchiseName = franchise[0]?.displayName || franchise[0]?.name || "Tienda";
+
       return {
-        shipments: filtered,
+        shipments: filtered.map((s) => ({ ...s, franchiseName })),
         totalShipments: filtered.length,
+        franchiseName,
         generatedAt: new Date(),
       };
     }),

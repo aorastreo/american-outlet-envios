@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Send, AlertCircle, Package, User, Phone, MapPin, FileText, CreditCard } from "lucide-react";
+import { Send, AlertCircle, Package, User, Phone, MapPin, FileText } from "lucide-react";
 import { COSTA_RICA, getCantones, getDistricts } from "@/data/costa-rica";
 
 const PROVINCIAS = COSTA_RICA.map((p) => p.name);
@@ -18,11 +18,6 @@ const PACKAGE_SIZES = [
   { value: "PEQUENO", label: "Pequeno - ¢1,000", price: 1000 },
   { value: "MEDIANO", label: "Mediano - ¢3,500", price: 3500 },
   { value: "GRANDE", label: "Grande - ¢6,500", price: 6500 },
-];
-
-const PAYMENT_METHODS = [
-  { value: "PAGA_ORIGEN", label: "Paga en origen" },
-  { value: "COBRA_DESTINO", label: "Cobrar en destino" },
 ];
 
 export default function CreateNationalShipment() {
@@ -36,7 +31,6 @@ export default function CreateNationalShipment() {
   const [description, setDescription] = useState("");
   const [notes, setNotes] = useState("");
   const [packageSize, setPackageSize] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState("");
   const [error, setError] = useState("");
 
   const utils = trpc.useUtils();
@@ -68,7 +62,7 @@ export default function CreateNationalShipment() {
     e.preventDefault();
     setError("");
 
-    if (!receiverName || !receiverPhone || !province || !canton || !district || !deliveryAddress || !description || !packageSize || !paymentMethod) {
+    if (!receiverName || !receiverPhone || !province || !canton || !district || !deliveryAddress || !description || !packageSize) {
       setError("Por favor complete todos los campos obligatorios");
       return;
     }
@@ -83,7 +77,6 @@ export default function CreateNationalShipment() {
       description,
       notes: notes || undefined,
       packageSize: packageSize as "PEQUENO" | "MEDIANO" | "GRANDE",
-      paymentMethod: paymentMethod as "PAGA_ORIGEN" | "COBRA_DESTINO",
     });
   };
 
@@ -108,7 +101,6 @@ export default function CreateNationalShipment() {
             )}
 
             <form onSubmit={handleSubmit} className="space-y-4">
-
               {/* Destinatario */}
               <div className="space-y-2">
                 <Label htmlFor="receiverName" className="flex items-center gap-1">
@@ -209,7 +201,7 @@ export default function CreateNationalShipment() {
                   id="deliveryAddress"
                   value={deliveryAddress}
                   onChange={(e) => setDeliveryAddress(e.target.value)}
-                  placeholder="Senas exactas para la entrega"
+                  placeholder="Senas exactas para la entrega (color de casa, puntos de referencia, etc.)"
                   rows={3}
                   required
                 />
@@ -242,8 +234,7 @@ export default function CreateNationalShipment() {
                 />
               </div>
 
-
-              {/* Tarifa / Tamano */}
+              {/* Tarifa */}
               <div className="space-y-2">
                 <Label className="flex items-center gap-1">
                   <Package className="h-4 w-4 text-blue-600" />
@@ -266,26 +257,6 @@ export default function CreateNationalShipment() {
                     Tarifa: &cent;{selectedPackage.price.toLocaleString()}
                   </p>
                 )}
-              </div>
-
-              {/* Metodo de pago */}
-              <div className="space-y-2">
-                <Label className="flex items-center gap-1">
-                  <CreditCard className="h-4 w-4 text-blue-600" />
-                  Metodo de pago *
-                </Label>
-                <Select value={paymentMethod} onValueChange={setPaymentMethod}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccione metodo de pago" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PAYMENT_METHODS.map((p) => (
-                      <SelectItem key={p.value} value={p.value}>
-                        {p.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
               </div>
 
               {/* Botones */}
