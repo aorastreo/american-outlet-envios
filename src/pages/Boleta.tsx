@@ -81,12 +81,12 @@ export default function Boleta() {
               {/* Logo */}
               <img
                 src={logoUrl}
-                alt="American Outlet"
+                alt="Ganga Outlet Santa Rosa"
                 className="w-16 h-16 object-contain rounded-lg"
               />
               <div>
                 <h1 className="text-2xl font-black text-[#1A1A1A] tracking-tight leading-none">
-                  American Outlet
+                  Ganga Outlet Santa Rosa
                 </h1>
                 <p className="text-base font-bold text-[#404040] leading-none mt-1">
                   {shipment.originFranchise?.displayName || shipment.originFranchise?.name || "Los Chiles"}

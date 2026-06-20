@@ -76,12 +76,12 @@ export default function FranchiseLayout({
           <Link to="/dashboard" className="flex items-center gap-3">
             <img
               src={logoUrl}
-              alt="American Outlet"
+              alt="Ganga Outlet Santa Rosa"
               className="w-10 h-10 rounded-xl object-contain bg-white shrink-0"
             />
             <div>
               <h1 className="font-bold text-sm leading-tight text-white">
-                American Outlet
+                Ganga Outlet Santa Rosa
               </h1>
               <p className="text-[10px] text-white/50 uppercase tracking-wider">
                 Sistema de Envios
@@ -173,7 +173,7 @@ export default function FranchiseLayout({
               className="w-8 h-8 rounded-lg object-contain bg-[#C8102E]"
             />
             <span className="font-bold text-sm text-[#1A1A1A]">
-              American Outlet
+              Ganga Outlet Santa Rosa
             </span>
           </div>
           {showBadge && (
