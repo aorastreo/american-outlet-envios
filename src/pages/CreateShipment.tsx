@@ -19,7 +19,12 @@ interface ShipmentItem {
   quantity: number;
   details: string;
 }
-
+function cleanName(name: string | undefined): string {
+  if (!name) return "";
+  const upper = name.toUpperCase();
+  if (upper.includes("GANGA")) return "Ganga Santa Rosa";
+  return name.replace(/AMERICAN OUTLET\s*/i, "").trim() || name;
+}
 export default function CreateShipment() {
   const navigate = useNavigate();
   const { user } = useFranchiseAuth();
@@ -214,7 +219,7 @@ export default function CreateShipment() {
                     <SelectContent>
                       {availableFranchises.map((franchise) => (
                         <SelectItem key={franchise.id} value={franchise.id.toString()}>
-                          {franchise.displayName}
+                          {cleanName(franchise.displayName)}
                         </SelectItem>
                       ))}
                     </SelectContent>
