@@ -188,7 +188,7 @@ export const shipmentRouter = createRouter({
           destinationFranchiseId: shipments.destinationFranchiseId,
           currentLocationId: shipments.currentLocationId,
           createdBy: shipments.createdBy,
-          originName: franchises.name,
+                   originName: franchises.name,
           destinationName: sql<string>`(SELECT f2.name FROM franchises f2 WHERE f2.id = ${shipments.destinationFranchiseId})`,
           currentLocationName: sql<string>`(SELECT f3.name FROM franchises f3 WHERE f3.id = ${shipments.currentLocationId})`,
         })
@@ -199,7 +199,16 @@ export const shipmentRouter = createRouter({
         .limit(pageSize)
         .offset(offset);
 
-      return result;
+      // Limpia nombres de franquicia
+      const allFranchises = await db.select().from(franchises);
+      const franchiseMap = new Map(allFranchises.map(f => [f.id, { ...f, displayName: cleanFranchiseName(f.displayName) }]));
+
+      return result.map(s => ({
+        ...s,
+        originName: cleanFranchiseName(franchiseMap.get(s.originFranchiseId)?.displayName || s.originName),
+        destinationName: cleanFranchiseName(franchiseMap.get(s.destinationFranchiseId)?.displayName || s.destinationName),
+        currentLocationName: cleanFranchiseName(franchiseMap.get(s.currentLocationId)?.displayName || s.currentLocationName),
+      }));
     }),
 
   // ─── Get Shipment by ID (with actor names in tracking) ─────────
