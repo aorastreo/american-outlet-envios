@@ -4,8 +4,11 @@ import { Printer, Package, ArrowRight } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
-
 const logoUrl = "/logo.jpg";
+
+function isGanga(name: string | undefined): boolean {
+  return (name || "").toLowerCase().includes("ganga");
+}
 
 function cleanName(name: string | undefined): string {
   if (!name) return "Tienda";
@@ -87,16 +90,16 @@ export default function Boleta() {
             <div className="flex items-center gap-4">
               {/* Logo */}
               <img
-                src={logoUrl}
-                alt="American Outlet"
+                src={isGanga(cleanName(shipment.originFranchise?.displayName || shipment.originFranchise?.name)) ? "/logo-ganga.jpg" : "/logo.jpg"}
+                alt={isGanga(cleanName(shipment.originFranchise?.displayName || shipment.originFranchise?.name)) ? "Ganga Santa Rosa" : "American Outlet"}
                 className="w-16 h-16 object-contain rounded-lg"
               />
               <div>
                 <h1 className="text-2xl font-black text-[#1A1A1A] tracking-tight leading-none">
-                  American Outlet
+                  {isGanga(cleanName(shipment.originFranchise?.displayName || shipment.originFranchise?.name)) ? "Ganga Santa Rosa" : "American Outlet"}
                 </h1>
                 <p className="text-base font-bold text-[#404040] leading-none mt-1">
-                  {cleanName(shipment.originFranchise?.displayName || shipment.originFranchise?.name)}
+                  {isGanga(cleanName(shipment.originFranchise?.displayName || shipment.originFranchise?.name)) ? "Ganga Santa Rosa" : "American Outlet"}
                 </p>
               </div>
             </div>
