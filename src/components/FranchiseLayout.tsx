@@ -14,7 +14,7 @@ import {
   Globe,
 } from "lucide-react";
 
-const logoUrl = "/logo.jpg";
+const isGanga = (username: string | undefined) => username === "ganga_santa_rosa";
 
 // Menu para tiendas normales (sin acceso a Rutas)
 const storeNavItems = [
@@ -54,6 +54,9 @@ export default function FranchiseLayout({
   });
 
   const showBadge = pendingCount && pendingCount > 0;
+  const ganga = isGanga(user?.username);
+  const brandName = ganga ? "Ganga Santa Rosa" : "American Outlet";
+  const logoUrl = ganga ? "/logo-ganga.jpg" : "/logo.jpg";
 
   return (
     <div className="flex h-screen bg-[#F7F7F7]">
@@ -76,12 +79,12 @@ export default function FranchiseLayout({
           <Link to="/dashboard" className="flex items-center gap-3">
             <img
               src={logoUrl}
-              alt="American Outlet"
+              alt={brandName}
               className="w-10 h-10 rounded-xl object-contain bg-white shrink-0"
             />
             <div>
               <h1 className="font-bold text-sm leading-tight text-white">
-                American Outlet
+                {brandName}
               </h1>
               <p className="text-[10px] text-white/50 uppercase tracking-wider">
                 Sistema de Envios
@@ -169,11 +172,11 @@ export default function FranchiseLayout({
           <div className="flex items-center gap-2">
             <img
               src={logoUrl}
-              alt="AO"
+              alt={brandName}
               className="w-8 h-8 rounded-lg object-contain bg-[#C8102E]"
             />
             <span className="font-bold text-sm text-[#1A1A1A]">
-              American Outlet
+              {brandName}
             </span>
           </div>
           {showBadge && (
