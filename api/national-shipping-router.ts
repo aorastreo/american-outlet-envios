@@ -4,6 +4,14 @@ import { createRouter, franchiseAuthedQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { nationalShipments, franchises } from "@db/schema";
 
+// Helper: limpiar nombres de franquicia
+function cleanFranchiseName(name: string | null | undefined): string {
+  if (!name) return "Tienda";
+  const upper = name.toUpperCase();
+  if (upper.includes("GANGA")) return "Ganga Santa Rosa";
+  return name.replace(/AMERICAN OUTLET\s*/i, "").trim() || name;
+}
+
 export const nationalShippingRouter = createRouter({
   // ─── Create National Shipment ─────────────────────────────────
   create: franchiseAuthedQuery
@@ -88,7 +96,7 @@ export const nationalShippingRouter = createRouter({
 
       return {
         ...shipment,
-        franchiseName: franchise[0]?.displayName || franchise[0]?.name || "Tienda",
+                franchiseName: cleanFranchiseName(franchise[0]?.displayName || franchise[0]?.name),
       };
     }),
 
@@ -114,7 +122,7 @@ export const nationalShippingRouter = createRouter({
         .where(eq(franchises.id, franchiseId))
         .limit(1);
 
-      const franchiseName = franchise[0]?.displayName || franchise[0]?.name || "Tienda";
+            const franchiseName = cleanFranchiseName(franchise[0]?.displayName || franchise[0]?.name);
 
       return {
         shipments: filtered.map((s) => ({ ...s, franchiseName })),

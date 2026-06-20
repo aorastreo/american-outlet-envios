@@ -11,6 +11,14 @@ import {
 } from "@db/schema";
 import { TRPCError } from "@trpc/server";
 
+// Helper: limpiar nombres de franquicia
+function cleanFranchiseName(name: string | null | undefined): string {
+  if (!name) return "Tienda";
+  const upper = name.toUpperCase();
+  if (upper.includes("GANGA")) return "Ganga Santa Rosa";
+  return name.replace(/AMERICAN OUTLET\s*/i, "").trim() || name;
+}
+
 const statusEnum = z.enum([
   "CREADO",
   "ENVIADO_A_BODEGA",
@@ -218,7 +226,7 @@ export const shipmentRouter = createRouter({
 
       // Get franchise names
       const allFranchises = await db.select().from(franchises);
-      const franchiseMap = new Map(allFranchises.map(f => [f.id, f]));
+            const franchiseMap = new Map(allFranchises.map(f => [f.id, { ...f, displayName: cleanFranchiseName(f.displayName) }]));
 
       // Get all actor names (franchise users)
       const actorIds = [...new Set(trackingHistory.map(t => t.createdBy))].filter(Boolean);
