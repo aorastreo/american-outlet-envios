@@ -36,6 +36,13 @@ function getStatusConfig(status: string) {
   return configs[status] || { color: "bg-gray-100 text-gray-500", label: status };
 }
 
+function cleanName(name: string | undefined): string {
+  if (!name) return "";
+  const upper = name.toUpperCase();
+  if (upper.includes("GANGA")) return "Ganga Santa Rosa";
+  return name.replace(/AMERICAN OUTLET\s*/i, "").trim() || name;
+}
+
 export default function Dashboard() {
   const { user } = useFranchiseAuth();
   const { data: stats } = trpc.shipment.stats.useQuery();
@@ -49,7 +56,7 @@ export default function Dashboard() {
     for (const s of shipments) {
       if (s.status === "ENVIADO_A_BODEGA") {
         if (!groups[s.originFranchiseId]) {
-          groups[s.originFranchiseId] = { id: s.originFranchiseId, name: s.originName || "Desconocida", count: 0, shipments: [] };
+          groups[s.originFranchiseId] = { id: s.originFranchiseId, name: cleanName(s.originName) || "Desconocida", count: 0, shipments: [] };
         }
         groups[s.originFranchiseId].count++;
         groups[s.originFranchiseId].shipments.push(s);
@@ -64,7 +71,7 @@ export default function Dashboard() {
     for (const s of shipments) {
       if (s.status === "RECIBIDO_EN_BODEGA") {
         if (!groups[s.originFranchiseId]) {
-          groups[s.originFranchiseId] = { id: s.originFranchiseId, name: s.originName || "Desconocida", count: 0 };
+          groups[s.originFranchiseId] = { id: s.originFranchiseId, name: cleanName(s.originName) || "Desconocida", count: 0 };
         }
         groups[s.originFranchiseId].count++;
       }
@@ -323,11 +330,11 @@ export default function Dashboard() {
                             <div className="flex items-center gap-2 mt-1 text-sm text-[#8A8A8A]">
                               <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-[#FFF5F5] text-[#C8102E] rounded text-xs font-medium">
                                 <Store className="w-3 h-3" />
-                                {shipment.originName}
+                                {cleanName(shipment.originName)}
                               </span>
                               <span className="text-[#D4D4D4]">→</span>
                               <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-50 text-[#1B6B3E] rounded text-xs font-medium">
-                                {shipment.destinationName}
+                                {cleanName(shipment.destinationName)}
                               </span>
                             </div>
                           </div>
@@ -342,7 +349,7 @@ export default function Dashboard() {
                                 : "-"}
                             </p>
                             <p className="text-xs text-[#8A8A8A] mt-1">
-                              {shipment.currentLocationName}
+                              {cleanName(shipment.currentLocationName)}
                             </p>
                           </div>
                         </div>
