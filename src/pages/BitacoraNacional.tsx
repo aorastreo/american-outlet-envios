@@ -73,9 +73,9 @@ export default function BitacoraNacional() {
         <div className="border-[3px] border-slate-900 rounded-lg overflow-hidden mb-4">
           <div className="px-6 py-4 flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <img src={logoUrl} alt="Ganga" className="w-16 h-16 object-contain rounded-lg" />
+              <img src={logoUrl} alt="Ganga Santa Rosa" className="w-16 h-16 object-contain rounded-lg" />
               <div>
-                <h1 className="text-2xl font-black text-[#1A1A1A] tracking-tight leading-none">Ganga</h1>
+                <h1 className="text-2xl font-black text-[#1A1A1A] tracking-tight leading-none">Ganga Santa Rosa</h1>
                 <p className="text-base font-bold text-[#8A8A8A] leading-none mt-1">Bitacora de Entrega Nacional</p>
               </div>
             </div>
@@ -187,7 +187,7 @@ export default function BitacoraNacional() {
 
         {/* === FOOTER === */}
         <div className="flex items-center justify-between text-[10px] text-[#525252] pt-2 border-t border-[#D4D4D4]">
-          <p className="font-medium">Ganga - Sistema de Envios Nacionales - {franchiseName}</p>
+          <p className="font-medium">Ganga Santa Rosa - Sistema de Envios Nacionales - {franchiseName}</p>
           <p className="font-medium">Generada: {now.toLocaleDateString("es-CR")} {now.toLocaleTimeString("es-CR", {hour: "2-digit", minute: "2-digit"})}</p>
         </div>
       </div>

@@ -72,11 +72,11 @@ export default function BoletaNacional() {
             <div className="flex items-center gap-4">
               <img
                 src={logoUrl}
-                alt="Ganga"
+                alt="Ganga Santa Rosa"
                 className="w-16 h-16 object-contain rounded-lg"
               />
               <div>
-                <h1 className="text-2xl font-black text-[#1A1A1A] tracking-tight leading-none">Ganga</h1>
+                               <h1 className="text-2xl font-black text-[#1A1A1A] tracking-tight leading-none">Ganga Santa Rosa</h1>
                 <p className="text-base font-bold text-[#404040] leading-none mt-1">Envio Nacional</p>
 n              </div>
             </div>
@@ -176,7 +176,7 @@ n              </div>
           <div className="px-6 py-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <p className="text-xs text-[#525252] uppercase tracking-wider font-medium">
-                Ganga - Envios Nacionales
+                                Ganga Santa Rosa - Envios Nacionales
               </p>
             </div>
             <div className="text-right">
