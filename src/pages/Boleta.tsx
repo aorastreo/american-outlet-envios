@@ -1,6 +1,6 @@
 import { useParams } from "react-router";
 import { trpc } from "@/providers/trpc";
-import { Printer, Package, ArrowRight } from "lucide-react";
+import { useFranchiseAuth } from "@/hooks/useFranchiseAuth";import { Printer, Package, ArrowRight } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,8 @@ function cleanName(name: string | undefined): string {
 
 export default function Boleta() {
   const { id } = useParams<{ id: string }>();
+  const { user } = useFranchiseAuth();
+  const myFranchiseName = cleanName(user?.franchise?.displayName || user?.franchise?.name);
   const shipmentId = parseInt(id || "0");
 
   const { data: shipment, isLoading } = trpc.shipment.getBoleta.useQuery(
@@ -90,16 +92,16 @@ export default function Boleta() {
             <div className="flex items-center gap-4">
               {/* Logo */}
               <img
-                src={isGanga(cleanName(shipment.originFranchise?.displayName || shipment.originFranchise?.name)) ? "/logo-ganga.jpg" : "/logo.jpg"}
-                alt={isGanga(cleanName(shipment.originFranchise?.displayName || shipment.originFranchise?.name)) ? "Ganga Santa Rosa" : "American Outlet"}
+                src={isGanga(myFranchiseName) ? "/logo-ganga.jpg" : "/logo.jpg"}
+                alt={isGanga(myFranchiseName) ? "Ganga Santa Rosa" : "American Outlet"}
                 className="w-16 h-16 object-contain rounded-lg"
               />
               <div>
                 <h1 className="text-2xl font-black text-[#1A1A1A] tracking-tight leading-none">
-                  {isGanga(cleanName(shipment.originFranchise?.displayName || shipment.originFranchise?.name)) ? "Ganga Santa Rosa" : "American Outlet"}
+                  {isGanga(myFranchiseName) ? "Ganga Santa Rosa" : "American Outlet"}
                 </h1>
                 <p className="text-base font-bold text-[#404040] leading-none mt-1">
-                  {isGanga(cleanName(shipment.originFranchise?.displayName || shipment.originFranchise?.name)) ? "Ganga Santa Rosa" : "American Outlet"}
+                  {myFranchiseName}
                 </p>
               </div>
             </div>
