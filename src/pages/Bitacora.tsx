@@ -83,8 +83,6 @@ export default function Bitacora() {
               <img
                 src={isGanga(originName) ? "/logo-ganga.jpg" : "/logo.jpg"}
                 alt={isGanga(originName) ? "Ganga Santa Rosa" : "American Outlet"}
-
-                  {isGanga(originName) ? "Ganga Santa Rosa" : "American Outlet"}
                 className="w-16 h-16 object-contain rounded-lg"
               />
               <div>
