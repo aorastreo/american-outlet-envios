@@ -89,8 +89,7 @@ export default function Bitacora() {
               />
               <div>
                 <h1 className="text-2xl font-black text-[#1A1A1A] tracking-tight leading-none">
-                  {isGanga(myFranchiseName) ? "Ganga Santa Rosa" : "American Outlet"}
-                </h1>
+                  {isGanga(myFranchiseName) ? "Ganga Santa Rosa" : `American Outlet ${myFranchiseName}`}                </h1>
                 <p className="text-base font-bold text-[#8A8A8A] leading-none mt-1">Bitacora de Entrega</p>
               </div>
             </div>
