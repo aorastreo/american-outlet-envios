@@ -173,8 +173,7 @@ export default function Boleta() {
               </div>
               <div className="px-4 py-4 flex items-center">
                 <p className="text-xl font-bold text-[#1A1A1A]">
-                  {(shipment.destinationFranchise?.displayName || shipment.destinationFranchise?.name || "")
-                    .toUpperCase()}
+                  {cleanName(shipment.destinationFranchise?.displayName || shipment.destinationFranchise?.name).toUpperCase()}
                 </p>
               </div>
             </div>
@@ -236,8 +235,7 @@ export default function Boleta() {
                 {" "}
                 <span className="text-[#D4D4D4]">-</span>
                 {" "}
-                {shipment.destinationFranchise?.displayName || shipment.destinationFranchise?.name || ""}
-              </p>
+                {cleanName(shipment.destinationFranchise?.displayName || shipment.destinationFranchise?.name)}              </p>
             </div>
             <div className="text-right">
               <p className="text-lg font-mono font-black text-[#1A1A1A] tracking-wider">
