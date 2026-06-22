@@ -42,7 +42,7 @@ export default function Login() {
     { value: "puerto_viejo", label: "Puerto Viejo" },
     { value: "ganga_santa_rosa", label: "Ganga Santa Rosa" },
     // { value: "bodega_sabana", label: "Bodega Sabana" }, // OCULTO - habilitar cuando se vuelva a usar
-    { value: "chofer", label: "Chofer - Rutas" },
+    // { value: "chofer", label: "Chofer - Rutas" }, // OCULTO - habilitar cuando se vuelvan a usar rutas de camion
     { value: "bodega", label: "Bodega" },
   ];
 
