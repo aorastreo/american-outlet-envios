@@ -9,8 +9,8 @@ import ShipmentDetail from "./pages/ShipmentDetail";
 import Track from "./pages/Track";
 import Boleta from "./pages/Boleta";
 import Bitacora from "./pages/Bitacora";
-import Rutas from "./pages/Rutas";
-import RutaDetail from "./pages/RutaDetail";
+// import Rutas from "./pages/Rutas"; // OCULTO - habilitar cuando se vuelvan a usar rutas de camion
+// import RutaDetail from "./pages/RutaDetail"; // OCULTO - habilitar cuando se vuelvan a usar rutas de camion
 import NationalShipments from "./pages/NationalShipments";
 import CreateNationalShipment from "./pages/CreateNationalShipment";
 import BoletaNacional from "./pages/BoletaNacional";
@@ -29,8 +29,10 @@ export default function App() {
       <Route path="/rastrear" element={<Track />} />
       <Route path="/boleta/:id" element={<Boleta />} />
       <Route path="/bitacora" element={<Bitacora />} />
+      {/* OCULTO - habilitar cuando se vuelvan a usar rutas de camion
       <Route path="/rutas" element={<Rutas />} />
       <Route path="/rutas/:id" element={<RutaDetail />} />
+      */}
       <Route path="/envios-nacionales/nuevo" element={<CreateNationalShipment />} />
       <Route path="/envios-nacionales" element={<NationalShipments />} />
       <Route path="/boleta-nacional/:id" element={<BoletaNacional />} />

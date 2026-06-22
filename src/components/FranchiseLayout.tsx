@@ -31,13 +31,13 @@ const warehouseNavItems = [
   { path: "/envios", label: "Mis Envios", icon: Package },
   { path: "/enviar", label: "Crear Envio", icon: Plus },
   { path: "/envios-nacionales", label: "Envios Nacionales", icon: Globe },
-  { path: "/rutas", label: "Rutas", icon: Truck },
+  // { path: "/rutas", label: "Rutas", icon: Truck }, // OCULTO - habilitar cuando se vuelvan a usar rutas de camion
   { path: "/rastrear", label: "Rastrear", icon: Search },
 ];
 
 // Menu para Chofer (solo Rutas)
 const driverNavItems = [
-  { path: "/rutas", label: "Mis Rutas", icon: Truck },
+  // { path: "/rutas", label: "Mis Rutas", icon: Truck }, // OCULTO - habilitar cuando se vuelvan a usar rutas de camion
 ];
 
 export default function FranchiseLayout({
