@@ -16,6 +16,13 @@ import {
 
 const isGanga = (username: string | undefined) => username === "ganga_santa_rosa";
 
+function cleanName(name: string | undefined): string {
+  if (!name) return "";
+  const upper = name.toUpperCase();
+  if (upper.includes("GANGA")) return "Ganga Santa Rosa";
+  return name.replace(/AMERICAN OUTLET\s*/i, "").trim() || name;
+}
+
 // Menu para tiendas normales (sin acceso a Rutas)
 const storeNavItems = [
   { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -101,7 +108,7 @@ export default function FranchiseLayout({
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-xs font-medium text-white truncate">
-                {user?.franchise?.displayName || "Franquicia"}
+                {cleanName(user?.franchise?.displayName) || "Franquicia"}
               </p>
               <p className="text-[10px] text-white/50 truncate">
                 {user?.displayName || "Usuario"}
