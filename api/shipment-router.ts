@@ -624,6 +624,86 @@ export const shipmentRouter = createRouter({
       return { success: true, count: envios.length };
     }),
 
+  // ─── Recibir en Bodega Masiva ─────────────────────────────────
+  recibirEnBodegaMasiva: franchiseAuthedQuery
+    .input(z.object({ ids: z.array(z.number()).min(1) }))
+    .mutation(async ({ input, ctx }) => {
+      const db = getDb();
+      const franchiseId = ctx.franchiseUser!.franchiseId;
+
+      // Verificar que el usuario sea bodega
+      const userFranchise = await db.select().from(franchises).where(eq(franchises.id, franchiseId)).limit(1);
+      if (userFranchise[0]?.isWarehouse !== 1) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Solo la bodega puede recibir envios" });
+      }
+
+      const envios = await db.select().from(shipments).where(inArray(shipments.id, input.ids));
+      if (envios.length === 0) throw new TRPCError({ code: "NOT_FOUND", message: "No se encontraron envios" });
+
+      // Validar que todos esten en ENVIADO_A_BODEGA
+      const invalidos = envios.filter((s) => s.status !== "ENVIADO_A_BODEGA");
+      if (invalidos.length > 0) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: `${invalidos.length} envio(s) no estan en estado ENVIADO_A_BODEGA y no pueden ser recibidos` });
+      }
+
+      await db
+        .update(shipments)
+        .set({ status: "RECIBIDO_EN_BODEGA", currentLocationId: franchiseId })
+        .where(inArray(shipments.id, input.ids));
+
+      for (const envio of envios) {
+        await db.insert(shipmentTracking).values({
+          shipmentId: envio.id,
+          status: "RECIBIDO_EN_BODEGA",
+          locationId: franchiseId,
+          notes: `Recibido en bodega (${envios.length} envios en lote)`,
+          createdBy: ctx.franchiseUser!.id,
+        });
+      }
+
+      return { success: true, count: envios.length };
+    }),
+
+  // ─── Enviar a Destino Masiva ──────────────────────────────────
+  enviarADestinoMasiva: franchiseAuthedQuery
+    .input(z.object({ ids: z.array(z.number()).min(1) }))
+    .mutation(async ({ input, ctx }) => {
+      const db = getDb();
+      const franchiseId = ctx.franchiseUser!.franchiseId;
+
+      // Verificar que el usuario sea bodega
+      const userFranchise = await db.select().from(franchises).where(eq(franchises.id, franchiseId)).limit(1);
+      if (userFranchise[0]?.isWarehouse !== 1) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Solo la bodega puede enviar envios a destino" });
+      }
+
+      const envios = await db.select().from(shipments).where(inArray(shipments.id, input.ids));
+      if (envios.length === 0) throw new TRPCError({ code: "NOT_FOUND", message: "No se encontraron envios" });
+
+      // Validar que todos esten en RECIBIDO_EN_BODEGA
+      const invalidos = envios.filter((s) => s.status !== "RECIBIDO_EN_BODEGA");
+      if (invalidos.length > 0) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: `${invalidos.length} envio(s) no estan en estado RECIBIDO_EN_BODEGA y no pueden ser enviados a destino` });
+      }
+
+      await db
+        .update(shipments)
+        .set({ status: "ENVIADO_A_DESTINO" })
+        .where(inArray(shipments.id, input.ids));
+
+      for (const envio of envios) {
+        await db.insert(shipmentTracking).values({
+          shipmentId: envio.id,
+          status: "ENVIADO_A_DESTINO",
+          locationId: franchiseId,
+          notes: `Enviado a destino (${envios.length} envios en lote) - ${envio.destinationFranchiseId ? `Tienda destino` : ""}`,
+          createdBy: ctx.franchiseUser!.id,
+        });
+      }
+
+      return { success: true, count: envios.length };
+    }),
+
   // ─── MONTHLY REPORT BY FRANCHISE ──────────────────────────────
   monthlyReport: publicQuery
     .input(z.object({

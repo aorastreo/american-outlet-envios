@@ -18,7 +18,6 @@ import {
   Truck,
   CheckCircle,
   Store,
-  Filter,
   X,
   Printer,
   ClipboardList,
@@ -26,6 +25,7 @@ import {
   CalendarDays,
   Inbox,
   Box,
+  Download,
 } from "lucide-react";
 import { format, isSameDay, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
@@ -33,10 +33,11 @@ import toast from "react-hot-toast";
 
 /* ─── tab definitions ─────────────────────────────────────────── */
 
-type TabKey = "POR_ENVIAR" | "ENVIADOS" | "ENTREGADOS" | "POR_RECIBIR";
+type StoreTabKey = "POR_ENVIAR" | "ENVIADOS" | "ENTREGADOS" | "POR_RECIBIR";
+type WarehouseTabKey = "POR_RECIBIR" | "EN_BODEGA" | "EN_RUTA" | "ENTREGADOS";
 
-interface TabDef {
-  key: TabKey;
+interface TabDef<T extends string> {
+  key: T;
   label: string;
   icon: React.ElementType;
   statuses: string[];
@@ -48,7 +49,8 @@ interface TabDef {
   badgeColor: string;
 }
 
-const TABS: TabDef[] = [
+// Tabs for STORES (tiendas)
+const STORE_TABS: TabDef<StoreTabKey>[] = [
   {
     key: "POR_ENVIAR",
     label: "Por Enviar",
@@ -99,6 +101,58 @@ const TABS: TabDef[] = [
   },
 ];
 
+// Tabs for WAREHOUSE (bodega)
+const WAREHOUSE_TABS: TabDef<WarehouseTabKey>[] = [
+  {
+    key: "POR_RECIBIR",
+    label: "Por Recibir",
+    icon: Download,
+    statuses: ["ENVIADO_A_BODEGA"],
+    description: "Envios de tiendas pendientes de recepcion",
+    color: "text-[#525252]",
+    activeColor: "text-[#B8860B]",
+    activeBg: "bg-amber-50",
+    activeBorder: "border-[#B8860B]",
+    badgeColor: "bg-[#B8860B] text-white",
+  },
+  {
+    key: "EN_BODEGA",
+    label: "En Bodega",
+    icon: ClipboardCheck,
+    statuses: ["RECIBIDO_EN_BODEGA"],
+    description: "Recibidos en bodega, listos para enviar",
+    color: "text-[#525252]",
+    activeColor: "text-purple-700",
+    activeBg: "bg-purple-50",
+    activeBorder: "border-purple-700",
+    badgeColor: "bg-purple-700 text-white",
+  },
+  {
+    key: "EN_RUTA",
+    label: "En Ruta",
+    icon: Truck,
+    statuses: ["EN_RUTA", "EN_PARADA"],
+    description: "En camion hacia las tiendas",
+    color: "text-[#525252]",
+    activeColor: "text-blue-700",
+    activeBg: "bg-blue-50",
+    activeBorder: "border-blue-700",
+    badgeColor: "bg-blue-700 text-white",
+  },
+  {
+    key: "ENTREGADOS",
+    label: "Entregados",
+    icon: CheckCircle,
+    statuses: ["RECIBIDO_EN_DESTINO"],
+    description: "Ya entregados en las tiendas",
+    color: "text-[#525252]",
+    activeColor: "text-[#1B6B3E]",
+    activeBg: "bg-emerald-50",
+    activeBorder: "border-[#1B6B3E]",
+    badgeColor: "bg-[#1B6B3E] text-white",
+  },
+];
+
 /* ─── status badge helper ─────────────────────────────────────── */
 
 function getStatusConfig(status: string) {
@@ -125,15 +179,23 @@ export default function Shipments() {
 
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
 
-  const urlTab = searchParams.get("tab") as TabKey | null;
+  const isWarehouse = user?.franchise?.isWarehouse === 1;
+  const myFranchiseId = user?.franchiseId;
+  const storeFranchises = (allFranchises || []).filter((f) => !f.isWarehouse);
+
+  // Select tabs based on user type
+  const TABS = isWarehouse ? WAREHOUSE_TABS : STORE_TABS;
+  type ActiveTabKey = typeof TABS[number]["key"];
+
+  const urlTab = searchParams.get("tab") as ActiveTabKey | null;
   const urlOriginId = searchParams.get("origin");
 
-  const [activeTab, setActiveTab] = useState<TabKey>(urlTab || "POR_ENVIAR");
+  const [activeTab, setActiveTab] = useState<ActiveTabKey>(urlTab || (isWarehouse ? "POR_RECIBIR" : "POR_ENVIAR"));
   const [searchQuery, setSearchQuery] = useState("");
   const [originFilter, setOriginFilter] = useState<string>(urlOriginId || "ALL");
   const [destFilter, setDestFilter] = useState<string>("ALL");
 
-  // Date filter for "Enviados" tab — default to today
+  // Date filter for "Enviados" tab (stores only) — default to today
   const todayStr = format(new Date(), "yyyy-MM-dd");
   const [dateFilter, setDateFilter] = useState<string>(todayStr);
   const [dateFilterEnabled, setDateFilterEnabled] = useState<boolean>(true);
@@ -143,10 +205,10 @@ export default function Shipments() {
     if (urlTab && TABS.some((t) => t.key === urlTab)) {
       setActiveTab(urlTab);
     }
-  }, [urlTab]);
+  }, [urlTab, TABS]);
 
   // Update URL when tab changes
-  const handleTabChange = (tab: TabKey) => {
+  const handleTabChange = (tab: ActiveTabKey) => {
     setActiveTab(tab);
     setSelectedIds([]);
     const newParams = new URLSearchParams(searchParams);
@@ -156,6 +218,9 @@ export default function Shipments() {
 
   const utils = trpc.useUtils();
 
+  // ─── Mutations ────────────────────────────────────────────────
+
+  // Store: Confirmar salida a bodega
   const confirmarSalidaMutation = trpc.shipment.confirmarSalidaMasiva.useMutation({
     onSuccess: (data) => {
       toast.success(`${data.count} envio(s) confirmado(s) como salida a bodega`);
@@ -167,22 +232,41 @@ export default function Shipments() {
     },
   });
 
-  const isWarehouse = user?.franchise?.isWarehouse === 1;
-  const myFranchiseId = user?.franchiseId;
-  const storeFranchises = (allFranchises || []).filter((f) => !f.isWarehouse);
+  // Warehouse: Recibir en bodega
+  const recibirBodegaMutation = trpc.shipment.recibirEnBodegaMasiva.useMutation({
+    onSuccess: (data) => {
+      toast.success(`${data.count} envio(s) recibido(s) en bodega`);
+      utils.shipment.list.invalidate();
+      setSelectedIds([]);
+    },
+    onError: (error) => {
+      toast.error(error.message || "Error al recibir en bodega");
+    },
+  });
+
+  // Warehouse: Enviar a destino
+  const enviarDestinoMutation = trpc.shipment.enviarADestinoMasiva.useMutation({
+    onSuccess: (data) => {
+      toast.success(`${data.count} envio(s) enviado(s) a destino`);
+      utils.shipment.list.invalidate();
+      setSelectedIds([]);
+    },
+    onError: (error) => {
+      toast.error(error.message || "Error al enviar a destino");
+    },
+  });
 
   // Current tab definition
   const currentTab = TABS.find((t) => t.key === activeTab)!;
 
-  // Filter shipments by tab + search + origin/dest + date (for Enviados)
+  // Filter shipments by tab + search + origin/dest + date
   const filteredShipments = useMemo(() => {
     return (shipments || []).filter((s) => {
       // Tab filter (statuses)
       const matchesTab = currentTab.statuses.includes(s.status);
 
-      // For POR_RECIBIR, only show shipments coming TO the current store
-      // (unless warehouse, then show all)
-      if (activeTab === "POR_RECIBIR" && !isWarehouse && myFranchiseId) {
+      // For store POR_RECIBIR, only show shipments coming TO the current store
+      if (!isWarehouse && activeTab === "POR_RECIBIR" && myFranchiseId) {
         if (s.destinationFranchiseId !== myFranchiseId) return false;
       }
 
@@ -200,9 +284,9 @@ export default function Shipments() {
       const matchesOrigin = originFilter === "ALL" || s.originFranchiseId.toString() === originFilter;
       const matchesDest = destFilter === "ALL" || s.destinationFranchiseId.toString() === destFilter;
 
-      // Date filter (only for ENVIADOS tab)
+      // Date filter (only for store ENVIADOS tab)
       let matchesDate = true;
-      if (activeTab === "ENVIADOS" && dateFilterEnabled && dateFilter) {
+      if (!isWarehouse && activeTab === "ENVIADOS" && dateFilterEnabled && dateFilter) {
         const updated = s.updatedAt ? parseISO(String(s.updatedAt)) : null;
         const filterDate = parseISO(dateFilter);
         if (updated && !isSameDay(updated, filterDate)) {
@@ -216,17 +300,15 @@ export default function Shipments() {
 
   // Count per tab
   const tabCounts = useMemo(() => {
-    const counts: Record<TabKey, number> = {
-      POR_ENVIAR: 0,
-      ENVIADOS: 0,
-      ENTREGADOS: 0,
-      POR_RECIBIR: 0,
-    };
+    const counts: Record<string, number> = {};
+    for (const tab of TABS) {
+      counts[tab.key] = 0;
+    }
     for (const s of shipments || []) {
       for (const tab of TABS) {
         if (tab.statuses.includes(s.status)) {
-          // For POR_RECIBIR, only count if coming to current store (unless warehouse)
-          if (tab.key === "POR_RECIBIR" && !isWarehouse && myFranchiseId) {
+          // For store POR_RECIBIR, only count if coming to current store
+          if (!isWarehouse && tab.key === "POR_RECIBIR" && myFranchiseId) {
             if (s.destinationFranchiseId === myFranchiseId) {
               counts[tab.key]++;
             }
@@ -238,7 +320,7 @@ export default function Shipments() {
       }
     }
     return counts;
-  }, [shipments, isWarehouse, myFranchiseId]);
+  }, [shipments, TABS, isWarehouse, myFranchiseId]);
 
   const renderShipmentCard = (shipment: (typeof filteredShipments)[0]) => {
     const cfg = getStatusConfig(shipment.status);
@@ -354,17 +436,184 @@ export default function Shipments() {
     window.open(`/bitacora?ids=${idsParam}`, "_blank");
   };
 
+  // ─── Action handlers ──────────────────────────────────────────
+
   const confirmarSalida = () => {
     if (selectedIds.length === 0) return;
-    // Solo permitir envios en estado CREADO (tab Por Enviar)
     const seleccionados = filteredShipments.filter((s) => selectedIds.includes(s.id));
     const noCreados = seleccionados.filter((s) => s.status !== "CREADO");
     if (noCreados.length > 0) {
-      toast.error(`${noCreados.length} envio(s) no estan en estado CREADO y no pueden ser procesados`);
+      toast.error(`${noCreados.length} envio(s) no estan en estado CREADO`);
       return;
     }
     confirmarSalidaMutation.mutate({ ids: selectedIds });
   };
+
+  const recibirEnBodega = () => {
+    if (selectedIds.length === 0) return;
+    const seleccionados = filteredShipments.filter((s) => selectedIds.includes(s.id));
+    const invalidos = seleccionados.filter((s) => s.status !== "ENVIADO_A_BODEGA");
+    if (invalidos.length > 0) {
+      toast.error(`${invalidos.length} envio(s) no estan en estado ENVIADO_A_BODEGA`);
+      return;
+    }
+    recibirBodegaMutation.mutate({ ids: selectedIds });
+  };
+
+  const enviarADestino = () => {
+    if (selectedIds.length === 0) return;
+    const seleccionados = filteredShipments.filter((s) => selectedIds.includes(s.id));
+    const invalidos = seleccionados.filter((s) => s.status !== "RECIBIDO_EN_BODEGA");
+    if (invalidos.length > 0) {
+      toast.error(`${invalidos.length} envio(s) no estan en estado RECIBIDO_EN_BODEGA`);
+      return;
+    }
+    enviarDestinoMutation.mutate({ ids: selectedIds });
+  };
+
+  // ─── Render action buttons based on tab + user type ───────────
+
+  const renderActionButtons = () => {
+    if (selectedIds.length === 0) return null;
+
+    // STORE: Por Enviar → Confirmar Salida + Bitacora
+    if (!isWarehouse && activeTab === "POR_ENVIAR") {
+      return (
+        <>
+          <Button
+            onClick={confirmarSalida}
+            disabled={confirmarSalidaMutation.isPending}
+            variant="outline"
+            className="border-[#1B6B3E]/20 text-[#1B6B3E] hover:bg-emerald-50"
+          >
+            <Send className="w-4 h-4 mr-2" />
+            {confirmarSalidaMutation.isPending ? "Procesando..." : "Confirmar Salida a Bodega"}
+          </Button>
+          <Button
+            onClick={generateBitacora}
+            variant="outline"
+            className="border-[#C8102E]/20 text-[#C8102E] hover:bg-[#FFF5F5]"
+          >
+            <ClipboardList className="w-4 h-4 mr-2" />
+            Generar Bitacora
+          </Button>
+        </>
+      );
+    }
+
+    // WAREHOUSE: Por Recibir → Confirmar Recepcion
+    if (isWarehouse && activeTab === "POR_RECIBIR") {
+      return (
+        <>
+          <Button
+            onClick={recibirEnBodega}
+            disabled={recibirBodegaMutation.isPending}
+            variant="outline"
+            className="border-[#B8860B]/20 text-[#B8860B] hover:bg-amber-50"
+          >
+            <Download className="w-4 h-4 mr-2" />
+            {recibirBodegaMutation.isPending ? "Procesando..." : "Confirmar Recepcion Masiva"}
+          </Button>
+          <Button
+            onClick={generateBitacora}
+            variant="outline"
+            className="border-[#C8102E]/20 text-[#C8102E] hover:bg-[#FFF5F5]"
+          >
+            <ClipboardList className="w-4 h-4 mr-2" />
+            Generar Bitacora
+          </Button>
+        </>
+      );
+    }
+
+    // WAREHOUSE: En Bodega → Enviar a Destino
+    if (isWarehouse && activeTab === "EN_BODEGA") {
+      return (
+        <>
+          <Button
+            onClick={enviarADestino}
+            disabled={enviarDestinoMutation.isPending}
+            variant="outline"
+            className="border-purple-700/20 text-purple-700 hover:bg-purple-50"
+          >
+            <Send className="w-4 h-4 mr-2" />
+            {enviarDestinoMutation.isPending ? "Procesando..." : "Confirmar Envio a Destino"}
+          </Button>
+          <Button
+            onClick={generateBitacora}
+            variant="outline"
+            className="border-[#C8102E]/20 text-[#C8102E] hover:bg-[#FFF5F5]"
+          >
+            <ClipboardList className="w-4 h-4 mr-2" />
+            Generar Bitacora
+          </Button>
+        </>
+      );
+    }
+
+    // Default: just bitacora
+    return (
+      <Button
+        onClick={generateBitacora}
+        variant="outline"
+        className="border-[#C8102E]/20 text-[#C8102E] hover:bg-[#FFF5F5]"
+      >
+        <ClipboardList className="w-4 h-4 mr-2" />
+        Generar Bitacora
+      </Button>
+    );
+  };
+
+  // ─── Workflow hints ───────────────────────────────────────────
+
+  const renderWorkflowHint = () => {
+    if (selectedIds.length === 0) return null;
+
+    // Store: Por Enviar
+    if (!isWarehouse && activeTab === "POR_ENVIAR") {
+      return (
+        <div className="flex items-center gap-2 px-4 py-2.5 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700">
+          <ClipboardCheck className="w-4 h-4 shrink-0" />
+          <span className="font-medium">Flujo recomendado:</span>
+          <span>1) Generar Bitacora para revisar</span>
+          <span className="text-blue-400">→</span>
+          <span>2) Confirmar Salida a Bodega</span>
+        </div>
+      );
+    }
+
+    // Warehouse: Por Recibir
+    if (isWarehouse && activeTab === "POR_RECIBIR") {
+      return (
+        <div className="flex items-center gap-2 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700">
+          <ClipboardCheck className="w-4 h-4 shrink-0" />
+          <span className="font-medium">Flujo de bodega:</span>
+          <span>1) Generar Bitacora para revisar</span>
+          <span className="text-amber-400">→</span>
+          <span>2) Confirmar Recepcion Masiva</span>
+        </div>
+      );
+    }
+
+    // Warehouse: En Bodega
+    if (isWarehouse && activeTab === "EN_BODEGA") {
+      return (
+        <div className="flex items-center gap-2 px-4 py-2.5 bg-purple-50 border border-purple-200 rounded-lg text-sm text-purple-700">
+          <ClipboardCheck className="w-4 h-4 shrink-0" />
+          <span className="font-medium">Flujo de bodega:</span>
+          <span>1) Generar Bitacora para el camion</span>
+          <span className="text-purple-400">→</span>
+          <span>2) Confirmar Envio a Destino</span>
+        </div>
+      );
+    }
+
+    return null;
+  };
+
+  // ─── Date filter visibility ───────────────────────────────────
+
+  const showDateFilter = !isWarehouse && activeTab === "ENVIADOS";
 
   return (
     <FranchiseLayout>
@@ -372,7 +621,9 @@ export default function Shipments() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-[#1A1A1A]">Mis Envios</h1>
+            <h1 className="text-2xl font-bold text-[#1A1A1A]">
+              {isWarehouse ? "Bodega - Envios" : "Mis Envios"}
+            </h1>
             <p className="text-[#8A8A8A] mt-1">
               {filteredShipments.length} envio{filteredShipments.length !== 1 ? "s" : ""} encontrado
               {filteredShipments.length !== 1 ? "s" : ""}
@@ -383,35 +634,17 @@ export default function Shipments() {
               )}
             </p>
           </div>
-          <div className="flex gap-2">
-            {selectedIds.length > 0 && activeTab === "POR_ENVIAR" && (
-              <Button
-                onClick={confirmarSalida}
-                disabled={confirmarSalidaMutation.isPending}
-                variant="outline"
-                className="border-[#1B6B3E]/20 text-[#1B6B3E] hover:bg-emerald-50"
+          <div className="flex gap-2 flex-wrap">
+            {renderActionButtons()}
+            {!isWarehouse && (
+              <Link
+                to="/enviar"
+                className="inline-flex items-center justify-center px-4 py-2.5 bg-[#C8102E] text-white rounded-lg text-sm font-medium hover:bg-[#9B0B22] transition-colors"
               >
-                <Send className="w-4 h-4 mr-2" />
-                {confirmarSalidaMutation.isPending ? "Procesando..." : "Confirmar Salida a Bodega"}
-              </Button>
+                <Package className="w-4 h-4 mr-2" />
+                Nuevo Envio
+              </Link>
             )}
-            {selectedIds.length > 0 && (
-              <Button
-                onClick={generateBitacora}
-                variant="outline"
-                className="border-[#C8102E]/20 text-[#C8102E] hover:bg-[#FFF5F5]"
-              >
-                <ClipboardList className="w-4 h-4 mr-2" />
-                Generar Bitacora
-              </Button>
-            )}
-            <Link
-              to="/enviar"
-              className="inline-flex items-center justify-center px-4 py-2.5 bg-[#C8102E] text-white rounded-lg text-sm font-medium hover:bg-[#9B0B22] transition-colors"
-            >
-              <Package className="w-4 h-4 mr-2" />
-              Nuevo Envio
-            </Link>
           </div>
         </div>
 
@@ -420,7 +653,7 @@ export default function Shipments() {
           {TABS.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.key;
-            const count = tabCounts[tab.key];
+            const count = tabCounts[tab.key] || 0;
             return (
               <button
                 key={tab.key}
@@ -449,22 +682,14 @@ export default function Shipments() {
           })}
         </div>
 
-        {/* ─── Workflow hint for POR_ENVIAR ───────────────────── */}
-        {activeTab === "POR_ENVIAR" && selectedIds.length > 0 && (
-          <div className="flex items-center gap-2 px-4 py-2.5 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700">
-            <ClipboardCheck className="w-4 h-4 shrink-0" />
-            <span className="font-medium">Flujo recomendado:</span>
-            <span>1) Generar Bitacora para revisar</span>
-            <span className="text-blue-400">→</span>
-            <span>2) Confirmar Salida a Bodega</span>
-          </div>
-        )}
+        {/* ─── Workflow hints ──────────────────────────────────── */}
+        {renderWorkflowHint()}
 
-        {/* ─── Sub-header: tab description + date filter for Enviados ── */}
+        {/* ─── Sub-header: tab description + date filter ───────── */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <p className="text-sm text-[#8A8A8A]">
             <span className="font-medium text-[#525252]">{currentTab.description}</span>
-            {activeTab === "ENVIADOS" && dateFilterEnabled && (
+            {showDateFilter && dateFilterEnabled && (
               <span className="ml-2">
                 — Mostrando{" "}
                 <strong>{format(parseISO(dateFilter), "dd/MM/yyyy", { locale: es })}</strong>
@@ -472,8 +697,8 @@ export default function Shipments() {
             )}
           </p>
 
-          {/* Date filter only for ENVIADOS tab */}
-          {activeTab === "ENVIADOS" && (
+          {/* Date filter only for store ENVIADOS tab */}
+          {showDateFilter && (
             <div className="flex items-center gap-2">
               <label className="flex items-center gap-1.5 text-sm text-[#525252] cursor-pointer select-none">
                 <Checkbox
@@ -558,11 +783,11 @@ export default function Shipments() {
             <CardContent className="p-12 text-center">
               <Package className="w-12 h-12 text-[#D4D4D4] mx-auto mb-3" />
               <p className="text-[#8A8A8A]">
-                {hasFilters || (activeTab === "ENVIADOS" && dateFilterEnabled)
+                {hasFilters || (showDateFilter && dateFilterEnabled)
                   ? "No se encontraron envios con esos filtros"
                   : "No hay envios en esta seccion"}
               </p>
-              {activeTab === "ENVIADOS" && dateFilterEnabled && (
+              {showDateFilter && dateFilterEnabled && (
                 <p className="text-xs text-[#A3A3A3] mt-2">
                   Prueba desactivar el filtro de fecha o seleccionar otra fecha
                 </p>
