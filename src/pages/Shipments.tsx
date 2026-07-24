@@ -33,7 +33,7 @@ import toast from "react-hot-toast";
 
 /* ─── tab definitions ─────────────────────────────────────────── */
 
-type StoreTabKey = "POR_ENVIAR" | "ENVIADOS" | "ENTREGADOS" | "POR_RECIBIR";
+type StoreTabKey = "POR_ENVIAR" | "ENVIADOS" | "EN_TIENDA" | "POR_RECIBIR";
 type WarehouseTabKey = "POR_RECIBIR" | "EN_BODEGA" | "EN_RUTA" | "ENTREGADOS";
 
 interface TabDef<T extends string> {
@@ -76,11 +76,11 @@ const STORE_TABS: TabDef<StoreTabKey>[] = [
     badgeColor: "bg-[#C8102E] text-white",
   },
   {
-    key: "ENTREGADOS",
-    label: "Entregados",
+    key: "EN_TIENDA",
+    label: "En Tienda",
     icon: CheckCircle,
     statuses: ["RECIBIDO_EN_DESTINO"],
-    description: "Ya entregados al destino",
+    description: "Recibidos en tienda, esperando al cliente",
     color: "text-[#525252]",
     activeColor: "text-[#1B6B3E]",
     activeBg: "bg-emerald-50",
@@ -144,7 +144,7 @@ const WAREHOUSE_TABS: TabDef<WarehouseTabKey>[] = [
     label: "Entregados",
     icon: CheckCircle,
     statuses: ["RECIBIDO_EN_DESTINO"],
-    description: "Ya entregados en las tiendas",
+    description: "Entregados en las tiendas de destino",
     color: "text-[#525252]",
     activeColor: "text-[#1B6B3E]",
     activeBg: "bg-emerald-50",
@@ -163,7 +163,7 @@ function getStatusConfig(status: string) {
     EN_RUTA: { color: "bg-blue-50 text-blue-700 hover:bg-blue-100", label: "En Ruta de Camion", icon: Truck },
     EN_PARADA: { color: "bg-orange-50 text-orange-700 hover:bg-orange-100", label: "En Punto de Recogida", icon: MapPin },
     ENVIADO_A_DESTINO: { color: "bg-[#FFF5F5] text-[#C8102E] hover:bg-[#FFE0E0]", label: "Enviado a Destino", icon: Truck },
-    RECIBIDO_EN_DESTINO: { color: "bg-emerald-50 text-[#1B6B3E] hover:bg-emerald-100", label: "Entregado", icon: CheckCircle },
+    RECIBIDO_EN_DESTINO: { color: "bg-emerald-50 text-[#1B6B3E] hover:bg-emerald-100", label: "Recibido en Tienda", icon: CheckCircle },
     CANCELADO: { color: "bg-red-50 text-red-700 hover:bg-red-100", label: "Cancelado", icon: Package },
   };
   return configs[status] || { color: "bg-gray-100 text-gray-500 hover:bg-gray-200", label: status, icon: Package };
