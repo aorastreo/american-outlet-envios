@@ -704,6 +704,46 @@ export const shipmentRouter = createRouter({
       return { success: true, count: envios.length };
     }),
 
+  // ─── Recibir en Destino Masiva (tiendas) ──────────────────────
+  recibirEnDestinoMasiva: franchiseAuthedQuery
+    .input(z.object({ ids: z.array(z.number()).min(1) }))
+    .mutation(async ({ input, ctx }) => {
+      const db = getDb();
+      const franchiseId = ctx.franchiseUser!.franchiseId;
+
+      // Verificar que NO sea bodega (solo tiendas)
+      const userFranchise = await db.select().from(franchises).where(eq(franchises.id, franchiseId)).limit(1);
+      if (userFranchise[0]?.isWarehouse === 1) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "La bodega usa su propio flujo de recepcion" });
+      }
+
+      const envios = await db.select().from(shipments).where(inArray(shipments.id, input.ids));
+      if (envios.length === 0) throw new TRPCError({ code: "NOT_FOUND", message: "No se encontraron envios" });
+
+      // Validar que todos esten en ENVIADO_A_DESTINO y vayan a esta tienda
+      const invalidos = envios.filter((s) => s.status !== "ENVIADO_A_DESTINO" || s.destinationFranchiseId !== franchiseId);
+      if (invalidos.length > 0) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: `${invalidos.length} envio(s) no estan en estado ENVIADO_A_DESTINO o no pertenecen a esta tienda` });
+      }
+
+      await db
+        .update(shipments)
+        .set({ status: "RECIBIDO_EN_DESTINO", currentLocationId: franchiseId })
+        .where(inArray(shipments.id, input.ids));
+
+      for (const envio of envios) {
+        await db.insert(shipmentTracking).values({
+          shipmentId: envio.id,
+          status: "RECIBIDO_EN_DESTINO",
+          locationId: franchiseId,
+          notes: `Recibido en tienda destino (${envios.length} envios en lote)`,
+          createdBy: ctx.franchiseUser!.id,
+        });
+      }
+
+      return { success: true, count: envios.length };
+    }),
+
   // ─── MONTHLY REPORT BY FRANCHISE ──────────────────────────────
   monthlyReport: publicQuery
     .input(z.object({

@@ -256,6 +256,18 @@ export default function Shipments() {
     },
   });
 
+  // Store: Recibir en destino (tienda)
+  const recibirDestinoMutation = trpc.shipment.recibirEnDestinoMasiva.useMutation({
+    onSuccess: (data) => {
+      toast.success(`${data.count} envio(s) recibido(s) en tienda`);
+      utils.shipment.list.invalidate();
+      setSelectedIds([]);
+    },
+    onError: (error) => {
+      toast.error(error.message || "Error al recibir envios");
+    },
+  });
+
   // Current tab definition
   const currentTab = TABS.find((t) => t.key === activeTab)!;
 
@@ -471,6 +483,17 @@ export default function Shipments() {
     enviarDestinoMutation.mutate({ ids: selectedIds });
   };
 
+  const recibirEnDestino = () => {
+    if (selectedIds.length === 0) return;
+    const seleccionados = filteredShipments.filter((s) => selectedIds.includes(s.id));
+    const invalidos = seleccionados.filter((s) => s.status !== "ENVIADO_A_DESTINO");
+    if (invalidos.length > 0) {
+      toast.error(`${invalidos.length} envio(s) no estan en estado ENVIADO_A_DESTINO`);
+      return;
+    }
+    recibirDestinoMutation.mutate({ ids: selectedIds });
+  };
+
   // ─── Render action buttons based on tab + user type ───────────
 
   const renderActionButtons = () => {
@@ -488,6 +511,31 @@ export default function Shipments() {
           >
             <Send className="w-4 h-4 mr-2" />
             {confirmarSalidaMutation.isPending ? "Procesando..." : "Confirmar Salida a Bodega"}
+          </Button>
+          <Button
+            onClick={generateBitacora}
+            variant="outline"
+            className="border-[#C8102E]/20 text-[#C8102E] hover:bg-[#FFF5F5]"
+          >
+            <ClipboardList className="w-4 h-4 mr-2" />
+            Generar Bitacora
+          </Button>
+        </>
+      );
+    }
+
+    // STORE: Por Recibir → Confirmar Recepcion Masiva
+    if (!isWarehouse && activeTab === "POR_RECIBIR") {
+      return (
+        <>
+          <Button
+            onClick={recibirEnDestino}
+            disabled={recibirDestinoMutation.isPending}
+            variant="outline"
+            className="border-[#B8860B]/20 text-[#B8860B] hover:bg-amber-50"
+          >
+            <CheckCircle className="w-4 h-4 mr-2" />
+            {recibirDestinoMutation.isPending ? "Procesando..." : "Confirmar Recepcion Masiva"}
           </Button>
           <Button
             onClick={generateBitacora}
@@ -578,6 +626,19 @@ export default function Shipments() {
           <span>1) Generar Bitacora para revisar</span>
           <span className="text-blue-400">→</span>
           <span>2) Confirmar Salida a Bodega</span>
+        </div>
+      );
+    }
+
+    // Store: Por Recibir
+    if (!isWarehouse && activeTab === "POR_RECIBIR") {
+      return (
+        <div className="flex items-center gap-2 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700">
+          <ClipboardCheck className="w-4 h-4 shrink-0" />
+          <span className="font-medium">Flujo de recepcion:</span>
+          <span>1) Revisar paquetes contra la bitacora</span>
+          <span className="text-amber-400">→</span>
+          <span>2) Confirmar Recepcion Masiva</span>
         </div>
       );
     }
