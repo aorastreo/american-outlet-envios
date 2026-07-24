@@ -385,7 +385,42 @@ export default function Shipments() {
           <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#C8102E]"></div></div>
         ) : filteredShipments.length === 0 ? (
           <Card className="border-[#D4D4D4]"><CardContent className="p-12 text-center"><Package className="w-12 h-12 text-[#D4D4D4] mx-auto mb-3" /><p className="text-[#8A8A8A]">{hasFilters ? "No se encontraron envios con esos filtros" : "No hay envios registrados"}</p></CardContent></Card>
+        ) : statusFilter === "ALL" ? (
+          /* AGRUPADO POR ESTADO */
+          <div className="space-y-6">
+            {[
+              { status: "CREADO", title: "Por Enviar a Bodega", desc: "Envios creados que aun no salen", borderColor: "border-l-[#C8102E]" },
+              { status: "ENVIADO_A_BODEGA", title: "En Camino a Bodega", desc: "Ya enviados, esperando recepcion", borderColor: "border-l-amber-400" },
+              { status: "RECIBIDO_EN_BODEGA", title: "En Bodega", desc: "Recibidos en bodega central", borderColor: "border-l-purple-400" },
+              { status: "EN_RUTA", title: "En Ruta de Camion", desc: "En camion hacia destino", borderColor: "border-l-blue-400" },
+              { status: "EN_PARADA", title: "En Punto de Recogida", desc: "Camion en el punto", borderColor: "border-l-orange-400" },
+              { status: "ENVIADO_A_DESTINO", title: "Enviado a Destino", desc: "En camino a tienda destino", borderColor: "border-l-pink-400" },
+              { status: "RECIBIDO_EN_DESTINO", title: "Entregados", desc: "Envios completados", borderColor: "border-l-emerald-400" },
+              { status: "CANCELADO", title: "Cancelados", desc: "Envios cancelados", borderColor: "border-l-red-400" },
+            ].map((group) => {
+              const groupShipments = filteredShipments.filter((s) => s.status === group.status);
+              if (groupShipments.length === 0) return null;
+              const cfg = getStatusConfig(group.status);
+              const Icon = cfg.icon;
+              return (
+                <div key={group.status} className={`space-y-2 border-l-4 ${group.borderColor} pl-3`}>
+                  <div className="flex items-center gap-2">
+                    <Icon className="w-4 h-4 text-[#525252]" />
+                    <h3 className="text-sm font-semibold text-[#1A1A1A]">{group.title}</h3>
+                    <Badge className={`text-xs ${cfg.color}`}>
+                      {groupShipments.length}
+                    </Badge>
+                    <span className="text-xs text-[#A3A3A3] hidden sm:inline">{group.desc}</span>
+                  </div>
+                  <div className="space-y-2">
+                    {groupShipments.map((s) => renderShipmentCard(s))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         ) : (
+          /* FILTRO APLICADO - lista normal */
           <div className="space-y-3">
             {filteredShipments.length > 1 && (
               <div className="flex items-center gap-2 px-4 py-2 bg-[#F7F7F7] rounded-lg border border-[#D4D4D4]">
