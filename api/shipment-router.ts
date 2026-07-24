@@ -110,13 +110,6 @@ export const shipmentRouter = createRouter({
         throw new TRPCError({ code: "BAD_REQUEST", message: "La bodega no puede enviar envios a si misma" });
       }
 
-      if (input.invoiceNumber?.trim()) {
-        const existingInvoice = await db.select().from(shipments).where(eq(shipments.invoiceNumber, input.invoiceNumber.trim())).limit(1);
-        if (existingInvoice.length > 0) {
-          throw new TRPCError({ code: "CONFLICT", message: `Ya existe un envio con la factura #${input.invoiceNumber.trim()}` });
-        }
-      }
-
       if (!bodegaId) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Bodega no configurada" });
       // Check if this is a pickup route (destination is Grecia=5, SanRamon=6, Palmares=7)
       const isPickup = [5, 6, 7].includes(input.destinationFranchiseId);
