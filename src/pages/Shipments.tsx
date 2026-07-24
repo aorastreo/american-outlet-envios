@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import { format, isSameDay, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
+import toast from "react-hot-toast";
 
 /* ─── tab definitions ─────────────────────────────────────────── */
 
@@ -152,6 +153,19 @@ export default function Shipments() {
     newParams.set("tab", tab);
     setSearchParams(newParams, { replace: true });
   };
+
+  const utils = trpc.useUtils();
+
+  const confirmarSalidaMutation = trpc.shipment.confirmarSalidaMasiva.useMutation({
+    onSuccess: (data) => {
+      toast.success(`${data.count} envio(s) confirmado(s) como salida a bodega`);
+      utils.shipment.list.invalidate();
+      setSelectedIds([]);
+    },
+    onError: (error) => {
+      toast.error(error.message || "Error al confirmar salida");
+    },
+  });
 
   const isWarehouse = user?.franchise?.isWarehouse === 1;
   const myFranchiseId = user?.franchiseId;
@@ -340,6 +354,18 @@ export default function Shipments() {
     window.open(`/bitacora?ids=${idsParam}`, "_blank");
   };
 
+  const confirmarSalida = () => {
+    if (selectedIds.length === 0) return;
+    // Solo permitir envios en estado CREADO (tab Por Enviar)
+    const seleccionados = filteredShipments.filter((s) => selectedIds.includes(s.id));
+    const noCreados = seleccionados.filter((s) => s.status !== "CREADO");
+    if (noCreados.length > 0) {
+      toast.error(`${noCreados.length} envio(s) no estan en estado CREADO y no pueden ser procesados`);
+      return;
+    }
+    confirmarSalidaMutation.mutate({ ids: selectedIds });
+  };
+
   return (
     <FranchiseLayout>
       <div className="space-y-6">
@@ -358,6 +384,17 @@ export default function Shipments() {
             </p>
           </div>
           <div className="flex gap-2">
+            {selectedIds.length > 0 && activeTab === "POR_ENVIAR" && (
+              <Button
+                onClick={confirmarSalida}
+                disabled={confirmarSalidaMutation.isPending}
+                variant="outline"
+                className="border-[#1B6B3E]/20 text-[#1B6B3E] hover:bg-emerald-50"
+              >
+                <Send className="w-4 h-4 mr-2" />
+                {confirmarSalidaMutation.isPending ? "Procesando..." : "Confirmar Salida a Bodega"}
+              </Button>
+            )}
             {selectedIds.length > 0 && (
               <Button
                 onClick={generateBitacora}
@@ -411,6 +448,17 @@ export default function Shipments() {
             );
           })}
         </div>
+
+        {/* ─── Workflow hint for POR_ENVIAR ───────────────────── */}
+        {activeTab === "POR_ENVIAR" && selectedIds.length > 0 && (
+          <div className="flex items-center gap-2 px-4 py-2.5 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700">
+            <ClipboardCheck className="w-4 h-4 shrink-0" />
+            <span className="font-medium">Flujo recomendado:</span>
+            <span>1) Generar Bitacora para revisar</span>
+            <span className="text-blue-400">→</span>
+            <span>2) Confirmar Salida a Bodega</span>
+          </div>
+        )}
 
         {/* ─── Sub-header: tab description + date filter for Enviados ── */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">

@@ -576,6 +576,54 @@ export const shipmentRouter = createRouter({
       };
     }),
 
+  // ─── Confirmar Salida Masiva a Bodega ─────────────────────────
+  confirmarSalidaMasiva: franchiseAuthedQuery
+    .input(z.object({ ids: z.array(z.number()).min(1) }))
+    .mutation(async ({ input, ctx }) => {
+      const db = getDb();
+      const franchiseId = ctx.franchiseUser!.franchiseId;
+
+      // Obtener la bodega
+      const bodegaResult = await db.select().from(franchises).where(eq(franchises.isWarehouse, 1)).limit(1);
+      const bodegaId = bodegaResult[0]?.id;
+      if (!bodegaId) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Bodega no configurada" });
+
+      // Obtener todos los envíos solicitados
+      const envios = await db.select().from(shipments).where(inArray(shipments.id, input.ids));
+
+      if (envios.length === 0) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "No se encontraron envios" });
+      }
+
+      // Validar que todos los envíos pertenezcan a la franquicia del usuario y estén en CREADO
+      const invalidos = envios.filter((s) => s.originFranchiseId !== franchiseId || s.status !== "CREADO");
+      if (invalidos.length > 0) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `${invalidos.length} envio(s) no pueden ser procesados. Solo se puede dar salida a envios en estado CREADO de esta tienda.`,
+        });
+      }
+
+      // Actualizar todos los envíos: CREADO → ENVIADO_A_BODEGA
+      await db
+        .update(shipments)
+        .set({ status: "ENVIADO_A_BODEGA", currentLocationId: bodegaId })
+        .where(inArray(shipments.id, input.ids));
+
+      // Registrar en el historial de tracking para cada envío
+      for (const envio of envios) {
+        await db.insert(shipmentTracking).values({
+          shipmentId: envio.id,
+          status: "ENVIADO_A_BODEGA",
+          locationId: bodegaId,
+          notes: `Salida masiva confirmada - ${envios.length} envios en camion hacia bodega`,
+          createdBy: ctx.franchiseUser!.id,
+        });
+      }
+
+      return { success: true, count: envios.length };
+    }),
+
   // ─── MONTHLY REPORT BY FRANCHISE ──────────────────────────────
   monthlyReport: publicQuery
     .input(z.object({
