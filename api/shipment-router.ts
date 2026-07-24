@@ -400,7 +400,7 @@ export const shipmentRouter = createRouter({
       const trackingHistory = await db.select().from(shipmentTracking).where(eq(shipmentTracking.shipmentId, shipment[0].id)).orderBy(shipmentTracking.createdAt);
 
       const allFranchises = await db.select().from(franchises);
-      const franchiseMap = new Map(allFranchises.map(f => [f.id, f]));
+      const franchiseMap = new Map(allFranchises.map(f => [f.id, { ...f, displayName: cleanFranchiseName(f.displayName) }]));
 
       const destFranchise = franchiseMap.get(shipment[0].destinationFranchiseId);
       const pickupCodes = ["grecia", "san_ramon", "palmares"];
@@ -497,7 +497,7 @@ export const shipmentRouter = createRouter({
         .orderBy(shipmentTracking.createdAt);
 
       const allFranchises = await db.select().from(franchises);
-      const franchiseMap = new Map(allFranchises.map(f => [f.id, f]));
+      const franchiseMap = new Map(allFranchises.map(f => [f.id, { ...f, displayName: cleanFranchiseName(f.displayName) }]));
 
       return {
         ...shipment[0],
@@ -596,7 +596,7 @@ export const shipmentRouter = createRouter({
       const month = input?.month ?? now.getMonth() + 1;
 
       const allFranchises = await db.select().from(franchises);
-      const franchiseMap = new Map(allFranchises.map(f => [f.id, f]));
+      const franchiseMap = new Map(allFranchises.map(f => [f.id, { ...f, displayName: cleanFranchiseName(f.displayName) }]));
 
       const allShipments = await db.select().from(shipments);
 
