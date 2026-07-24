@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { eq, desc, inArray } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 import { createRouter, franchiseAuthedQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { nationalShipments, franchises } from "@db/schema";
@@ -25,6 +25,7 @@ export const nationalShippingRouter = createRouter({
         deliveryAddress: z.string().min(1),
         description: z.string().min(1),
         notes: z.string().optional(),
+        invoiceNumber: z.string().optional(),
         packageSize: z.enum(["PEQUENO", "MEDIANO", "GRANDE"]),
       })
     )
@@ -43,6 +44,7 @@ export const nationalShippingRouter = createRouter({
         deliveryAddress: input.deliveryAddress,
         description: input.description,
         notes: input.notes,
+        invoiceNumber: input.invoiceNumber,
         packageSize: input.packageSize,
         paymentMethod: "PAGA_ORIGEN",
         createdBy,
@@ -87,11 +89,11 @@ export const nationalShippingRouter = createRouter({
         throw new Error("No tiene permiso para ver este envio");
       }
 
-      // Get franchise name from the SHIPMENT'S franchise, not the user's
+      // Get franchise name
       const franchise = await db
         .select({ displayName: franchises.displayName, name: franchises.name })
         .from(franchises)
-        .where(eq(franchises.id, shipment.franchiseId))
+        .where(eq(franchises.id, franchiseId))
         .limit(1);
 
       return {
@@ -115,19 +117,19 @@ export const nationalShippingRouter = createRouter({
 
       const filtered = results.filter((s) => input.ids.includes(s.id));
 
-      // Get franchise names for EACH shipment (not just the user's franchise)
-      const shipmentFranchiseIds = [...new Set(filtered.map((s) => s.franchiseId))];
-      const allFranchises = await db
-        .select({ id: franchises.id, displayName: franchises.displayName, name: franchises.name })
+      // Get franchise name
+      const franchise = await db
+        .select({ displayName: franchises.displayName, name: franchises.name })
         .from(franchises)
-        .where(inArray(franchises.id, shipmentFranchiseIds));
+        .where(eq(franchises.id, franchiseId))
+        .limit(1);
 
-      const franchiseMap = new Map(allFranchises.map((f) => [f.id, cleanFranchiseName(f.displayName || f.name)]));
+      const franchiseName = cleanFranchiseName(franchise[0]?.displayName || franchise[0]?.name);
 
       return {
-        shipments: filtered.map((s) => ({ ...s, franchiseName: franchiseMap.get(s.franchiseId) || "Tienda" })),
+        shipments: filtered.map((s) => ({ ...s, franchiseName })),
         totalShipments: filtered.length,
-        franchiseName: franchiseMap.size === 1 ? (franchiseMap.values().next().value || "Tienda") : "Multiples tiendas",
+        franchiseName,
         generatedAt: new Date(),
       };
     }),

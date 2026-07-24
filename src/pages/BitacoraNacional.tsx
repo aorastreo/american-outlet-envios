@@ -3,7 +3,7 @@ import { trpc } from "@/providers/trpc";
 import { Truck, Package, MapPin, Phone, User, Printer, Store, PenLine } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-const isGanga = (name: string | undefined) => (name || "").toLowerCase().includes("ganga");
+const logoUrl = "/logo-ganga.jpg";
 
 const COST_MAP: Record<string, number> = {
   PEQUENO: 1000,
@@ -48,6 +48,7 @@ export default function BitacoraNacional() {
   }
 
   const { shipments, generatedAt } = data;
+  // @ts-ignore
   const franchiseName = (data as any).franchiseName || "Tienda";
   const now = new Date(generatedAt);
 
@@ -73,15 +74,9 @@ export default function BitacoraNacional() {
         <div className="border-[3px] border-slate-900 rounded-lg overflow-hidden mb-4">
           <div className="px-6 py-4 flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <img
-                src={isGanga(franchiseName) ? "/logo-ganga.jpg" : "/logo.jpg"}
-                alt={isGanga(franchiseName) ? "Ganga Santa Rosa" : "American Outlet"}
-                className="w-16 h-16 object-contain rounded-lg"
-              />
+              <img src={logoUrl} alt="Ganga Santa Rosa" className="w-16 h-16 object-contain rounded-lg" />
               <div>
-                <h1 className="text-2xl font-black text-[#1A1A1A] tracking-tight leading-none">
-                  {isGanga(franchiseName) ? "Ganga Santa Rosa" : "American Outlet"}
-                </h1>
+                <h1 className="text-2xl font-black text-[#1A1A1A] tracking-tight leading-none">Ganga Santa Rosa</h1>
                 <p className="text-base font-bold text-[#8A8A8A] leading-none mt-1">Bitacora de Entrega Nacional</p>
               </div>
             </div>
@@ -108,16 +103,16 @@ export default function BitacoraNacional() {
         </div>
 
         {/* === SHIPMENTS TABLE === */}
-        {/* === SHIPMENTS TABLE === */}
         <div className="border-[3px] border-slate-900 rounded-lg overflow-hidden mb-4">
           <table className="w-full">
             <thead>
               <tr className="border-b-2 border-slate-900 bg-[#F7F7F7]">
-                <th className="text-left text-[9px] uppercase tracking-wider text-[#404040] font-bold px-2 py-2 w-6">#</th>
-                <th className="text-left text-[9px] uppercase tracking-wider text-[#404040] font-bold px-2 py-2">Cliente / Telefono / Articulo</th>
-                <th className="text-left text-[9px] uppercase tracking-wider text-[#404040] font-bold px-2 py-2 w-24">Ubicacion</th>
-                <th className="text-left text-[9px] uppercase tracking-wider text-[#404040] font-bold px-2 py-2">Direccion Exacta</th>
-                <th className="text-left text-[9px] uppercase tracking-wider text-[#404040] font-bold px-2 py-2 w-16">Tarifa</th>
+                <th className="text-left text-[9px] uppercase tracking-wider text-[#404040] font-bold px-3 py-2 w-8">#</th>
+                <th className="text-left text-[9px] uppercase tracking-wider text-[#404040] font-bold px-3 py-2">Cliente / Telefono</th>
+                <th className="text-left text-[9px] uppercase tracking-wider text-[#404040] font-bold px-3 py-2">Articulo</th>
+                <th className="text-left text-[9px] uppercase tracking-wider text-[#404040] font-bold px-3 py-2 w-20">Factura</th>
+                <th className="text-left text-[9px] uppercase tracking-wider text-[#404040] font-bold px-3 py-2 w-28">Direccion</th>
+                <th className="text-left text-[9px] uppercase tracking-wider text-[#404040] font-bold px-3 py-2 w-20">Tarifa</th>
               </tr>
             </thead>
             <tbody>
@@ -126,40 +121,49 @@ export default function BitacoraNacional() {
                 const sizeLabel = SIZE_LABELS[s.packageSize] || s.packageSize;
                 return (
                   <tr key={s.id} className="border-b border-slate-200 last:border-0">
-                    <td className="px-2 py-2.5 text-sm font-mono text-[#525252] font-semibold align-top">{idx + 1}</td>
-                    <td className="px-2 py-2.5 align-top">
-                      <div className="flex items-center gap-1.5">
-                        <User className="w-3.5 h-3.5 text-[#C8102E] shrink-0" />
-                        <span className="text-sm font-bold text-[#1A1A1A]">{s.receiverName}</span>
+                    <td className="px-3 py-3 text-sm font-mono text-[#525252] font-semibold">{idx + 1}</td>
+                    <td className="px-3 py-3">
+                      <div className="flex items-center gap-1">
+                        <User className="w-3 h-3 text-[#C8102E]" />
+                        <span className="text-sm font-semibold text-[#1A1A1A]">{s.receiverName}</span>
                       </div>
-                      <div className="flex items-center gap-1.5 mt-1">
-                        <Phone className="w-3.5 h-3.5 text-[#8A8A8A] shrink-0" />
-                        <span className="text-xs text-[#525252] font-mono font-semibold">{s.receiverPhone}</span>
-                      </div>
-                      <div className="mt-1.5 pt-1.5 border-t border-[#F0F0F0]">
-                        <p className="text-xs text-[#404040] font-medium">{s.description}</p>
-                        {s.notes && <p className="text-[10px] text-[#8A8A8A] mt-0.5">{s.notes}</p>}
+                      <div className="flex items-center gap-1 mt-1">
+                        <Phone className="w-3 h-3 text-[#8A8A8A]" />
+                        <span className="text-xs text-[#525252] font-mono">{s.receiverPhone}</span>
                       </div>
                     </td>
-                    <td className="px-2 py-2.5 align-top">
+                    <td className="px-3 py-3">
+                      <p className="text-sm text-[#404040] font-medium">{s.description}</p>
+                      {s.invoiceNumber && (
+                        <span className="inline-block bg-[#C8102E] text-white text-[10px] font-mono font-bold px-1.5 py-0.5 rounded mt-1 tracking-wide">
+                          FACT: {s.invoiceNumber}
+                        </span>
+                      )}
+                      {s.notes && <p className="text-[10px] text-[#8A8A8A] mt-1">{s.notes}</p>}
+                    </td>
+                    <td className="px-3 py-3">
+                      {s.invoiceNumber ? (
+                        <span className="text-xs font-mono font-bold text-[#C8102E]">{s.invoiceNumber}</span>
+                      ) : (
+                        <span className="text-[10px] text-[#A3A3A3]">-</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-3">
                       <div className="flex items-start gap-1">
-                        <MapPin className="w-3.5 h-3.5 text-[#8A8A8A] mt-0.5 shrink-0" />
+                        <MapPin className="w-3 h-3 text-[#8A8A8A] mt-0.5 shrink-0" />
                         <div>
-                          <p className="text-[10px] font-bold text-[#1A1A1A]">{s.province}</p>
-                          <p className="text-[10px] text-[#525252]">{s.canton}</p>
-                          <p className="text-[10px] text-[#525252]">{s.district}</p>
+                          <p className="text-xs font-semibold text-[#525252]">{s.province}</p>
+                          <p className="text-xs text-[#525252]">{s.canton}, {s.district}</p>
                         </div>
                       </div>
-                    </td>
-                    <td className="px-2 py-2.5 align-top">
-                      <div className="p-2 bg-[#FFF5F5] border border-[#C8102E]/20 rounded-md">
-                        <p className="text-xs text-[#1A1A1A] font-semibold leading-relaxed">{s.deliveryAddress}</p>
+                      <div className="mt-1.5 p-1.5 bg-[#FFF5F5] border border-[#C8102E]/15 rounded">
+                        <p className="text-[10px] text-[#1A1A1A] leading-relaxed">{s.deliveryAddress}</p>
                       </div>
                     </td>
-                    <td className="px-2 py-2.5 align-top">
-                      <span className="text-[10px] font-bold text-[#1A1A1A]">{sizeLabel}</span>
+                    <td className="px-3 py-3">
+                      <span className="text-xs font-semibold text-[#1A1A1A]">{sizeLabel}</span>
                       <p className="text-sm font-mono font-bold text-[#C8102E]">&cent;{cost.toLocaleString()}</p>
-                      <span className="inline-block mt-1 bg-emerald-50 text-emerald-700 text-[8px] font-bold px-1.5 py-0.5 rounded border border-emerald-200">PAGADO</span>
+                      <span className="inline-block mt-1 bg-emerald-50 text-emerald-700 text-[9px] font-bold px-1.5 py-0.5 rounded border border-emerald-200">PAGADO</span>
                     </td>
                   </tr>
                 );
@@ -167,6 +171,7 @@ export default function BitacoraNacional() {
             </tbody>
           </table>
         </div>
+
         {/* === FIRMA GENERAL === */}
         <div className="border-[3px] border-slate-900 rounded-lg overflow-hidden mb-4">
           <div className="bg-[#F7F7F7] border-b-[3px] border-slate-900 px-4 py-2.5 flex items-center gap-2">
@@ -193,7 +198,7 @@ export default function BitacoraNacional() {
 
         {/* === FOOTER === */}
         <div className="flex items-center justify-between text-[10px] text-[#525252] pt-2 border-t border-[#D4D4D4]">
-          <p className="font-medium">{isGanga(franchiseName) ? "Ganga Santa Rosa" : "American Outlet"} - Sistema de Envios Nacionales - {franchiseName}</p>
+          <p className="font-medium">Ganga Santa Rosa - Sistema de Envios Nacionales - {franchiseName}</p>
           <p className="font-medium">Generada: {now.toLocaleDateString("es-CR")} {now.toLocaleTimeString("es-CR", {hour: "2-digit", minute: "2-digit"})}</p>
         </div>
       </div>

@@ -67,7 +67,16 @@ export const shipments = mysqlTable("shipments", {
   originFranchiseId: bigint("originFranchiseId", { mode: "number", unsigned: true }).notNull(),
   destinationFranchiseId: bigint("destinationFranchiseId", { mode: "number", unsigned: true }).notNull(),
   currentLocationId: bigint("currentLocationId", { mode: "number", unsigned: true }).notNull(),
-  status: mysqlEnum("status", ["CREADO", "ENVIADO_A_BODEGA", "RECIBIDO_EN_BODEGA", "ENVIADO_A_DESTINO", "RECIBIDO_EN_DESTINO", "EN_RUTA", "EN_PARADA", "CANCELADO"]).notNull(),
+  status: mysqlEnum("status", [
+    "CREADO",
+    "ENVIADO_A_BODEGA",
+    "RECIBIDO_EN_BODEGA",
+    "ENVIADO_A_DESTINO",
+    "RECIBIDO_EN_DESTINO",
+    "EN_RUTA",
+    "EN_PARADA",
+    "CANCELADO",
+  ]).notNull(),
   receiverName: varchar("receiverName", { length: 255 }),
   notes: text("notes"),
   createdBy: bigint("createdBy", { mode: "number", unsigned: true }).notNull(),
@@ -104,6 +113,8 @@ export const shipmentTracking = mysqlTable("shipment_tracking", {
     "RECIBIDO_EN_BODEGA",
     "ENVIADO_A_DESTINO",
     "RECIBIDO_EN_DESTINO",
+    "EN_RUTA",
+    "EN_PARADA",
     "CANCELADO",
   ]).notNull(),
   locationId: bigint("locationId", { mode: "number", unsigned: true }).notNull(),
@@ -114,6 +125,7 @@ export const shipmentTracking = mysqlTable("shipment_tracking", {
 
 export type ShipmentTracking = typeof shipmentTracking.$inferSelect;
 export type InsertShipmentTracking = typeof shipmentTracking.$inferInsert;
+
 // ─── Delivery Routes ────────────────────────────────────────────
 export const deliveryRoutes = mysqlTable("delivery_routes", {
   id: serial("id").primaryKey(),
@@ -159,8 +171,6 @@ export type RouteShipment = typeof routeShipments.$inferSelect;
 export type InsertRouteShipment = typeof routeShipments.$inferInsert;
 
 // ─── National Shipments ─────────────────────────────────────────
-
-// ─── National Shipments (registro simple, sin rastreo) ────────────
 export const nationalShipments = mysqlTable("national_shipments", {
   id: serial("id").primaryKey(),
   franchiseId: bigint("franchiseId", { mode: "number", unsigned: true }).notNull(),
@@ -171,12 +181,16 @@ export const nationalShipments = mysqlTable("national_shipments", {
   district: varchar("district", { length: 50 }).notNull(),
   deliveryAddress: text("deliveryAddress").notNull(),
   description: varchar("description", { length: 255 }).notNull(),
+  invoiceNumber: varchar("invoiceNumber", { length: 50 }),
   notes: text("notes"),
   packageSize: mysqlEnum("packageSize", ["PEQUENO", "MEDIANO", "GRANDE"]).notNull(),
   paymentMethod: mysqlEnum("paymentMethod", ["PAGA_ORIGEN", "COBRA_DESTINO"]).notNull(),
   createdBy: bigint("createdBy", { mode: "number", unsigned: true }).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().notNull().$onUpdate(() => new Date()),
+  updatedAt: timestamp("updatedAt")
+    .defaultNow()
+    .notNull()
+    .$onUpdate(() => new Date()),
 });
 
 export type NationalShipment = typeof nationalShipments.$inferSelect;

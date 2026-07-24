@@ -3,7 +3,7 @@ import { trpc } from "@/providers/trpc";
 import { Printer, Package, MapPin, Phone, User, Store } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-const isGanga = (name: string | undefined) => (name || "").toLowerCase().includes("ganga");
+const logoUrl = "/logo-ganga.jpg";
 
 const COST_MAP: Record<string, number> = {
   PEQUENO: 1000,
@@ -44,6 +44,7 @@ export default function BoletaNacional() {
     );
   }
 
+  // @ts-ignore - franchiseName added by API
   const franchiseName = (shipment as any).franchiseName || "Tienda";
   const cost = COST_MAP[shipment.packageSize] || 0;
   const sizeLabel = SIZE_LABELS[shipment.packageSize] || shipment.packageSize;
@@ -56,7 +57,7 @@ export default function BoletaNacional() {
           <Package className="w-5 h-5 text-[#404040]" />
           <div>
             <h1 className="text-base font-semibold text-[#1A1A1A]">Boleta Envio Nacional</h1>
-            <p className="text-xs text-[#8A8A8A]">#{shipment.id}</p>
+            <p className="text-xs text-[#8A8A8A]">#{shipment.id} {shipment.invoiceNumber && <span>| Fact: {shipment.invoiceNumber}</span>}</p>
           </div>
         </div>
         <Button onClick={handlePrint} className="bg-slate-800 hover:bg-slate-900">
@@ -71,14 +72,12 @@ export default function BoletaNacional() {
           <div className="border-b-[3px] border-slate-900 px-6 py-4 flex items-center justify-between bg-white">
             <div className="flex items-center gap-4">
               <img
-                src={isGanga(franchiseName) ? "/logo-ganga.jpg" : "/logo.jpg"}
-                alt={isGanga(franchiseName) ? "Ganga Santa Rosa" : "American Outlet"}
+                src={logoUrl}
+                alt="Ganga Santa Rosa"
                 className="w-16 h-16 object-contain rounded-lg"
               />
               <div>
-                <h1 className="text-2xl font-black text-[#1A1A1A] tracking-tight leading-none">
-                  {isGanga(franchiseName) ? "Ganga Santa Rosa" : "American Outlet"}
-                </h1>
+                <h1 className="text-2xl font-black text-[#1A1A1A] tracking-tight leading-none">Ganga Santa Rosa</h1>
                 <p className="text-base font-bold text-[#404040] leading-none mt-1">Envio Nacional</p>
               </div>
             </div>
@@ -137,7 +136,7 @@ export default function BoletaNacional() {
               <p className="text-xl font-bold text-[#1A1A1A]">{shipment.province}, {shipment.canton}, {shipment.district}</p>
               <div className="mt-2 p-3 bg-[#FFF5F5] border border-[#C8102E]/20 rounded-lg">
                 <p className="text-base text-[#1A1A1A] font-medium leading-relaxed">{shipment.deliveryAddress}</p>
-n              </div>
+              </div>
             </div>
           </div>
 
@@ -148,6 +147,11 @@ n              </div>
             </div>
             <div className="px-5 py-4">
               <p className="text-xl font-bold text-[#1A1A1A]">{shipment.description}</p>
+              {shipment.invoiceNumber && (
+                <span className="inline-block bg-[#C8102E] text-white text-xs font-mono font-bold px-2 py-1 rounded mt-1 tracking-wide">
+                  FACT: {shipment.invoiceNumber}
+                </span>
+              )}
               {shipment.notes && <p className="text-sm text-[#8A8A8A] mt-1">{shipment.notes}</p>}
             </div>
           </div>
@@ -178,7 +182,7 @@ n              </div>
           <div className="px-6 py-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <p className="text-xs text-[#525252] uppercase tracking-wider font-medium">
-                             {isGanga(franchiseName) ? "Ganga Santa Rosa" : "American Outlet"} - Envios Nacionales
+                Ganga Santa Rosa - Envios Nacionales
               </p>
             </div>
             <div className="text-right">

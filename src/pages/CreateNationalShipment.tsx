@@ -30,6 +30,7 @@ export default function CreateNationalShipment() {
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [description, setDescription] = useState("");
   const [notes, setNotes] = useState("");
+  const [invoiceNumber, setInvoiceNumber] = useState("");
   const [packageSize, setPackageSize] = useState("");
   const [error, setError] = useState("");
 
@@ -76,6 +77,7 @@ export default function CreateNationalShipment() {
       deliveryAddress,
       description,
       notes: notes || undefined,
+      invoiceNumber: invoiceNumber || undefined,
       packageSize: packageSize as "PEQUENO" | "MEDIANO" | "GRANDE",
     });
   };
@@ -224,6 +226,18 @@ export default function CreateNationalShipment() {
 
               {/* Notas opcionales */}
               <div className="space-y-2">
+                <Label htmlFor="invoiceNumber" className="flex items-center gap-1">
+                  <FileText className="w-4 h-4 text-[#8A8A8A]" />
+                  Numero de Factura (opcional)
+                </Label>
+                <Input
+                  id="invoiceNumber"
+                  value={invoiceNumber}
+                  onChange={(e) => setInvoiceNumber(e.target.value)}
+                  placeholder="Ej: FAC-001"
+                  className="border-[#D4D4D4] focus:border-[#C8102E] focus:ring-[#C8102E]/20"
+                />
+
                 <Label htmlFor="notes">Notas adicionales (opcional)</Label>
                 <Textarea
                   id="notes"
@@ -234,7 +248,7 @@ export default function CreateNationalShipment() {
                 />
               </div>
 
-              {/* Tarifa */}
+              {/* Tarifa / Tamano */}
               <div className="space-y-2">
                 <Label className="flex items-center gap-1">
                   <Package className="h-4 w-4 text-blue-600" />
