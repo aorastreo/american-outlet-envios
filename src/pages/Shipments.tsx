@@ -7,11 +7,98 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Package, Search, ArrowRight, User, Send, ClipboardCheck, Truck, CheckCircle, Store, Filter, X, Printer, ClipboardList, MapPin } from "lucide-react";
-import { format } from "date-fns";
+import {
+  Package,
+  Search,
+  ArrowRight,
+  User,
+  Send,
+  ClipboardCheck,
+  Truck,
+  CheckCircle,
+  Store,
+  Filter,
+  X,
+  Printer,
+  ClipboardList,
+  MapPin,
+  CalendarDays,
+  Inbox,
+  Box,
+} from "lucide-react";
+import { format, isSameDay, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
+
+/* ─── tab definitions ─────────────────────────────────────────── */
+
+type TabKey = "POR_ENVIAR" | "ENVIADOS" | "ENTREGADOS" | "POR_RECIBIR";
+
+interface TabDef {
+  key: TabKey;
+  label: string;
+  icon: React.ElementType;
+  statuses: string[];
+  description: string;
+  color: string;
+  activeColor: string;
+  activeBg: string;
+  activeBorder: string;
+  badgeColor: string;
+}
+
+const TABS: TabDef[] = [
+  {
+    key: "POR_ENVIAR",
+    label: "Por Enviar",
+    icon: Box,
+    statuses: ["CREADO"],
+    description: "Envios creados que aun no salen",
+    color: "text-[#525252]",
+    activeColor: "text-[#1A1A1A]",
+    activeBg: "bg-slate-100",
+    activeBorder: "border-[#1A1A1A]",
+    badgeColor: "bg-slate-200 text-[#525252]",
+  },
+  {
+    key: "ENVIADOS",
+    label: "Enviados",
+    icon: Truck,
+    statuses: ["ENVIADO_A_BODEGA", "RECIBIDO_EN_BODEGA", "EN_RUTA", "EN_PARADA"],
+    description: "Ya salieron de la tienda",
+    color: "text-[#525252]",
+    activeColor: "text-[#C8102E]",
+    activeBg: "bg-[#FFF5F5]",
+    activeBorder: "border-[#C8102E]",
+    badgeColor: "bg-[#C8102E] text-white",
+  },
+  {
+    key: "ENTREGADOS",
+    label: "Entregados",
+    icon: CheckCircle,
+    statuses: ["RECIBIDO_EN_DESTINO"],
+    description: "Ya entregados al destino",
+    color: "text-[#525252]",
+    activeColor: "text-[#1B6B3E]",
+    activeBg: "bg-emerald-50",
+    activeBorder: "border-[#1B6B3E]",
+    badgeColor: "bg-[#1B6B3E] text-white",
+  },
+  {
+    key: "POR_RECIBIR",
+    label: "Por Recibir",
+    icon: Inbox,
+    statuses: ["ENVIADO_A_DESTINO"],
+    description: "Viniendo hacia esta tienda",
+    color: "text-[#525252]",
+    activeColor: "text-[#B8860B]",
+    activeBg: "bg-amber-50",
+    activeBorder: "border-[#B8860B]",
+    badgeColor: "bg-[#B8860B] text-white",
+  },
+];
+
+/* ─── status badge helper ─────────────────────────────────────── */
 
 function getStatusConfig(status: string) {
   const configs: Record<string, { color: string; label: string; icon: React.ElementType }> = {
@@ -27,33 +114,65 @@ function getStatusConfig(status: string) {
   return configs[status] || { color: "bg-gray-100 text-gray-500 hover:bg-gray-200", label: status, icon: Package };
 }
 
+/* ─── component ───────────────────────────────────────────────── */
+
 export default function Shipments() {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useFranchiseAuth();
   const { data: shipments, isLoading } = trpc.shipment.list.useQuery();
   const { data: allFranchises } = trpc.franchise.list.useQuery();
 
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
 
+  const urlTab = searchParams.get("tab") as TabKey | null;
   const urlOriginId = searchParams.get("origin");
-  const urlStatus = searchParams.get("status");
 
+  const [activeTab, setActiveTab] = useState<TabKey>(urlTab || "POR_ENVIAR");
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>(urlStatus || "ALL");
   const [originFilter, setOriginFilter] = useState<string>(urlOriginId || "ALL");
   const [destFilter, setDestFilter] = useState<string>("ALL");
 
-  // Sync with URL params
+  // Date filter for "Enviados" tab — default to today
+  const todayStr = format(new Date(), "yyyy-MM-dd");
+  const [dateFilter, setDateFilter] = useState<string>(todayStr);
+  const [dateFilterEnabled, setDateFilterEnabled] = useState<boolean>(true);
+
+  // Sync tab with URL
   useEffect(() => {
-    if (urlOriginId) setOriginFilter(urlOriginId);
-    if (urlStatus) setStatusFilter(urlStatus);
-  }, [urlOriginId, urlStatus]);
+    if (urlTab && TABS.some((t) => t.key === urlTab)) {
+      setActiveTab(urlTab);
+    }
+  }, [urlTab]);
+
+  // Update URL when tab changes
+  const handleTabChange = (tab: TabKey) => {
+    setActiveTab(tab);
+    setSelectedIds([]);
+    const newParams = new URLSearchParams(searchParams);
+    newParams.set("tab", tab);
+    setSearchParams(newParams, { replace: true });
+  };
 
   const isWarehouse = user?.franchise?.isWarehouse === 1;
+  const myFranchiseId = user?.franchiseId;
   const storeFranchises = (allFranchises || []).filter((f) => !f.isWarehouse);
 
+  // Current tab definition
+  const currentTab = TABS.find((t) => t.key === activeTab)!;
+
+  // Filter shipments by tab + search + origin/dest + date (for Enviados)
   const filteredShipments = useMemo(() => {
     return (shipments || []).filter((s) => {
+      // Tab filter (statuses)
+      const matchesTab = currentTab.statuses.includes(s.status);
+
+      // For POR_RECIBIR, only show shipments coming TO the current store
+      // (unless warehouse, then show all)
+      if (activeTab === "POR_RECIBIR" && !isWarehouse && myFranchiseId) {
+        if (s.destinationFranchiseId !== myFranchiseId) return false;
+      }
+
+      // Search filter
       const q = searchQuery.toLowerCase();
       const matchesSearch =
         !searchQuery ||
@@ -62,55 +181,50 @@ export default function Shipments() {
         (s.originName || "").toLowerCase().includes(q) ||
         (s.destinationName || "").toLowerCase().includes(q) ||
         (s.invoiceNumber || "").toLowerCase().includes(q);
-      const matchesStatus = statusFilter === "ALL" || s.status === statusFilter;
+
+      // Origin / Dest filters
       const matchesOrigin = originFilter === "ALL" || s.originFranchiseId.toString() === originFilter;
       const matchesDest = destFilter === "ALL" || s.destinationFranchiseId.toString() === destFilter;
-      return matchesSearch && matchesStatus && matchesOrigin && matchesDest;
+
+      // Date filter (only for ENVIADOS tab)
+      let matchesDate = true;
+      if (activeTab === "ENVIADOS" && dateFilterEnabled && dateFilter) {
+        const updated = s.updatedAt ? parseISO(String(s.updatedAt)) : null;
+        const filterDate = parseISO(dateFilter);
+        if (updated && !isSameDay(updated, filterDate)) {
+          matchesDate = false;
+        }
+      }
+
+      return matchesTab && matchesSearch && matchesOrigin && matchesDest && matchesDate;
     });
-  }, [shipments, searchQuery, statusFilter, originFilter, destFilter]);
+  }, [shipments, activeTab, currentTab, searchQuery, originFilter, destFilter, dateFilter, dateFilterEnabled, isWarehouse, myFranchiseId]);
 
-  // Count by origin store (for warehouse)
-  const countsByOrigin = useMemo(() => {
-    if (!isWarehouse || !shipments) return [];
-    const counts: Record<number, { id: number; name: string; count: number }> = {};
-    for (const s of shipments) {
-      if (!counts[s.originFranchiseId]) {
-        counts[s.originFranchiseId] = { id: s.originFranchiseId, name: s.originName || "Desconocida", count: 0 };
-      }
-      counts[s.originFranchiseId].count++;
-    }
-    return Object.values(counts).sort((a, b) => b.count - a.count);
-  }, [shipments, isWarehouse]);
-
-  // Pending by origin store (ENVIADO_A_BODEGA status)
-  const pendingByStore = useMemo(() => {
-    if (!isWarehouse || !shipments) return [];
-    const counts: Record<number, { id: number; name: string; count: number }> = {};
-    for (const s of shipments) {
-      if (s.status === "ENVIADO_A_BODEGA") {
-        if (!counts[s.originFranchiseId]) {
-          counts[s.originFranchiseId] = { id: s.originFranchiseId, name: s.originName || "Desconocida", count: 0 };
+  // Count per tab
+  const tabCounts = useMemo(() => {
+    const counts: Record<TabKey, number> = {
+      POR_ENVIAR: 0,
+      ENVIADOS: 0,
+      ENTREGADOS: 0,
+      POR_RECIBIR: 0,
+    };
+    for (const s of shipments || []) {
+      for (const tab of TABS) {
+        if (tab.statuses.includes(s.status)) {
+          // For POR_RECIBIR, only count if coming to current store (unless warehouse)
+          if (tab.key === "POR_RECIBIR" && !isWarehouse && myFranchiseId) {
+            if (s.destinationFranchiseId === myFranchiseId) {
+              counts[tab.key]++;
+            }
+          } else {
+            counts[tab.key]++;
+          }
+          break;
         }
-        counts[s.originFranchiseId].count++;
       }
     }
-    return Object.values(counts).sort((a, b) => b.count - a.count);
-  }, [shipments, isWarehouse]);
-
-  // READY TO SEND by destination (RECIBIDO_EN_BODEGA status) — for warehouse
-  const readyByDestination = useMemo(() => {
-    if (!isWarehouse || !shipments) return [];
-    const counts: Record<number, { id: number; name: string; count: number }> = {};
-    for (const s of shipments) {
-      if (s.status === "RECIBIDO_EN_BODEGA") {
-        if (!counts[s.destinationFranchiseId]) {
-          counts[s.destinationFranchiseId] = { id: s.destinationFranchiseId, name: s.destinationName || "Desconocido", count: 0 };
-        }
-        counts[s.destinationFranchiseId].count++;
-      }
-    }
-    return Object.values(counts).sort((a, b) => b.count - a.count);
-  }, [shipments, isWarehouse]);
+    return counts;
+  }, [shipments, isWarehouse, myFranchiseId]);
 
   const renderShipmentCard = (shipment: (typeof filteredShipments)[0]) => {
     const cfg = getStatusConfig(shipment.status);
@@ -126,26 +240,42 @@ export default function Shipments() {
           />
         </div>
         <Link to={`/envios/${shipment.id}`} className="block">
-          <Card className={`hover:shadow-md transition-shadow cursor-pointer border-[#F0F0F0] ${isSelected ? "ring-2 ring-[#C8102E]/20 border-[#C8102E]/30 bg-[#FFF5F5]/50" : ""}`}>
+          <Card
+            className={`hover:shadow-md transition-shadow cursor-pointer border-[#F0F0F0] ${
+              isSelected ? "ring-2 ring-[#C8102E]/20 border-[#C8102E]/30 bg-[#FFF5F5]/50" : ""
+            }`}
+          >
             <CardContent className="p-4 pl-10">
               <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-3 flex-wrap">
                     <p className="font-semibold font-mono text-[#C8102E] text-lg">{shipment.trackingNumber}</p>
-                    {cfg && <Badge variant="secondary" className={cfg.color}><cfg.icon className="w-3 h-3 mr-1" />{cfg.label}</Badge>}
+                    {cfg && (
+                      <Badge variant="secondary" className={cfg.color}>
+                        <cfg.icon className="w-3 h-3 mr-1" />
+                        {cfg.label}
+                      </Badge>
+                    )}
                   </div>
                   <div className="flex items-center gap-2 mt-2 text-sm text-[#8A8A8A]">
-                    <span className="flex items-center gap-1"><User className="w-3.5 h-3.5" />{shipment.senderName}</span>
-                    {shipment.invoiceNumber && <span className="text-[#A3A3A3]">| Fac: #{shipment.invoiceNumber}</span>}
+                    <span className="flex items-center gap-1">
+                      <User className="w-3.5 h-3.5" />
+                      {shipment.senderName}
+                    </span>
+                    {shipment.invoiceNumber && (
+                      <span className="text-[#A3A3A3]">| Fac: #{shipment.invoiceNumber}</span>
+                    )}
                   </div>
                   <div className="flex items-center gap-2 mt-1 text-sm text-[#8A8A8A]">
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-[#FFF5F5] text-[#C8102E] rounded text-xs font-medium">
-                      <Store className="w-3 h-3" />{shipment.originName}
+                      <Store className="w-3 h-3" />
+                      {shipment.originName}
                     </span>
                     <ArrowRight className="w-4 h-4 text-[#D4D4D4]" />
                     {shipment.destinationName?.toLowerCase().includes("recogida") ? (
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-orange-50 text-orange-700 rounded text-xs font-bold border border-orange-200">
-                        <MapPin className="w-3 h-3" />{shipment.destinationName}
+                        <MapPin className="w-3 h-3" />
+                        {shipment.destinationName}
                       </span>
                     ) : (
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-50 text-[#1B6B3E] rounded text-xs font-medium">
@@ -155,13 +285,24 @@ export default function Shipments() {
                   </div>
                 </div>
                 <div className="text-right shrink-0 space-y-1">
-                  <p className="text-xs text-[#A3A3A3]">{shipment.createdAt ? format(new Date(shipment.createdAt), "dd/MM/yyyy HH:mm", { locale: es }) : "-"}</p>
+                  <p className="text-xs text-[#A3A3A3]">
+                    {shipment.updatedAt
+                      ? format(new Date(shipment.updatedAt), "dd/MM/yyyy HH:mm", { locale: es })
+                      : shipment.createdAt
+                        ? format(new Date(shipment.createdAt), "dd/MM/yyyy HH:mm", { locale: es })
+                        : "-"}
+                  </p>
                   <p className="text-xs text-[#8A8A8A]">{shipment.currentLocationName}</p>
                   <button
-                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); window.open(`/boleta/${shipment.id}`, "_blank"); }}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      window.open(`/boleta/${shipment.id}`, "_blank");
+                    }}
                     className="inline-flex items-center gap-1 text-xs text-[#C8102E] hover:text-[#9B0B22] hover:underline mt-1 font-medium"
                   >
-                    <Printer className="w-3 h-3" />Boleta
+                    <Printer className="w-3 h-3" />
+                    Boleta
                   </button>
                 </div>
               </div>
@@ -172,17 +313,16 @@ export default function Shipments() {
     );
   };
 
-  const hasFilters = statusFilter !== "ALL" || originFilter !== "ALL" || destFilter !== "ALL" || searchQuery !== "";
+  const hasFilters = searchQuery !== "" || originFilter !== "ALL" || destFilter !== "ALL";
 
   const clearFilters = () => {
-    setStatusFilter("ALL");
+    setSearchQuery("");
     setOriginFilter("ALL");
     setDestFilter("ALL");
-    setSearchQuery("");
   };
 
   const toggleSelection = (id: number) => {
-    setSelectedIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   };
 
   const selectAllVisible = () => {
@@ -203,225 +343,187 @@ export default function Shipments() {
   return (
     <FranchiseLayout>
       <div className="space-y-6">
+        {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-[#1A1A1A]">Mis Envios</h1>
-            <p className="text-[#8A8A8A] mt-1">{filteredShipments.length} envio{filteredShipments.length !== 1 ? "s" : ""} encontrado{filteredShipments.length !== 1 ? "s" : ""}{selectedIds.length > 0 && <span className="ml-2 text-[#C8102E] font-medium">({selectedIds.length} seleccionado{selectedIds.length !== 1 ? "s" : ""})</span>}</p>
+            <p className="text-[#8A8A8A] mt-1">
+              {filteredShipments.length} envio{filteredShipments.length !== 1 ? "s" : ""} encontrado
+              {filteredShipments.length !== 1 ? "s" : ""}
+              {selectedIds.length > 0 && (
+                <span className="ml-2 text-[#C8102E] font-medium">
+                  ({selectedIds.length} seleccionado{selectedIds.length !== 1 ? "s" : ""})
+                </span>
+              )}
+            </p>
           </div>
           <div className="flex gap-2">
             {selectedIds.length > 0 && (
-              <Button onClick={generateBitacora} variant="outline" className="border-[#C8102E]/20 text-[#C8102E] hover:bg-[#FFF5F5]">
-                <ClipboardList className="w-4 h-4 mr-2" />Generar Bitacora
+              <Button
+                onClick={generateBitacora}
+                variant="outline"
+                className="border-[#C8102E]/20 text-[#C8102E] hover:bg-[#FFF5F5]"
+              >
+                <ClipboardList className="w-4 h-4 mr-2" />
+                Generar Bitacora
               </Button>
             )}
-            <Link to="/enviar" className="inline-flex items-center justify-center px-4 py-2.5 bg-[#C8102E] text-white rounded-lg text-sm font-medium hover:bg-[#9B0B22] transition-colors">
-              <Package className="w-4 h-4 mr-2" />Nuevo Envio
+            <Link
+              to="/enviar"
+              className="inline-flex items-center justify-center px-4 py-2.5 bg-[#C8102E] text-white rounded-lg text-sm font-medium hover:bg-[#9B0B22] transition-colors"
+            >
+              <Package className="w-4 h-4 mr-2" />
+              Nuevo Envio
             </Link>
           </div>
         </div>
 
-        {/* WAREHOUSE: Pending by Store */}
-        {isWarehouse && pendingByStore.length > 0 && (
-          <Card className="border-amber-200 bg-amber-50/50">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-sm font-semibold text-[#B8860B] flex items-center gap-2">
-                  <Truck className="w-4 h-4" />
-                  Pendientes de Recepcion ({pendingByStore.reduce((a, c) => a + c.count, 0)})
-                </p>
-                <span className="text-xs text-amber-600">Envios esperando confirmacion de bodega</span>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {pendingByStore.map((c) => (
-                  <Link
-                    key={c.id}
-                    to={`/envios?origin=${c.id}&status=ENVIADO_A_BODEGA`}
-                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                      originFilter === c.id.toString() && statusFilter === "ENVIADO_A_BODEGA"
-                        ? "bg-[#B8860B] text-white"
-                        : "bg-white border border-amber-200 text-[#B8860B] hover:bg-amber-100"
-                    }`}
-                  >
-                    <Store className="w-3.5 h-3.5" />
-                    {c.name}
-                    <span className={`ml-1 text-xs px-1.5 py-0.5 rounded-full ${originFilter === c.id.toString() && statusFilter === "ENVIADO_A_BODEGA" ? "bg-amber-500 text-white" : "bg-amber-100 text-amber-600"}`}>
-                      {c.count}
-                    </span>
-                  </Link>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* WAREHOUSE: Ready to Send by Destination */}
-        {isWarehouse && readyByDestination.length > 0 && (
-          <Card className="border-[#C8102E]/20 bg-[#FFF5F5]/50">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-sm font-semibold text-[#C8102E] flex items-center gap-2">
-                  <ClipboardList className="w-4 h-4" />
-                  Listos para Enviar por Destino ({readyByDestination.reduce((a, c) => a + c.count, 0)})
-                </p>
-                <span className="text-xs text-[#8A8A8A]">Seleccione una tienda para filtrar y generar bitacora</span>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {readyByDestination.map((c) => (
-                  <button
-                    key={c.id}
-                    onClick={() => {
-                      setStatusFilter("RECIBIDO_EN_BODEGA");
-                      setDestFilter(c.id.toString());
-                      setOriginFilter("ALL");
-                      setSelectedIds([]);
-                    }}
-                    className={`inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-bold transition-colors ${
-                      statusFilter === "RECIBIDO_EN_BODEGA" && destFilter === c.id.toString()
-                        ? "bg-[#C8102E] text-white shadow-sm"
-                        : "bg-white border-2 border-[#C8102E]/20 text-[#C8102E] hover:bg-[#FFF5F5] hover:border-[#C8102E]/40"
-                    }`}
-                  >
-                    <Store className="w-4 h-4" />
-                    {c.name}
-                    <span className={`ml-1 text-xs px-2 py-0.5 rounded-full font-bold ${statusFilter === "RECIBIDO_EN_BODEGA" && destFilter === c.id.toString() ? "bg-[#9B0B22] text-white" : "bg-[#FFF5F5] text-[#C8102E]"}`}>
-                      {c.count}
-                    </span>
-                  </button>
-                ))}
-              </div>
-              {statusFilter === "RECIBIDO_EN_BODEGA" && destFilter !== "ALL" && (
-                <div className="mt-3 pt-3 border-t border-[#C8102E]/10 flex items-center gap-2">
-                  <p className="text-xs text-[#8A8A8A]">
-                    Mostrando {filteredShipments.length} envio{filteredShipments.length !== 1 ? "s" : ""} listo{filteredShipments.length !== 1 ? "s" : ""} para enviar a <strong className="text-[#C8102E]">{storeFranchises.find(f => f.id.toString() === destFilter)?.displayName || destFilter}</strong>
-                  </p>
-                  <button
-                    onClick={() => { setStatusFilter("ALL"); setDestFilter("ALL"); setSelectedIds([]); }}
-                    className="text-xs text-[#A3A3A3] hover:text-[#C8102E] underline ml-auto"
-                  >
-                    Limpiar filtro
-                  </button>
+        {/* ─── Tab Buttons ─────────────────────────────────────── */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+          {TABS.map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.key;
+            const count = tabCounts[tab.key];
+            return (
+              <button
+                key={tab.key}
+                onClick={() => handleTabChange(tab.key)}
+                className={`relative flex flex-col items-center gap-1.5 px-4 py-3 rounded-xl border-2 transition-all duration-200 ${
+                  isActive
+                    ? `${tab.activeBg} ${tab.activeBorder} shadow-sm`
+                    : "bg-white border-[#E5E5E5] hover:bg-[#FAFAFA] hover:border-[#D4D4D4]"
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <Icon className={`w-4 h-4 ${isActive ? tab.activeColor : tab.color}`} />
+                  <span className={`text-sm font-semibold ${isActive ? tab.activeColor : tab.color}`}>
+                    {tab.label}
+                  </span>
                 </div>
+                <Badge
+                  className={`text-xs font-bold ${
+                    isActive ? tab.badgeColor : "bg-[#F0F0F0] text-[#8A8A8A]"
+                  }`}
+                >
+                  {count}
+                </Badge>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* ─── Sub-header: tab description + date filter for Enviados ── */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <p className="text-sm text-[#8A8A8A]">
+            <span className="font-medium text-[#525252]">{currentTab.description}</span>
+            {activeTab === "ENVIADOS" && dateFilterEnabled && (
+              <span className="ml-2">
+                — Mostrando{" "}
+                <strong>{format(parseISO(dateFilter), "dd/MM/yyyy", { locale: es })}</strong>
+              </span>
+            )}
+          </p>
+
+          {/* Date filter only for ENVIADOS tab */}
+          {activeTab === "ENVIADOS" && (
+            <div className="flex items-center gap-2">
+              <label className="flex items-center gap-1.5 text-sm text-[#525252] cursor-pointer select-none">
+                <Checkbox
+                  checked={dateFilterEnabled}
+                  onCheckedChange={(checked) => setDateFilterEnabled(checked === true)}
+                  className="border-[#D4D4D4] data-[state=checked]:bg-[#C8102E] data-[state=checked]:border-[#C8102E]"
+                />
+                <CalendarDays className="w-3.5 h-3.5 text-[#8A8A8A]" />
+                Filtrar por fecha
+              </label>
+              {dateFilterEnabled && (
+                <input
+                  type="date"
+                  value={dateFilter}
+                  onChange={(e) => setDateFilter(e.target.value)}
+                  className="h-9 px-3 text-sm border border-[#D4D4D4] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C8102E]/20 focus:border-[#C8102E] text-[#1A1A1A]"
+                />
               )}
-            </CardContent>
-          </Card>
-        )}
+            </div>
+          )}
+        </div>
 
-        {/* WAREHOUSE: All stores count */}
-        {isWarehouse && countsByOrigin.length > 0 && (
-          <Card className="bg-[#F7F7F7] border-[#D4D4D4]">
-            <CardContent className="p-4">
-              <p className="text-xs font-semibold text-[#8A8A8A] mb-3 uppercase tracking-wide">Todos los Envios por Tienda</p>
-              <div className="flex flex-wrap gap-2">
-                {countsByOrigin.map((c) => (
-                  <button
-                    key={c.id}
-                    onClick={() => setOriginFilter(originFilter === c.id.toString() ? "ALL" : c.id.toString())}
-                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                      originFilter === c.id.toString()
-                        ? "bg-[#C8102E] text-white"
-                        : "bg-white border border-[#D4D4D4] text-[#1A1A1A] hover:bg-[#F0F0F0]"
-                    }`}
-                  >
-                    <Store className="w-3.5 h-3.5" />
-                    {c.name}
-                    <span className={`ml-1 text-xs px-1.5 py-0.5 rounded-full ${originFilter === c.id.toString() ? "bg-[#9B0B22] text-white" : "bg-[#F0F0F0] text-[#8A8A8A]"}`}>
-                      {c.count}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Filters */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        {/* ─── Search + Filters ────────────────────────────────── */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#A3A3A3]" />
-            <Input placeholder="Buscar..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10 h-11 border-[#D4D4D4]" />
+            <Input
+              placeholder="Buscar por tracking, remitente, factura..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 h-11 border-[#D4D4D4]"
+            />
           </div>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="h-11 border-[#D4D4D4]"><Filter className="w-4 h-4 mr-2 text-[#A3A3A3]" /><SelectValue placeholder="Estado" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ALL">Todos los estados</SelectItem>
-              <SelectItem value="CREADO">Creado</SelectItem>
-              <SelectItem value="ENVIADO_A_BODEGA">Enviado a Bodega</SelectItem>
-              <SelectItem value="RECIBIDO_EN_BODEGA">Recibido en Bodega</SelectItem>
-              <SelectItem value="ENVIADO_A_DESTINO">Enviado a Destino</SelectItem>
-              <SelectItem value="RECIBIDO_EN_DESTINO">Entregado</SelectItem>
-              <SelectItem value="CANCELADO">Cancelado</SelectItem>
-            </SelectContent>
-          </Select>
           {isWarehouse && (
-            <Select value={originFilter} onValueChange={setOriginFilter}>
-              <SelectTrigger className="h-11 border-[#D4D4D4]"><Store className="w-4 h-4 mr-2 text-[#A3A3A3]" /><SelectValue placeholder="Tienda origen" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">Todas las tiendas</SelectItem>
+            <div className="flex gap-2">
+              <select
+                value={originFilter}
+                onChange={(e) => setOriginFilter(e.target.value)}
+                className="flex-1 h-11 px-3 text-sm border border-[#D4D4D4] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C8102E]/20 focus:border-[#C8102E] text-[#1A1A1A] bg-white"
+              >
+                <option value="ALL">Todas las tiendas (origen)</option>
                 {storeFranchises.map((f) => (
-                  <SelectItem key={f.id} value={f.id.toString()}>{f.displayName}</SelectItem>
+                  <option key={f.id} value={f.id.toString()}>
+                    {f.displayName}
+                  </option>
                 ))}
-              </SelectContent>
-            </Select>
+              </select>
+            </div>
           )}
           <div className="flex gap-2">
-            <Select value={destFilter} onValueChange={setDestFilter}>
-              <SelectTrigger className="h-11 flex-1 border-[#D4D4D4]"><Store className="w-4 h-4 mr-2 text-[#A3A3A3]" /><SelectValue placeholder="Destino" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">Todos los destinos</SelectItem>
-                {storeFranchises.map((f) => (
-                  <SelectItem key={f.id} value={f.id.toString()}>{f.displayName}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <select
+              value={destFilter}
+              onChange={(e) => setDestFilter(e.target.value)}
+              className="flex-1 h-11 px-3 text-sm border border-[#D4D4D4] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C8102E]/20 focus:border-[#C8102E] text-[#1A1A1A] bg-white"
+            >
+              <option value="ALL">Todos los destinos</option>
+              {storeFranchises.map((f) => (
+                <option key={f.id} value={f.id.toString()}>
+                  {f.displayName}
+                </option>
+              ))}
+            </select>
             {hasFilters && (
-              <button onClick={clearFilters} className="h-11 px-3 rounded-lg border border-[#D4D4D4] text-[#8A8A8A] hover:bg-[#F0F0F0] transition-colors" title="Limpiar filtros">
+              <button
+                onClick={clearFilters}
+                className="h-11 px-3 rounded-lg border border-[#D4D4D4] text-[#8A8A8A] hover:bg-[#F0F0F0] transition-colors shrink-0"
+                title="Limpiar filtros"
+              >
                 <X className="w-4 h-4" />
               </button>
             )}
           </div>
         </div>
 
+        {/* ─── Shipment List ───────────────────────────────────── */}
         {isLoading ? (
-          <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#C8102E]"></div></div>
-        ) : filteredShipments.length === 0 ? (
-          <Card className="border-[#D4D4D4]"><CardContent className="p-12 text-center"><Package className="w-12 h-12 text-[#D4D4D4] mx-auto mb-3" /><p className="text-[#8A8A8A]">{hasFilters ? "No se encontraron envios con esos filtros" : "No hay envios registrados"}</p></CardContent></Card>
-        ) : statusFilter === "ALL" ? (
-          /* AGRUPADO POR ESTADO */
-          <div className="space-y-6">
-            {[
-              { status: "CREADO", title: "Por Enviar a Bodega", desc: "Envios creados que aun no salen", borderColor: "border-l-[#C8102E]" },
-              { status: "ENVIADO_A_BODEGA", title: "En Camino a Bodega", desc: "Ya enviados, esperando recepcion", borderColor: "border-l-amber-400" },
-              { status: "RECIBIDO_EN_BODEGA", title: "En Bodega", desc: "Recibidos en bodega central", borderColor: "border-l-purple-400" },
-              { status: "EN_RUTA", title: "En Ruta de Camion", desc: "En camion hacia destino", borderColor: "border-l-blue-400" },
-              { status: "EN_PARADA", title: "En Punto de Recogida", desc: "Camion en el punto", borderColor: "border-l-orange-400" },
-              { status: "ENVIADO_A_DESTINO", title: "Enviado a Destino", desc: "En camino a tienda destino", borderColor: "border-l-pink-400" },
-              { status: "RECIBIDO_EN_DESTINO", title: "Entregados", desc: "Envios completados", borderColor: "border-l-emerald-400" },
-              { status: "CANCELADO", title: "Cancelados", desc: "Envios cancelados", borderColor: "border-l-red-400" },
-            ].map((group) => {
-              const groupShipments = filteredShipments.filter((s) => s.status === group.status);
-              if (groupShipments.length === 0) return null;
-              const cfg = getStatusConfig(group.status);
-              const Icon = cfg.icon;
-              return (
-                <div key={group.status} className={`space-y-2 border-l-4 ${group.borderColor} pl-3`}>
-                  <div className="flex items-center gap-2">
-                    <Icon className="w-4 h-4 text-[#525252]" />
-                    <h3 className="text-sm font-semibold text-[#1A1A1A]">{group.title}</h3>
-                    <Badge className={`text-xs ${cfg.color}`}>
-                      {groupShipments.length}
-                    </Badge>
-                    <span className="text-xs text-[#A3A3A3] hidden sm:inline">{group.desc}</span>
-                  </div>
-                  <div className="space-y-2">
-                    {groupShipments.map((s) => renderShipmentCard(s))}
-                  </div>
-                </div>
-              );
-            })}
+          <div className="flex justify-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#C8102E]"></div>
           </div>
+        ) : filteredShipments.length === 0 ? (
+          <Card className="border-[#D4D4D4]">
+            <CardContent className="p-12 text-center">
+              <Package className="w-12 h-12 text-[#D4D4D4] mx-auto mb-3" />
+              <p className="text-[#8A8A8A]">
+                {hasFilters || (activeTab === "ENVIADOS" && dateFilterEnabled)
+                  ? "No se encontraron envios con esos filtros"
+                  : "No hay envios en esta seccion"}
+              </p>
+              {activeTab === "ENVIADOS" && dateFilterEnabled && (
+                <p className="text-xs text-[#A3A3A3] mt-2">
+                  Prueba desactivar el filtro de fecha o seleccionar otra fecha
+                </p>
+              )}
+            </CardContent>
+          </Card>
         ) : (
-          /* FILTRO APLICADO - lista normal */
           <div className="space-y-3">
+            {/* Select all */}
             {filteredShipments.length > 1 && (
               <div className="flex items-center gap-2 px-4 py-2 bg-[#F7F7F7] rounded-lg border border-[#D4D4D4]">
                 <Checkbox
