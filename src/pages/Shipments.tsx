@@ -218,10 +218,21 @@ export default function Shipments() {
   const urlTab = searchParams.get("tab") as ActiveTabKey | null;
   const urlOriginId = searchParams.get("origin");
 
-  const [activeTab, setActiveTab] = useState<ActiveTabKey>(urlTab || (isWarehouse ? "POR_RECIBIR" : "POR_ENVIAR"));
+  const defaultTab = isWarehouse ? "POR_RECIBIR" : "POR_ENVIAR";
+  const [activeTab, setActiveTab] = useState<ActiveTabKey>(defaultTab);
   const [searchQuery, setSearchQuery] = useState("");
   const [originFilter, setOriginFilter] = useState<string>(urlOriginId || "ALL");
   const [destFilter, setDestFilter] = useState<string>("ALL");
+
+  // Fix activeTab when user type (warehouse vs store) changes
+  // This prevents crashes when user loads and isWarehouse flips from false to true
+  useEffect(() => {
+    const validKeys = TABS.map((t) => t.key);
+    if (!validKeys.includes(activeTab)) {
+      const fallback = urlTab && validKeys.includes(urlTab) ? urlTab : defaultTab;
+      setActiveTab(fallback as ActiveTabKey);
+    }
+  }, [isWarehouse, TABS, activeTab, urlTab, defaultTab]);
 
   // Date filter for "Enviados" tab (stores only) — default to today, recalculated fresh on mount
   const [dateFilter, setDateFilter] = useState<string>(() => format(new Date(), "yyyy-MM-dd"));
@@ -304,7 +315,7 @@ export default function Shipments() {
   });
 
   // Current tab definition
-  const currentTab = TABS.find((t) => t.key === activeTab)!;
+  const currentTab = TABS.find((t) => t.key === activeTab) ?? TABS[0];
 
   // Filter shipments by tab + search + origin/dest + date
   const filteredShipments = useMemo(() => {

@@ -9,7 +9,7 @@ type App = Hono<{ Bindings: HttpBindings }>;
 export function serveStaticFiles(app: App) {
   const distPath = path.resolve(import.meta.dirname, "../dist/public");
 
-  // 1) Serve static assets with correct MIME types
+  // Serve static assets (JS, CSS, images, etc.)
   app.use("/assets/*", serveStatic({ root: "./dist/public" }));
   app.use("/*.ico", serveStatic({ root: "./dist/public" }));
   app.use("/*.png", serveStatic({ root: "./dist/public" }));
@@ -19,16 +19,17 @@ export function serveStaticFiles(app: App) {
   app.use("/*.txt", serveStatic({ root: "./dist/public" }));
   app.use("/*.webmanifest", serveStatic({ root: "./dist/public" }));
 
-  // 2) SPA fallback: all non-API, non-asset routes -> index.html
-  app.use("*", (c) => {
+  // SPA fallback: for any route that is not an API route,
+  // serve index.html so React Router can handle client-side routing.
+  // This must be a GET handler so it runs AFTER API routes but catches
+  // all browser navigation (e.g., /envios, /dashboard, /envios/123).
+  app.get("*", (c) => {
     const pathname = new URL(c.req.url).pathname;
-
-    // Let API routes 404 naturally (handled by api/boot.ts)
-    if (pathname.startsWith("/api/") || pathname.startsWith("/trpc/")) {
+    // API routes should 404 (they are handled by api/boot.ts)
+    if (pathname.startsWith("/api/")) {
       return c.json({ error: "Not Found" }, 404);
     }
-
-    // Serve index.html for all browser routes (SPA)
+    // Serve index.html for all browser routes
     const indexPath = path.resolve(distPath, "index.html");
     const content = fs.readFileSync(indexPath, "utf-8");
     return c.html(content);
