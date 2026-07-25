@@ -209,7 +209,25 @@ export default function Shipments() {
 
   const isWarehouse = user?.franchise?.isWarehouse === 1;
   const myFranchiseId = user?.franchiseId;
-  const storeFranchises = (allFranchises || []).filter((f) => !f.isWarehouse);
+
+  // Helper: clean franchise names (remove "AMERICAN OUTLET" prefix)
+  function cleanName(name: string | undefined): string {
+    if (!name) return "";
+    const upper = name.toUpperCase();
+    if (upper.includes("GANGA")) return "Ganga Santa Rosa";
+    return name.replace(/AMERICAN OUTLET\s*/i, "").trim() || name;
+  }
+
+  // Route destinations (Grecia, Palmares, San Ramon) — excluded from normal shipment filters
+  const routeCodes = ["grecia", "palmares", "san_ramon"];
+  const isRouteFranchise = (f: { code?: string | null; displayName?: string | null }) =>
+    routeCodes.includes(f.code?.toLowerCase() || "") ||
+    (f.displayName?.toLowerCase() || "").includes("recogida");
+
+  // Store franchises: exclude warehouses AND route destinations
+  const storeFranchises = (allFranchises || []).filter(
+    (f) => !f.isWarehouse && !isRouteFranchise(f)
+  );
 
   // Select tabs based on user type
   const TABS = isWarehouse ? WAREHOUSE_TABS : STORE_TABS;
@@ -909,7 +927,7 @@ export default function Shipments() {
                 <option value="ALL">Todas las tiendas (origen)</option>
                 {storeFranchises.map((f) => (
                   <option key={f.id} value={f.id.toString()}>
-                    {f.displayName}
+                    {cleanName(f.displayName)}
                   </option>
                 ))}
               </select>
@@ -924,7 +942,7 @@ export default function Shipments() {
               <option value="ALL">Todos los destinos</option>
               {storeFranchises.map((f) => (
                 <option key={f.id} value={f.id.toString()}>
-                  {f.displayName}
+                  {cleanName(f.displayName)}
                 </option>
               ))}
             </select>
