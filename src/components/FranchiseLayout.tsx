@@ -118,7 +118,7 @@ export default function FranchiseLayout({
                 {cleanName(user?.franchise?.displayName || user?.franchise?.name) || "Franquicia"}
               </p>
               <p className="text-[10px] text-white/50 truncate">
-                {user?.displayName || "Usuario"}
+                {cleanName(user?.displayName) || "Usuario"}
               </p>
             </div>
             {showBadge && (
