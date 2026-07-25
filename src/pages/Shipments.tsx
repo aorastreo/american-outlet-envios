@@ -228,6 +228,13 @@ export default function Shipments() {
   const [dateFilter, setDateFilter] = useState<string>(todayStr);
   const [dateFilterEnabled, setDateFilterEnabled] = useState<boolean>(true);
 
+  // Reset date filter to today when entering ENVIADOS tab (prevents stale date)
+  useEffect(() => {
+    if (!isWarehouse && activeTab === "ENVIADOS") {
+      setDateFilter(format(new Date(), "yyyy-MM-dd"));
+    }
+  }, [activeTab, isWarehouse]);
+
   // Sync tab with URL
   useEffect(() => {
     if (urlTab && TABS.some((t) => t.key === urlTab)) {
