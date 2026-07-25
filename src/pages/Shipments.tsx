@@ -336,12 +336,15 @@ export default function Shipments() {
       const matchesOrigin = originFilter === "ALL" || s.originFranchiseId.toString() === originFilter;
       const matchesDest = destFilter === "ALL" || s.destinationFranchiseId.toString() === destFilter;
 
-      // Date filter (only for store ENVIADOS tab) — compares formatted date strings to avoid timezone issues
+      // Date filter (only for store ENVIADOS tab) — compare year/month/day in local time
       let matchesDate = true;
       if (!isWarehouse && activeTab === "ENVIADOS" && dateFilterEnabled && dateFilter) {
-        const createdDateStr = s.createdAt ? format(new Date(String(s.createdAt)), "yyyy-MM-dd") : null;
-        if (createdDateStr && createdDateStr !== dateFilter) {
-          matchesDate = false;
+        const created = s.createdAt ? new Date(String(s.createdAt)) : null;
+        if (created) {
+          const [fy, fm, fd] = dateFilter.split("-").map(Number);
+          if (created.getFullYear() !== fy || created.getMonth() + 1 !== fm || created.getDate() !== fd) {
+            matchesDate = false;
+          }
         }
       }
 
