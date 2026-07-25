@@ -33,7 +33,7 @@ import toast from "react-hot-toast";
 
 /* ─── tab definitions ─────────────────────────────────────────── */
 
-type StoreTabKey = "POR_ENVIAR" | "ENVIADOS" | "EN_TIENDA" | "POR_RECIBIR";
+type StoreTabKey = "POR_ENVIAR" | "ENVIADOS" | "POR_RECIBIR" | "EN_TIENDA" | "COMPLETADOS";
 type WarehouseTabKey = "POR_RECIBIR" | "EN_BODEGA" | "EN_RUTA" | "ENTREGADOS";
 
 interface TabDef<T extends string> {
@@ -68,24 +68,12 @@ const STORE_TABS: TabDef<StoreTabKey>[] = [
     label: "Enviados",
     icon: Truck,
     statuses: ["ENVIADO_A_BODEGA", "RECIBIDO_EN_BODEGA", "EN_RUTA", "EN_PARADA"],
-    description: "Ya salieron de la tienda",
+    description: "Ya salieron de la tienda, en camino",
     color: "text-[#525252]",
     activeColor: "text-[#C8102E]",
     activeBg: "bg-[#FFF5F5]",
     activeBorder: "border-[#C8102E]",
     badgeColor: "bg-[#C8102E] text-white",
-  },
-  {
-    key: "EN_TIENDA",
-    label: "En Tienda",
-    icon: CheckCircle,
-    statuses: ["RECIBIDO_EN_DESTINO"],
-    description: "Recibidos en tienda, esperando al cliente",
-    color: "text-[#525252]",
-    activeColor: "text-[#1B6B3E]",
-    activeBg: "bg-emerald-50",
-    activeBorder: "border-[#1B6B3E]",
-    badgeColor: "bg-[#1B6B3E] text-white",
   },
   {
     key: "POR_RECIBIR",
@@ -98,6 +86,30 @@ const STORE_TABS: TabDef<StoreTabKey>[] = [
     activeBg: "bg-amber-50",
     activeBorder: "border-[#B8860B]",
     badgeColor: "bg-[#B8860B] text-white",
+  },
+  {
+    key: "EN_TIENDA",
+    label: "En Tienda",
+    icon: CheckCircle,
+    statuses: ["RECIBIDO_EN_DESTINO"],
+    description: "Recibidos en esta tienda, esperando al cliente",
+    color: "text-[#525252]",
+    activeColor: "text-[#1B6B3E]",
+    activeBg: "bg-emerald-50",
+    activeBorder: "border-[#1B6B3E]",
+    badgeColor: "bg-[#1B6B3E] text-white",
+  },
+  {
+    key: "COMPLETADOS",
+    label: "Completados",
+    icon: CheckCircle,
+    statuses: ["RECIBIDO_EN_DESTINO"],
+    description: "Enviados por esta tienda, ya entregados en destino",
+    color: "text-[#525252]",
+    activeColor: "text-blue-700",
+    activeBg: "bg-blue-50",
+    activeBorder: "border-blue-700",
+    badgeColor: "bg-blue-700 text-white",
   },
 ];
 
@@ -277,9 +289,14 @@ export default function Shipments() {
       // Tab filter (statuses)
       const matchesTab = currentTab.statuses.includes(s.status);
 
-      // For store POR_RECIBIR, only show shipments coming TO the current store
-      if (!isWarehouse && activeTab === "POR_RECIBIR" && myFranchiseId) {
-        if (s.destinationFranchiseId !== myFranchiseId) return false;
+      // Store-specific filtering by origin/dest
+      if (!isWarehouse && myFranchiseId) {
+        // POR_RECIBIR: only show shipments coming TO the current store
+        if (activeTab === "POR_RECIBIR" && s.destinationFranchiseId !== myFranchiseId) return false;
+        // EN_TIENDA: only show shipments received IN the current store (destino)
+        if (activeTab === "EN_TIENDA" && s.destinationFranchiseId !== myFranchiseId) return false;
+        // COMPLETADOS: only show shipments SENT FROM the current store that arrived
+        if (activeTab === "COMPLETADOS" && s.originFranchiseId !== myFranchiseId) return false;
       }
 
       // Search filter
@@ -319,9 +336,15 @@ export default function Shipments() {
     for (const s of shipments || []) {
       for (const tab of TABS) {
         if (tab.statuses.includes(s.status)) {
-          // For store POR_RECIBIR, only count if coming to current store
-          if (!isWarehouse && tab.key === "POR_RECIBIR" && myFranchiseId) {
-            if (s.destinationFranchiseId === myFranchiseId) {
+          // Store-specific counting with origin/dest logic
+          if (!isWarehouse && myFranchiseId) {
+            if (tab.key === "POR_RECIBIR" && s.destinationFranchiseId === myFranchiseId) {
+              counts[tab.key]++;
+            } else if (tab.key === "EN_TIENDA" && s.destinationFranchiseId === myFranchiseId) {
+              counts[tab.key]++;
+            } else if (tab.key === "COMPLETADOS" && s.originFranchiseId === myFranchiseId) {
+              counts[tab.key]++;
+            } else if (tab.key !== "POR_RECIBIR" && tab.key !== "EN_TIENDA" && tab.key !== "COMPLETADOS") {
               counts[tab.key]++;
             }
           } else {
@@ -710,7 +733,7 @@ export default function Shipments() {
         </div>
 
         {/* ─── Tab Buttons ─────────────────────────────────────── */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+        <div className={`grid grid-cols-2 ${isWarehouse ? "lg:grid-cols-4" : "lg:grid-cols-5"} gap-2`}>
           {TABS.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.key;
