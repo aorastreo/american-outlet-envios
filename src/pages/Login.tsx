@@ -20,12 +20,15 @@ import {
   Truck,
   Package,
   Shield,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 
 export default function Login() {
   const navigate = useNavigate();
   const [franchiseName, setFranchiseName] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const logoUrl = franchiseName === "ganga_santa_rosa" ? "/logo-ganga.jpg" : "/logo.jpg";
   const [isLoading, setIsLoading] = useState(false);
@@ -178,14 +181,28 @@ export default function Login() {
                 >
                   Contraseña
                 </Label>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="Ingrese su contraseña"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="h-11 border-[#D4D4D4] focus:ring-[#C8102E] focus:border-[#C8102E]"
-                />
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Ingrese su contraseña"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="h-11 border-[#D4D4D4] focus:ring-[#C8102E] focus:border-[#C8102E] pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#A3A3A3] hover:text-[#525252] transition-colors"
+                    tabIndex={-1}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="w-4 h-4" />
+                    ) : (
+                      <Eye className="w-4 h-4" />
+                    )}
+                  </button>
+                </div>
               </div>
 
               <Button
