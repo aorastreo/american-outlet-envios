@@ -9,6 +9,14 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
   Package,
   Search,
   ArrowRight,
@@ -190,6 +198,14 @@ export default function Shipments() {
   const { data: allFranchises } = trpc.franchise.list.useQuery();
 
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
+
+  // Confirmation dialog state
+  const [confirmDialog, setConfirmDialog] = useState<{
+    open: boolean;
+    title: string;
+    description: string;
+    action: (() => void) | null;
+  }>({ open: false, title: "", description: "", action: null });
 
   const isWarehouse = user?.franchise?.isWarehouse === 1;
   const myFranchiseId = user?.franchiseId;
@@ -475,6 +491,16 @@ export default function Shipments() {
     window.open(`/bitacora?ids=${idsParam}`, "_blank");
   };
 
+  // ─── Confirmation dialog helper ───────────────────────────────
+
+  const openConfirmDialog = (title: string, description: string, onConfirm: () => void) => {
+    setConfirmDialog({ open: true, title, description, action: onConfirm });
+  };
+
+  const closeConfirmDialog = () => {
+    setConfirmDialog({ open: false, title: "", description: "", action: null });
+  };
+
   // ─── Action handlers ──────────────────────────────────────────
 
   const confirmarSalida = () => {
@@ -485,7 +511,11 @@ export default function Shipments() {
       toast.error(`${noCreados.length} envio(s) no estan en estado CREADO`);
       return;
     }
-    confirmarSalidaMutation.mutate({ ids: selectedIds });
+    openConfirmDialog(
+      "Confirmar Salida a Bodega",
+      `Esta seguro de confirmar la salida a bodega de ${selectedIds.length} envio(s)? Esta accion no se puede deshacer.`,
+      () => confirmarSalidaMutation.mutate({ ids: selectedIds })
+    );
   };
 
   const recibirEnBodega = () => {
@@ -496,7 +526,11 @@ export default function Shipments() {
       toast.error(`${invalidos.length} envio(s) no estan en estado ENVIADO_A_BODEGA`);
       return;
     }
-    recibirBodegaMutation.mutate({ ids: selectedIds });
+    openConfirmDialog(
+      "Confirmar Recepcion en Bodega",
+      `Esta seguro de confirmar la recepcion de ${selectedIds.length} envio(s) en bodega? Esta accion no se puede deshacer.`,
+      () => recibirBodegaMutation.mutate({ ids: selectedIds })
+    );
   };
 
   const enviarADestino = () => {
@@ -507,7 +541,11 @@ export default function Shipments() {
       toast.error(`${invalidos.length} envio(s) no estan en estado RECIBIDO_EN_BODEGA`);
       return;
     }
-    enviarDestinoMutation.mutate({ ids: selectedIds });
+    openConfirmDialog(
+      "Confirmar Envio a Destino",
+      `Esta seguro de confirmar el envio a destino de ${selectedIds.length} envio(s)? Esta accion no se puede deshacer.`,
+      () => enviarDestinoMutation.mutate({ ids: selectedIds })
+    );
   };
 
   const recibirEnDestino = () => {
@@ -518,7 +556,11 @@ export default function Shipments() {
       toast.error(`${invalidos.length} envio(s) no estan en estado ENVIADO_A_DESTINO`);
       return;
     }
-    recibirDestinoMutation.mutate({ ids: selectedIds });
+    openConfirmDialog(
+      "Confirmar Recepcion en Tienda",
+      `Esta seguro de confirmar la recepcion de ${selectedIds.length} envio(s) en tienda? Esta accion no se puede deshacer.`,
+      () => recibirDestinoMutation.mutate({ ids: selectedIds })
+    );
   };
 
   // ─── Render action buttons based on tab + user type ───────────
@@ -899,6 +941,30 @@ export default function Shipments() {
             {filteredShipments.map((s) => renderShipmentCard(s))}
           </div>
         )}
+
+        {/* ─── Confirmation Dialog ─────────────────────────────── */}
+        <Dialog open={confirmDialog.open} onOpenChange={(open) => !open && closeConfirmDialog()}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{confirmDialog.title}</DialogTitle>
+              <DialogDescription>{confirmDialog.description}</DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={closeConfirmDialog}>
+                Cancelar
+              </Button>
+              <Button
+                className="bg-[#C8102E] hover:bg-[#9B0B22] text-white"
+                onClick={() => {
+                  confirmDialog.action?.();
+                  closeConfirmDialog();
+                }}
+              >
+                Confirmar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </FranchiseLayout>
   );
