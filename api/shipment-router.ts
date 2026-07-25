@@ -680,10 +680,10 @@ export const shipmentRouter = createRouter({
       const envios = await db.select().from(shipments).where(inArray(shipments.id, input.ids));
       if (envios.length === 0) throw new TRPCError({ code: "NOT_FOUND", message: "No se encontraron envios" });
 
-      // Validar que todos esten en RECIBIDO_EN_BODEGA
-      const invalidos = envios.filter((s) => s.status !== "RECIBIDO_EN_BODEGA");
+      // Validar que todos esten en RECIBIDO_EN_BODEGA o CREADO (bodega puede enviar ambos)
+      const invalidos = envios.filter((s) => s.status !== "RECIBIDO_EN_BODEGA" && s.status !== "CREADO");
       if (invalidos.length > 0) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: `${invalidos.length} envio(s) no estan en estado RECIBIDO_EN_BODEGA y no pueden ser enviados a destino` });
+        throw new TRPCError({ code: "BAD_REQUEST", message: `${invalidos.length} envio(s) no estan en estado valido para enviar a destino` });
       }
 
       await db

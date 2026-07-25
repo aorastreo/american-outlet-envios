@@ -139,8 +139,8 @@ const WAREHOUSE_TABS: TabDef<WarehouseTabKey>[] = [
     key: "EN_BODEGA",
     label: "En Bodega",
     icon: ClipboardCheck,
-    statuses: ["RECIBIDO_EN_BODEGA"],
-    description: "Recibidos en bodega, listos para enviar",
+    statuses: ["CREADO", "RECIBIDO_EN_BODEGA"],
+    description: "Creados en bodega y recibidos de tiendas",
     color: "text-[#525252]",
     activeColor: "text-purple-700",
     activeBg: "bg-purple-50",
@@ -556,9 +556,9 @@ export default function Shipments() {
   const enviarADestino = () => {
     if (selectedIds.length === 0) return;
     const seleccionados = filteredShipments.filter((s) => selectedIds.includes(s.id));
-    const invalidos = seleccionados.filter((s) => s.status !== "RECIBIDO_EN_BODEGA");
+    const invalidos = seleccionados.filter((s) => s.status !== "RECIBIDO_EN_BODEGA" && s.status !== "CREADO");
     if (invalidos.length > 0) {
-      toast.error(`${invalidos.length} envio(s) no estan en estado RECIBIDO_EN_BODEGA`);
+      toast.error(`${invalidos.length} envio(s) no estan en estado valido para enviar a destino`);
       return;
     }
     openConfirmDialog(
