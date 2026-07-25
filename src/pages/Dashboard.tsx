@@ -133,50 +133,71 @@ export default function Dashboard() {
   const { data: shipments, isLoading: shipmentsLoading } = trpc.shipment.list.useQuery();
 
   const isWarehouse = user?.franchise?.isWarehouse === 1;
+  const isReceivingWarehouse = user?.username === "bodega_sabana";
+  const isBodega = isWarehouse || isReceivingWarehouse;
   const myFranchiseId = user?.franchiseId || 0;
 
-  // WAREHOUSE FILTERS
+  // WAREHOUSE FILTERS (main bodega)
   const warehousePendingReception = useMemo(() => {
-    if (!isWarehouse || !shipments) return [];
+    if (!isBodega || !shipments) return [];
     return shipments.filter((s) => s.status === "ENVIADO_A_BODEGA");
-  }, [shipments, isWarehouse]);
+  }, [shipments, isBodega]);
 
   const warehouseInWarehouse = useMemo(() => {
-    if (!isWarehouse || !shipments) return [];
+    if (!isBodega || !shipments) return [];
     return shipments.filter((s) => s.status === "RECIBIDO_EN_BODEGA");
-  }, [shipments, isWarehouse]);
+  }, [shipments, isBodega]);
 
   const warehouseInRoute = useMemo(() => {
-    if (!isWarehouse || !shipments) return [];
+    if (!isBodega || !shipments) return [];
     return shipments.filter((s) =>
       ["EN_RUTA", "EN_PARADA", "ENVIADO_A_DESTINO"].includes(s.status)
     );
-  }, [shipments, isWarehouse]);
+  }, [shipments, isBodega]);
 
   const warehouseDelivered = useMemo(() => {
-    if (!isWarehouse || !shipments) return [];
+    if (!isBodega || !shipments) return [];
     return shipments.filter((s) => s.status === "RECIBIDO_EN_DESTINO");
-  }, [shipments, isWarehouse]);
+  }, [shipments, isBodega]);
+
+  // RECEIVING WAREHOUSE FILTERS (Sabana — only receives)
+  const receivingToReceive = useMemo(() => {
+    if (!isReceivingWarehouse || !shipments) return [];
+    return shipments.filter(
+      (s) =>
+        s.destinationFranchiseId === myFranchiseId &&
+        s.status === "ENVIADO_A_DESTINO"
+    );
+  }, [shipments, isReceivingWarehouse, myFranchiseId]);
+
+  const receivingReceived = useMemo(() => {
+    if (!isReceivingWarehouse || !shipments) return [];
+    return shipments.filter(
+      (s) =>
+        s.destinationFranchiseId === myFranchiseId &&
+        s.status === "RECIBIDO_EN_DESTINO"
+    );
+  }, [shipments, isReceivingWarehouse, myFranchiseId]);
 
   // STORE FILTERS
   const storeCreated = useMemo(() => {
-    if (isWarehouse || !shipments) return [];
+    if (isBodega || !shipments) return [];
     return shipments.filter(
       (s) => s.originFranchiseId === myFranchiseId && s.status === "CREADO"
     );
-  }, [shipments, isWarehouse, myFranchiseId]);
+  }, [shipments, isBodega, myFranchiseId]);
 
   const storeToReceive = useMemo(() => {
-    if (isWarehouse || !shipments) return [];
+    if (isBodega || !shipments) return [];
     return shipments.filter(
       (s) =>
         s.destinationFranchiseId === myFranchiseId &&
         ["ENVIADO_A_DESTINO"].includes(s.status)
     );
-  }, [shipments, isWarehouse, myFranchiseId]);
+  }, [shipments, isBodega, myFranchiseId]);
 
   const storeHistory = useMemo(() => {
-    if (isWarehouse || !shipments) return [];
+    if (isBodega || !shipments) return [];
     return shipments.filter(
       (s) =>
         (s.originFranchiseId === myFranchiseId ||
@@ -185,23 +206,23 @@ export default function Dashboard() {
           s.status
         )
     );
-  }, [shipments, isWarehouse, myFranchiseId]);
+  }, [shipments, isBodega, myFranchiseId]);
 
   const statCards = [
     {
-      label: "Por Enviar",
-      value: isWarehouse
+      label: isReceivingWarehouse ? "En Bodega" : "Por Enviar",
+      value: isBodega
         ? warehouseInWarehouse.length
         : storeCreated.length,
-      icon: Send,
+      icon: isReceivingWarehouse ? ClipboardCheck : Send,
       color: "text-[#C8102E]",
       bg: "bg-[#FFF5F5]",
       border: "border-[#C8102E]/10",
     },
     {
       label: "Por Recibir",
-      value: isWarehouse
-        ? warehousePendingReception.length
+      value: isBodega
+        ? (isReceivingWarehouse ? receivingToReceive.length : warehousePendingReception.length)
         : storeToReceive.length,
       icon: Inbox,
       color: "text-[#B8860B]",
@@ -248,10 +269,16 @@ export default function Dashboard() {
         {/* HEADER */}
         <div>
           <h1 className="text-2xl font-bold text-[#1A1A1A]">
-            {isWarehouse ? "Bodega Central" : cleanName(user?.franchise?.displayName || user?.franchise?.name)}
+            {isReceivingWarehouse
+              ? "Bodega Sabana"
+              : isWarehouse
+              ? "Bodega Central"
+              : cleanName(user?.franchise?.displayName || user?.franchise?.name)}
           </h1>
           <p className="text-[#8A8A8A] mt-1">
-            {isWarehouse
+            {isReceivingWarehouse
+              ? "Centro de recepcion - Solo recibe envios"
+              : isWarehouse
               ? "Centro de distribucion - Envios y recepciones"
               : "Panel de envios y recepciones"}
           </p>
@@ -276,8 +303,49 @@ export default function Dashboard() {
           ))}
         </div>
 
+        {/* ==================== RECEIVING WAREHOUSE DASHBOARD (Sabana) ==================== */}
+        {isReceivingWarehouse && (
+          <>
+            {/* TO RECEIVE - POR RECIBIR */}
+            {receivingToReceive.length > 0 && (
+              <div className="space-y-3">
+                <SectionHeader
+                  icon={Inbox}
+                  title="Envios por Recibir"
+                  count={receivingToReceive.length}
+                  iconColor="text-[#B8860B]"
+                  badgeColor="bg-amber-50 text-[#B8860B]"
+                />
+                <div className="space-y-3">
+                  {receivingToReceive.map((s) => (
+                    <ShipmentCard key={s.id} shipment={s} />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* RECEIVED - RECIBIDOS */}
+            {receivingReceived.length > 0 && (
+              <div className="space-y-3">
+                <SectionHeader
+                  icon={CheckCircle}
+                  title="Envios Recibidos"
+                  count={receivingReceived.length}
+                  iconColor="text-emerald-600"
+                  badgeColor="bg-emerald-50 text-emerald-600"
+                />
+                <div className="space-y-3">
+                  {receivingReceived.map((s) => (
+                    <ShipmentCard key={s.id} shipment={s} />
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
         {/* ==================== STORE DASHBOARD ==================== */}
-        {!isWarehouse && (
+        {!isBodega && (
           <>
             {/* CREATED - POR ENVIAR A BODEGA */}
             {storeCreated.length > 0 && (
@@ -336,7 +404,7 @@ export default function Dashboard() {
         )}
 
         {/* ==================== WAREHOUSE DASHBOARD ==================== */}
-        {isWarehouse && (
+        {isWarehouse && !isReceivingWarehouse && (
           <>
             {/* PENDING RECEPTION - POR RECIBIR DE TIENDAS */}
             {warehousePendingReception.length > 0 && (
@@ -413,21 +481,23 @@ export default function Dashboard() {
         )}
 
         {/* QUICK ACTIONS */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Link to="/enviar">
-            <Card className="hover:shadow-md transition-shadow cursor-pointer border-[#C8102E]/20 bg-[#FFF5F5]/50 hover:border-[#C8102E]/40">
-              <CardContent className="p-6 flex items-center gap-4">
-                <div className="w-12 h-12 bg-[#C8102E] rounded-xl flex items-center justify-center">
-                  <Package className="w-6 h-6 text-white" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="font-semibold text-[#1A1A1A]">Crear Nuevo Envio</h3>
-                  <p className="text-sm text-[#8A8A8A]">Agregar articulos y enviar a otra franquicia</p>
-                </div>
-                <ArrowRight className="w-5 h-5 text-[#C8102E]" />
-              </CardContent>
-            </Card>
-          </Link>
+        <div className={`grid grid-cols-1 ${isReceivingWarehouse ? "" : "md:grid-cols-2"} gap-4`}>
+          {!isReceivingWarehouse && (
+            <Link to="/enviar">
+              <Card className="hover:shadow-md transition-shadow cursor-pointer border-[#C8102E]/20 bg-[#FFF5F5]/50 hover:border-[#C8102E]/40">
+                <CardContent className="p-6 flex items-center gap-4">
+                  <div className="w-12 h-12 bg-[#C8102E] rounded-xl flex items-center justify-center">
+                    <Package className="w-6 h-6 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-[#1A1A1A]">Crear Nuevo Envio</h3>
+                    <p className="text-sm text-[#8A8A8A]">Agregar articulos y enviar a otra franquicia</p>
+                  </div>
+                  <ArrowRight className="w-5 h-5 text-[#C8102E]" />
+                </CardContent>
+              </Card>
+            </Link>
+          )}
           <Link to="/rastrear">
             <Card className="hover:shadow-md transition-shadow cursor-pointer border-[#D4D4D4] hover:border-[#C8102E]/30">
               <CardContent className="p-6 flex items-center gap-4">
@@ -451,12 +521,14 @@ export default function Dashboard() {
               <CardContent className="p-12 text-center">
                 <Package className="w-12 h-12 text-[#D4D4D4] mx-auto mb-3" />
                 <p className="text-[#8A8A8A]">No hay envios registrados</p>
-                <Link
-                  to="/enviar"
-                  className="text-[#C8102E] text-sm mt-2 inline-block hover:underline"
-                >
-                  Crear primer envio
-                </Link>
+                {!isReceivingWarehouse && (
+                  <Link
+                    to="/enviar"
+                    className="text-[#C8102E] text-sm mt-2 inline-block hover:underline"
+                  >
+                    Crear primer envio
+                  </Link>
+                )}
               </CardContent>
             </Card>
           )}
