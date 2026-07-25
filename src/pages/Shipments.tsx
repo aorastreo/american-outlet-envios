@@ -359,11 +359,11 @@ export default function Shipments() {
         }
       }
 
-      // Hide route shipments from "En Bodega" tab — they are managed in the Routes page
+      // Hide route shipments (Grecia, Palmares, San Ramon) from "En Bodega" tab — they are managed in the Routes page. Sabana is NOT a route, it receives at warehouse like a normal store.
       let isRouteShipment = false;
       if (isWarehouse && activeTab === "EN_BODEGA") {
         const destName = (s.destinationName || "").toLowerCase();
-        if (destName.includes("grecia") || destName.includes("palmares") || destName.includes("san ramon") || destName.includes("sabana")) {
+        if (destName.includes("grecia") || destName.includes("palmares") || destName.includes("san ramon")) {
           isRouteShipment = true;
         }
       }
@@ -398,10 +398,10 @@ export default function Shipments() {
             counts[tab.key]++;
           }
         } else {
-          // Warehouse: exclude route shipments from EN_BODEGA count
+          // Warehouse: exclude route shipments (Grecia, Palmares, San Ramon) from EN_BODEGA count. Sabana is NOT a route.
           if (isWarehouse && tab.key === "EN_BODEGA") {
             const destName = (s.destinationName || "").toLowerCase();
-            if (!destName.includes("grecia") && !destName.includes("palmares") && !destName.includes("san ramon") && !destName.includes("sabana")) {
+            if (!destName.includes("grecia") && !destName.includes("palmares") && !destName.includes("san ramon")) {
               counts[tab.key]++;
             }
           } else {
