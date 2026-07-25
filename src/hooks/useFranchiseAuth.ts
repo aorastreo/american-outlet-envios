@@ -14,9 +14,10 @@ export function useFranchiseAuth() {
   });
 
   const logoutMutation = trpc.franchiseAuth.logout.useMutation({
-    onSuccess: async () => {
-      await utils.invalidate();
-      window.location.href = "/login";
+    onSuccess: () => {
+      // Navigate immediately — no need to invalidate queries,
+      // the page change will unmount everything anyway
+      window.location.replace("/login");
     },
   });
 

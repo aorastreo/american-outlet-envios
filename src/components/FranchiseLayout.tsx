@@ -53,7 +53,7 @@ export default function FranchiseLayout({
   children: React.ReactNode;
 }) {
   const location = useLocation();
-  const { user, logout } = useFranchiseAuth();
+  const { user, logout, isLoading } = useFranchiseAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const { data: pendingCount } = trpc.shipment.pendingCount.useQuery(undefined, {
@@ -158,10 +158,11 @@ export default function FranchiseLayout({
         <div className="p-3 border-t border-white/10">
           <button
             onClick={logout}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-white/60 hover:bg-white/10 hover:text-red-400 transition-colors w-full"
+            disabled={isLoading}
+            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-white/60 hover:bg-white/10 hover:text-red-400 transition-colors w-full disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <LogOut className="w-4.5 h-4.5" />
-            Cerrar Sesion
+            {isLoading ? "Cerrando..." : "Cerrar Sesion"}
           </button>
         </div>
       </aside>
