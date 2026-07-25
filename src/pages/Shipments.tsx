@@ -329,12 +329,12 @@ export default function Shipments() {
       const matchesOrigin = originFilter === "ALL" || s.originFranchiseId.toString() === originFilter;
       const matchesDest = destFilter === "ALL" || s.destinationFranchiseId.toString() === destFilter;
 
-      // Date filter (only for store ENVIADOS tab)
+      // Date filter (only for store ENVIADOS tab) — uses createdAt (when the shipment was created)
       let matchesDate = true;
       if (!isWarehouse && activeTab === "ENVIADOS" && dateFilterEnabled && dateFilter) {
-        const updated = s.updatedAt ? parseISO(String(s.updatedAt)) : null;
+        const created = s.createdAt ? parseISO(String(s.createdAt)) : null;
         const filterDate = parseISO(dateFilter);
-        if (updated && !isSameDay(updated, filterDate)) {
+        if (created && !isSameDay(created, filterDate)) {
           matchesDate = false;
         }
       }
@@ -821,7 +821,7 @@ export default function Shipments() {
             <span className="font-medium text-[#525252]">{currentTab.description}</span>
             {showDateFilter && dateFilterEnabled && (
               <span className="ml-2">
-                — Mostrando{" "}
+                — Envios creados el{" "}
                 <strong>{format(parseISO(dateFilter), "dd/MM/yyyy", { locale: es })}</strong>
               </span>
             )}
@@ -919,7 +919,7 @@ export default function Shipments() {
               </p>
               {showDateFilter && dateFilterEnabled && (
                 <p className="text-xs text-[#A3A3A3] mt-2">
-                  Prueba desactivar el filtro de fecha o seleccionar otra fecha
+                  Prueba desactivar el filtro de fecha o seleccionar otra fecha de creacion
                 </p>
               )}
             </CardContent>
