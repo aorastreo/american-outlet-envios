@@ -35,7 +35,7 @@ import {
   Box,
   Download,
 } from "lucide-react";
-import { format, isSameDay, parseISO } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
 import toast from "react-hot-toast";
 
@@ -223,17 +223,17 @@ export default function Shipments() {
   const [originFilter, setOriginFilter] = useState<string>(urlOriginId || "ALL");
   const [destFilter, setDestFilter] = useState<string>("ALL");
 
-  // Date filter for "Enviados" tab (stores only) — default to today
-  const todayStr = format(new Date(), "yyyy-MM-dd");
-  const [dateFilter, setDateFilter] = useState<string>(todayStr);
+  // Date filter for "Enviados" tab (stores only) — default to today, recalculated fresh on mount
+  const [dateFilter, setDateFilter] = useState<string>(() => format(new Date(), "yyyy-MM-dd"));
   const [dateFilterEnabled, setDateFilterEnabled] = useState<boolean>(true);
 
-  // Reset date filter to today when entering ENVIADOS tab (prevents stale date)
+  // Reset date to today whenever entering ENVIADOS tab
   useEffect(() => {
-    if (!isWarehouse && activeTab === "ENVIADOS") {
-      setDateFilter(format(new Date(), "yyyy-MM-dd"));
+    if (activeTab === "ENVIADOS" && dateFilterEnabled) {
+      const today = format(new Date(), "yyyy-MM-dd");
+      setDateFilter((prev) => (prev !== today ? today : prev));
     }
-  }, [activeTab, isWarehouse]);
+  }, [activeTab, dateFilterEnabled]);
 
   // Sync tab with URL
   useEffect(() => {
@@ -336,12 +336,11 @@ export default function Shipments() {
       const matchesOrigin = originFilter === "ALL" || s.originFranchiseId.toString() === originFilter;
       const matchesDest = destFilter === "ALL" || s.destinationFranchiseId.toString() === destFilter;
 
-      // Date filter (only for store ENVIADOS tab) — uses createdAt (when the shipment was created)
+      // Date filter (only for store ENVIADOS tab) — compares formatted date strings to avoid timezone issues
       let matchesDate = true;
       if (!isWarehouse && activeTab === "ENVIADOS" && dateFilterEnabled && dateFilter) {
-        const created = s.createdAt ? parseISO(String(s.createdAt)) : null;
-        const filterDate = parseISO(dateFilter);
-        if (created && !isSameDay(created, filterDate)) {
+        const createdDateStr = s.createdAt ? format(new Date(String(s.createdAt)), "yyyy-MM-dd") : null;
+        if (createdDateStr && createdDateStr !== dateFilter) {
           matchesDate = false;
         }
       }
