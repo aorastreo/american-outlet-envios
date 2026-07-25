@@ -359,7 +359,16 @@ export default function Shipments() {
         }
       }
 
-      return matchesTab && matchesSearch && matchesOrigin && matchesDest && matchesDate;
+      // Hide route shipments from "En Bodega" tab — they are managed in the Routes page
+      let isRouteShipment = false;
+      if (isWarehouse && activeTab === "EN_BODEGA") {
+        const destName = (s.destinationName || "").toLowerCase();
+        if (destName.includes("grecia") || destName.includes("palmares") || destName.includes("san ramon") || destName.includes("sabana")) {
+          isRouteShipment = true;
+        }
+      }
+
+      return matchesTab && matchesSearch && matchesOrigin && matchesDest && matchesDate && !isRouteShipment;
     });
   }, [shipments, activeTab, currentTab, searchQuery, originFilter, destFilter, dateFilter, dateFilterEnabled, isWarehouse, myFranchiseId]);
 
@@ -389,7 +398,15 @@ export default function Shipments() {
             counts[tab.key]++;
           }
         } else {
-          counts[tab.key]++;
+          // Warehouse: exclude route shipments from EN_BODEGA count
+          if (isWarehouse && tab.key === "EN_BODEGA") {
+            const destName = (s.destinationName || "").toLowerCase();
+            if (!destName.includes("grecia") && !destName.includes("palmares") && !destName.includes("san ramon") && !destName.includes("sabana")) {
+              counts[tab.key]++;
+            }
+          } else {
+            counts[tab.key]++;
+          }
         }
         // No break here — RECIBIDO_EN_DESTINO can count for both EN_TIENDA and COMPLETADOS
       }
