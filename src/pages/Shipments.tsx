@@ -208,6 +208,8 @@ export default function Shipments() {
   }>({ open: false, title: "", description: "", action: null });
 
   const isWarehouse = user?.franchise?.isWarehouse === 1;
+  const isReceivingWarehouse = user?.username === "bodega_sabana";
+  const isBodega = isWarehouse || isReceivingWarehouse;
   const myFranchiseId = user?.franchiseId;
 
   // Helper: clean franchise names (remove "AMERICAN OUTLET" prefix)
@@ -230,13 +232,13 @@ export default function Shipments() {
   );
 
   // Select tabs based on user type
-  const TABS = isWarehouse ? WAREHOUSE_TABS : STORE_TABS;
+  const TABS = isBodega ? WAREHOUSE_TABS : STORE_TABS;
   type ActiveTabKey = typeof TABS[number]["key"];
 
   const urlTab = searchParams.get("tab") as ActiveTabKey | null;
   const urlOriginId = searchParams.get("origin");
 
-  const defaultTab = isWarehouse ? "POR_RECIBIR" : "POR_ENVIAR";
+  const defaultTab = isBodega ? "POR_RECIBIR" : "POR_ENVIAR";
   const [activeTab, setActiveTab] = useState<ActiveTabKey>(defaultTab);
   const [searchQuery, setSearchQuery] = useState("");
   const [originFilter, setOriginFilter] = useState<string>(urlOriginId || "ALL");
@@ -250,7 +252,7 @@ export default function Shipments() {
       const fallback = urlTab && validKeys.includes(urlTab) ? urlTab : defaultTab;
       setActiveTab(fallback as ActiveTabKey);
     }
-  }, [isWarehouse, TABS, activeTab, urlTab, defaultTab]);
+  }, [isBodega, TABS, activeTab, urlTab, defaultTab]);
 
   // Date filter for "Enviados" tab (stores only) — default to today, recalculated fresh on mount
   const [dateFilter, setDateFilter] = useState<string>(() => format(new Date(), "yyyy-MM-dd"));
@@ -342,7 +344,7 @@ export default function Shipments() {
       const matchesTab = currentTab.statuses.includes(s.status);
 
       // Store-specific filtering by origin/dest
-      if (!isWarehouse && myFranchiseId) {
+      if (!isBodega && myFranchiseId) {
         // POR_RECIBIR: only show shipments coming TO the current store
         if (activeTab === "POR_RECIBIR" && s.destinationFranchiseId !== myFranchiseId) return false;
         // EN_TIENDA: only show shipments received IN the current store (destino)
@@ -367,7 +369,7 @@ export default function Shipments() {
 
       // Date filter (only for store ENVIADOS tab) — compare year/month/day in local time
       let matchesDate = true;
-      if (!isWarehouse && activeTab === "ENVIADOS" && dateFilterEnabled && dateFilter) {
+      if (!isBodega && activeTab === "ENVIADOS" && dateFilterEnabled && dateFilter) {
         const created = s.createdAt ? new Date(String(s.createdAt)) : null;
         if (created) {
           const [fy, fm, fd] = dateFilter.split("-").map(Number);
@@ -379,7 +381,7 @@ export default function Shipments() {
 
       // Hide route shipments (Grecia, Palmares, San Ramon) from "En Bodega" tab — they are managed in the Routes page. Sabana is NOT a route, it receives at warehouse like a normal store.
       let isRouteShipment = false;
-      if (isWarehouse && activeTab === "EN_BODEGA") {
+      if (isBodega && activeTab === "EN_BODEGA") {
         const destName = (s.destinationName || "").toLowerCase();
         if (destName.includes("grecia") || destName.includes("palmares") || destName.includes("san ramon")) {
           isRouteShipment = true;
@@ -388,7 +390,7 @@ export default function Shipments() {
 
       return matchesTab && matchesSearch && matchesOrigin && matchesDest && matchesDate && !isRouteShipment;
     });
-  }, [shipments, activeTab, currentTab, searchQuery, originFilter, destFilter, dateFilter, dateFilterEnabled, isWarehouse, myFranchiseId]);
+  }, [shipments, activeTab, currentTab, searchQuery, originFilter, destFilter, dateFilter, dateFilterEnabled, isBodega, myFranchiseId]);
 
   // Count per tab
   const tabCounts = useMemo(() => {
@@ -401,7 +403,7 @@ export default function Shipments() {
         if (!tab.statuses.includes(s.status)) continue;
 
         // Store-specific counting with origin/dest logic
-        if (!isWarehouse && myFranchiseId) {
+        if (!isBodega && myFranchiseId) {
           if (tab.key === "POR_RECIBIR" && s.destinationFranchiseId === myFranchiseId) {
             counts[tab.key]++;
           } else if (tab.key === "EN_TIENDA" && s.destinationFranchiseId === myFranchiseId) {
@@ -417,7 +419,7 @@ export default function Shipments() {
           }
         } else {
           // Warehouse: exclude route shipments (Grecia, Palmares, San Ramon) from EN_BODEGA count. Sabana is NOT a route.
-          if (isWarehouse && tab.key === "EN_BODEGA") {
+          if (isBodega && tab.key === "EN_BODEGA") {
             const destName = (s.destinationName || "").toLowerCase();
             if (!destName.includes("grecia") && !destName.includes("palmares") && !destName.includes("san ramon")) {
               counts[tab.key]++;
@@ -430,7 +432,7 @@ export default function Shipments() {
       }
     }
     return counts;
-  }, [shipments, TABS, isWarehouse, myFranchiseId]);
+  }, [shipments, TABS, isBodega, myFranchiseId]);
 
   const renderShipmentCard = (shipment: (typeof filteredShipments)[0]) => {
     const cfg = getStatusConfig(shipment.status);
@@ -624,7 +626,7 @@ export default function Shipments() {
     if (selectedIds.length === 0) return null;
 
     // STORE: Por Enviar → Confirmar Salida + Bitacora
-    if (!isWarehouse && activeTab === "POR_ENVIAR") {
+    if (!isBodega && activeTab === "POR_ENVIAR") {
       return (
         <>
           <Button
@@ -649,7 +651,7 @@ export default function Shipments() {
     }
 
     // STORE: Por Recibir → Confirmar Recepcion Masiva
-    if (!isWarehouse && activeTab === "POR_RECIBIR") {
+    if (!isBodega && activeTab === "POR_RECIBIR") {
       return (
         <>
           <Button
@@ -674,7 +676,7 @@ export default function Shipments() {
     }
 
     // WAREHOUSE: Por Recibir → Confirmar Recepcion
-    if (isWarehouse && activeTab === "POR_RECIBIR") {
+    if (isBodega && activeTab === "POR_RECIBIR") {
       return (
         <>
           <Button
@@ -699,7 +701,7 @@ export default function Shipments() {
     }
 
     // WAREHOUSE: En Bodega → Enviar a Destino
-    if (isWarehouse && activeTab === "EN_BODEGA") {
+    if (isBodega && activeTab === "EN_BODEGA") {
       return (
         <>
           <Button
@@ -742,7 +744,7 @@ export default function Shipments() {
     if (selectedIds.length === 0) return null;
 
     // Store: Por Enviar
-    if (!isWarehouse && activeTab === "POR_ENVIAR") {
+    if (!isBodega && activeTab === "POR_ENVIAR") {
       return (
         <div className="flex items-center gap-2 px-4 py-2.5 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700">
           <ClipboardCheck className="w-4 h-4 shrink-0" />
@@ -755,7 +757,7 @@ export default function Shipments() {
     }
 
     // Store: Por Recibir
-    if (!isWarehouse && activeTab === "POR_RECIBIR") {
+    if (!isBodega && activeTab === "POR_RECIBIR") {
       return (
         <div className="flex items-center gap-2 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700">
           <ClipboardCheck className="w-4 h-4 shrink-0" />
@@ -768,7 +770,7 @@ export default function Shipments() {
     }
 
     // Warehouse: Por Recibir
-    if (isWarehouse && activeTab === "POR_RECIBIR") {
+    if (isBodega && activeTab === "POR_RECIBIR") {
       return (
         <div className="flex items-center gap-2 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700">
           <ClipboardCheck className="w-4 h-4 shrink-0" />
@@ -781,7 +783,7 @@ export default function Shipments() {
     }
 
     // Warehouse: En Bodega
-    if (isWarehouse && activeTab === "EN_BODEGA") {
+    if (isBodega && activeTab === "EN_BODEGA") {
       return (
         <div className="flex items-center gap-2 px-4 py-2.5 bg-purple-50 border border-purple-200 rounded-lg text-sm text-purple-700">
           <ClipboardCheck className="w-4 h-4 shrink-0" />
@@ -798,7 +800,7 @@ export default function Shipments() {
 
   // ─── Date filter visibility ───────────────────────────────────
 
-  const showDateFilter = !isWarehouse && activeTab === "ENVIADOS";
+  const showDateFilter = !isBodega && activeTab === "ENVIADOS";
 
   return (
     <FranchiseLayout>
@@ -807,7 +809,7 @@ export default function Shipments() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-[#1A1A1A]">
-              {isWarehouse ? "Bodega - Envios" : "Mis Envios"}
+              {isBodega ? "Bodega - Envios" : "Mis Envios"}
             </h1>
             <p className="text-[#8A8A8A] mt-1">
               {filteredShipments.length} envio{filteredShipments.length !== 1 ? "s" : ""} encontrado
@@ -821,7 +823,7 @@ export default function Shipments() {
           </div>
           <div className="flex gap-2 flex-wrap">
             {renderActionButtons()}
-            {!isWarehouse && (
+            {!isBodega && (
               <Link
                 to="/enviar"
                 className="inline-flex items-center justify-center px-4 py-2.5 bg-[#C8102E] text-white rounded-lg text-sm font-medium hover:bg-[#9B0B22] transition-colors"
@@ -834,7 +836,7 @@ export default function Shipments() {
         </div>
 
         {/* ─── Tab Buttons ─────────────────────────────────────── */}
-        <div className={`grid grid-cols-2 ${isWarehouse ? "lg:grid-cols-4" : "lg:grid-cols-5"} gap-2`}>
+        <div className={`grid grid-cols-2 ${isBodega ? "lg:grid-cols-4" : "lg:grid-cols-5"} gap-2`}>
           {TABS.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.key;

@@ -47,6 +47,13 @@ const driverNavItems = [
   { path: "/rutas", label: "Mis Rutas", icon: Truck },
 ];
 
+// Menu para Bodega de recepcion (ej: Sabana) — solo recibe, no crea envios
+const receivingWarehouseNavItems = [
+  { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { path: "/envios", label: "Mis Envios", icon: Package },
+  { path: "/rastrear", label: "Rastrear", icon: Search },
+];
+
 export default function FranchiseLayout({
   children,
 }: {
@@ -108,7 +115,7 @@ export default function FranchiseLayout({
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-xs font-medium text-white truncate">
-                {cleanName(user?.franchise?.displayName) || "Franquicia"}
+                {cleanName(user?.franchise?.displayName || user?.franchise?.name) || "Franquicia"}
               </p>
               <p className="text-[10px] text-white/50 truncate">
                 {user?.displayName || "Usuario"}
@@ -126,6 +133,8 @@ export default function FranchiseLayout({
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
           {(user?.username === "chofer"
             ? driverNavItems
+            : user?.username === "bodega_sabana"
+            ? receivingWarehouseNavItems
             : user?.franchise?.isWarehouse
             ? warehouseNavItems
             : storeNavItems
