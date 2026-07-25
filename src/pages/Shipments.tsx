@@ -982,16 +982,17 @@ export default function Shipments() {
                   </option>
                 ))}
               </select>
-            {hasFilters && (
-              <button
-                onClick={clearFilters}
-                className="h-11 px-3 rounded-lg border border-[#D4D4D4] text-[#8A8A8A] hover:bg-[#F0F0F0] transition-colors shrink-0"
-                title="Limpiar filtros"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            )}
-          </div>
+              {hasFilters && (
+                <button
+                  onClick={clearFilters}
+                  className="h-11 px-3 rounded-lg border border-[#D4D4D4] text-[#8A8A8A] hover:bg-[#F0F0F0] transition-colors shrink-0"
+                  title="Limpiar filtros"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         {/* ─── Shipment List ───────────────────────────────────── */}
