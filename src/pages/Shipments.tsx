@@ -43,6 +43,7 @@ import toast from "react-hot-toast";
 
 type StoreTabKey = "POR_ENVIAR" | "ENVIADOS" | "POR_RECIBIR" | "EN_TIENDA" | "COMPLETADOS";
 type WarehouseTabKey = "POR_RECIBIR" | "EN_BODEGA" | "EN_RUTA" | "ENTREGADOS";
+type SabanaTabKey = "POR_RECIBIR" | "EN_BODEGA";
 
 interface TabDef<T extends string> {
   key: T;
@@ -173,6 +174,34 @@ const WAREHOUSE_TABS: TabDef<WarehouseTabKey>[] = [
   },
 ];
 
+// Tabs for RECEIVING WAREHOUSE (Sabana) — only receives, simplified
+const SABANA_TABS: TabDef<SabanaTabKey>[] = [
+  {
+    key: "POR_RECIBIR",
+    label: "Por Recibir",
+    icon: Inbox,
+    statuses: ["ENVIADO_A_DESTINO"],
+    description: "Envios que vienen hacia bodega Sabana",
+    color: "text-[#525252]",
+    activeColor: "text-[#B8860B]",
+    activeBg: "bg-amber-50",
+    activeBorder: "border-[#B8860B]",
+    badgeColor: "bg-[#B8860B] text-white",
+  },
+  {
+    key: "EN_BODEGA",
+    label: "En Bodega",
+    icon: ClipboardCheck,
+    statuses: ["RECIBIDO_EN_DESTINO"],
+    description: "Envios recibidos en bodega Sabana",
+    color: "text-[#525252]",
+    activeColor: "text-[#C8102E]",
+    activeBg: "bg-[#FFF5F5]",
+    activeBorder: "border-[#C8102E]",
+    badgeColor: "bg-[#C8102E] text-white",
+  },
+];
+
 /* ─── status badge helper ─────────────────────────────────────── */
 
 function getStatusConfig(status: string) {
@@ -232,7 +261,11 @@ export default function Shipments() {
   );
 
   // Select tabs based on user type
-  const TABS = isBodega ? WAREHOUSE_TABS : STORE_TABS;
+  const TABS = isReceivingWarehouse
+    ? SABANA_TABS
+    : isWarehouse
+    ? WAREHOUSE_TABS
+    : STORE_TABS;
   type ActiveTabKey = typeof TABS[number]["key"];
 
   const urlTab = searchParams.get("tab") as ActiveTabKey | null;
@@ -836,7 +869,7 @@ export default function Shipments() {
         </div>
 
         {/* ─── Tab Buttons ─────────────────────────────────────── */}
-        <div className={`grid grid-cols-2 ${isBodega ? "lg:grid-cols-4" : "lg:grid-cols-5"} gap-2`}>
+        <div className={`grid grid-cols-2 ${isReceivingWarehouse ? "lg:grid-cols-2" : isBodega ? "lg:grid-cols-4" : "lg:grid-cols-5"} gap-2`}>
           {TABS.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.key;
@@ -909,7 +942,7 @@ export default function Shipments() {
         </div>
 
         {/* ─── Search + Filters ────────────────────────────────── */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div className={`grid grid-cols-1 ${isReceivingWarehouse ? "" : "sm:grid-cols-2 lg:grid-cols-3"} gap-3`}>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#A3A3A3]" />
             <Input
@@ -919,7 +952,7 @@ export default function Shipments() {
               className="pl-10 h-11 border-[#D4D4D4]"
             />
           </div>
-          {isWarehouse && (
+          {isWarehouse && !isReceivingWarehouse && (
             <div className="flex gap-2">
               <select
                 value={originFilter}
@@ -935,19 +968,20 @@ export default function Shipments() {
               </select>
             </div>
           )}
-          <div className="flex gap-2">
-            <select
-              value={destFilter}
-              onChange={(e) => setDestFilter(e.target.value)}
-              className="flex-1 h-11 px-3 text-sm border border-[#D4D4D4] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C8102E]/20 focus:border-[#C8102E] text-[#1A1A1A] bg-white"
-            >
-              <option value="ALL">Todos los destinos</option>
-              {storeFranchises.map((f) => (
-                <option key={f.id} value={f.id.toString()}>
-                  {cleanName(f.displayName)}
-                </option>
-              ))}
-            </select>
+          {!isReceivingWarehouse && (
+            <div className="flex gap-2">
+              <select
+                value={destFilter}
+                onChange={(e) => setDestFilter(e.target.value)}
+                className="flex-1 h-11 px-3 text-sm border border-[#D4D4D4] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C8102E]/20 focus:border-[#C8102E] text-[#1A1A1A] bg-white"
+              >
+                <option value="ALL">Todos los destinos</option>
+                {storeFranchises.map((f) => (
+                  <option key={f.id} value={f.id.toString()}>
+                    {cleanName(f.displayName)}
+                  </option>
+                ))}
+              </select>
             {hasFilters && (
               <button
                 onClick={clearFilters}

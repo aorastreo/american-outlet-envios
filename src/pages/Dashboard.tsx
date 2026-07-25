@@ -208,13 +208,33 @@ export default function Dashboard() {
     );
   }, [shipments, isBodega, myFranchiseId]);
 
-  const statCards = [
+  // Stats for receiving warehouse (Sabana) — only 2 counters
+  const receivingStats = [
     {
-      label: isReceivingWarehouse ? "En Bodega" : "Por Enviar",
+      label: "En Bodega",
+      value: receivingReceived.length,
+      icon: ClipboardCheck,
+      color: "text-[#C8102E]",
+      bg: "bg-[#FFF5F5]",
+      border: "border-[#C8102E]/10",
+    },
+    {
+      label: "Por Recibir",
+      value: receivingToReceive.length,
+      icon: Inbox,
+      color: "text-[#B8860B]",
+      bg: "bg-amber-50",
+      border: "border-amber-200/50",
+    },
+  ];
+
+  const statCards = isReceivingWarehouse ? receivingStats : [
+    {
+      label: "Por Enviar",
       value: isBodega
         ? warehouseInWarehouse.length
         : storeCreated.length,
-      icon: isReceivingWarehouse ? ClipboardCheck : Send,
+      icon: Send,
       color: "text-[#C8102E]",
       bg: "bg-[#FFF5F5]",
       border: "border-[#C8102E]/10",
@@ -222,7 +242,7 @@ export default function Dashboard() {
     {
       label: "Por Recibir",
       value: isBodega
-        ? (isReceivingWarehouse ? receivingToReceive.length : warehousePendingReception.length)
+        ? warehousePendingReception.length
         : storeToReceive.length,
       icon: Inbox,
       color: "text-[#B8860B]",
@@ -285,7 +305,7 @@ export default function Dashboard() {
         </div>
 
         {/* STATS */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        <div className={`grid grid-cols-2 ${isReceivingWarehouse ? "" : "md:grid-cols-3 lg:grid-cols-6"} gap-4`}>
           {statCards.map((stat) => (
             <Card key={stat.label} className={`${stat.border} border`}>
               <CardContent className="p-4">
