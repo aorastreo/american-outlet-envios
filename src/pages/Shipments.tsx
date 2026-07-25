@@ -335,23 +335,27 @@ export default function Shipments() {
     }
     for (const s of shipments || []) {
       for (const tab of TABS) {
-        if (tab.statuses.includes(s.status)) {
-          // Store-specific counting with origin/dest logic
-          if (!isWarehouse && myFranchiseId) {
-            if (tab.key === "POR_RECIBIR" && s.destinationFranchiseId === myFranchiseId) {
-              counts[tab.key]++;
-            } else if (tab.key === "EN_TIENDA" && s.destinationFranchiseId === myFranchiseId) {
-              counts[tab.key]++;
-            } else if (tab.key === "COMPLETADOS" && s.originFranchiseId === myFranchiseId) {
-              counts[tab.key]++;
-            } else if (tab.key !== "POR_RECIBIR" && tab.key !== "EN_TIENDA" && tab.key !== "COMPLETADOS") {
-              counts[tab.key]++;
-            }
-          } else {
+        if (!tab.statuses.includes(s.status)) continue;
+
+        // Store-specific counting with origin/dest logic
+        if (!isWarehouse && myFranchiseId) {
+          if (tab.key === "POR_RECIBIR" && s.destinationFranchiseId === myFranchiseId) {
+            counts[tab.key]++;
+          } else if (tab.key === "EN_TIENDA" && s.destinationFranchiseId === myFranchiseId) {
+            counts[tab.key]++;
+          } else if (tab.key === "COMPLETADOS" && s.originFranchiseId === myFranchiseId) {
+            counts[tab.key]++;
+          } else if (
+            tab.key !== "POR_RECIBIR" &&
+            tab.key !== "EN_TIENDA" &&
+            tab.key !== "COMPLETADOS"
+          ) {
             counts[tab.key]++;
           }
-          break;
+        } else {
+          counts[tab.key]++;
         }
+        // No break here — RECIBIDO_EN_DESTINO can count for both EN_TIENDA and COMPLETADOS
       }
     }
     return counts;
