@@ -10,9 +10,17 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   Truck, MapPin, Phone, Package, CheckCircle, XCircle, Play, ArrowLeft,
   ChevronRight, AlertCircle, Clock, User, Calendar, ArrowUpRight, MessageCircle,
-  AlertTriangle, Search,
+  AlertTriangle, Search, ClipboardList, ArrowUp, ArrowDown,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 const routeStatusConfig: Record<string, { color: string; label: string }> = {
   PLANIFICADA: { color: "bg-blue-50 text-blue-700", label: "Planificada" },
@@ -59,6 +67,21 @@ export default function RutaDetail() {
   const [expandedStopId, setExpandedStopId] = useState<number | null>(null);
   const [selectedShipmentIds, setSelectedShipmentIds] = useState<number[]>([]);
   const [searchFilter, setSearchFilter] = useState("");
+
+  // Confirmation dialog for route start
+  const [confirmDialog, setConfirmDialog] = useState<{
+    open: boolean;
+    title: string;
+    description: string;
+    action: (() => void) | null;
+  }>({ open: false, title: "", description: "", action: null });
+
+  const openConfirmDialog = (title: string, description: string, onConfirm: () => void) => {
+    setConfirmDialog({ open: true, title, description, action: onConfirm });
+  };
+  const closeConfirmDialog = () => {
+    setConfirmDialog({ open: false, title: "", description: "", action: null });
+  };
 
   // Auto-repair tracking for routes that are EN_RUTA but missing EN_RUTA tracking entries
   const repairMutation = trpc.route.repairTracking.useMutation({
@@ -172,6 +195,24 @@ export default function RutaDetail() {
   const routeCfg = routeStatusConfig[route.status];
   const allStopsCompleted = route.stops.every((s: any) => s.status === "COMPLETADO");
 
+  // Collect ALL route shipments for unified list
+  const allRouteShipments = route.stops.flatMap((stop: any) =>
+    stop.shipments.map((rs: any) => ({ ...rs, stopName: stop.cityName, stopId: stop.id }))
+  );
+
+  // Select/deselect all
+  const selectAllVisible = () => {
+    const allSelected = allRouteShipments.every((rs: any) => selectedShipmentIds.includes(rs.shipment.id));
+    if (allSelected) {
+      setSelectedShipmentIds([]);
+    } else {
+      setSelectedShipmentIds(allRouteShipments.map((rs: any) => rs.shipment.id));
+    }
+  };
+  const toggleShipment = (shipmentId: number) => {
+    setSelectedShipmentIds(prev => prev.includes(shipmentId) ? prev.filter(id => id !== shipmentId) : [...prev, shipmentId]);
+  };
+
   return (
     <FranchiseLayout>
       <div className="max-w-4xl mx-auto space-y-6">
@@ -223,12 +264,11 @@ export default function RutaDetail() {
         })()}
 
         {/* Summary */}
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid grid-cols-3 gap-3">
           {[
             { label: "Asignados", value: route.summary.totalAssigned, color: "text-blue-700", bg: "bg-blue-50" },
             { label: "Entregados", value: route.summary.totalDelivered, color: "text-[#1B6B3E]", bg: "bg-emerald-50" },
             { label: "Pendientes", value: route.summary.totalPending, color: "text-[#B8860B]", bg: "bg-amber-50" },
-            { label: "No recogidos", value: route.summary.totalNotCollected, color: "text-red-700", bg: "bg-red-50" },
           ].map((s) => (
             <Card key={s.label}>
               <CardContent className={`p-3 ${s.bg}`}>
@@ -239,16 +279,41 @@ export default function RutaDetail() {
           ))}
         </div>
 
-        {/* Route Actions */}
+        {/* Route Actions — Same flow as shipments */}
         {route.status === "PLANIFICADA" && (
-          <Button
-            onClick={() => updateRouteMutation.mutate({ id: routeId, status: "EN_RUTA" })}
-            className="w-full bg-[#C8102E] hover:bg-[#9B0B22] h-12 text-base"
-            disabled={updateRouteMutation.isPending}
-          >
-            <Play className="w-5 h-5 mr-2" />
-            {updateRouteMutation.isPending ? "Iniciando..." : "Iniciar Ruta"}
-          </Button>
+          <div className="flex gap-2">
+            {selectedShipmentIds.length > 0 && (
+              <Button
+                onClick={() => {
+                  const idsParam = selectedShipmentIds.join(",");
+                  window.open(`/bitacora?ids=${idsParam}`, "_blank");
+                }}
+                variant="outline"
+                className="flex-1 border-[#C8102E]/20 text-[#C8102E] hover:bg-[#FFF5F5]"
+              >
+                <ClipboardList className="w-4 h-4 mr-2" />
+                Generar Bitacora
+              </Button>
+            )}
+            <Button
+              onClick={() => {
+                if (route.summary.totalAssigned === 0) {
+                  toast.error("No hay envios asignados a la ruta");
+                  return;
+                }
+                openConfirmDialog(
+                  "Iniciar Ruta",
+                  `Esta seguro de iniciar la ruta "${route.name}" con ${route.summary.totalAssigned} envio(s)? Esta accion no se puede deshacer.`,
+                  () => updateRouteMutation.mutate({ id: routeId, status: "EN_RUTA" })
+                );
+              }}
+              className="flex-1 bg-[#C8102E] hover:bg-[#9B0B22] h-11"
+              disabled={updateRouteMutation.isPending}
+            >
+              <Play className="w-4 h-4 mr-2" />
+              {updateRouteMutation.isPending ? "Iniciando..." : "Iniciar Ruta"}
+            </Button>
+          </div>
         )}
         {route.status === "EN_RUTA" && allStopsCompleted && (
           <Button
@@ -261,276 +326,204 @@ export default function RutaDetail() {
           </Button>
         )}
 
-        {/* Stops */}
-        <div className="space-y-4">
-          <h2 className="text-lg font-semibold text-[#1A1A1A] flex items-center gap-2">
-            <MapPin className="w-5 h-5 text-[#C8102E]" />
-            Paradas
-          </h2>
+        {/* Unified Shipment List — Same flow as Shipments page */}
+        <div className="space-y-3">
+          {/* Section header */}
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-[#1A1A1A] flex items-center gap-2">
+              <Package className="w-5 h-5 text-[#C8102E]" />
+              Envios de la Ruta
+              <Badge className="bg-[#F0F0F0] text-[#525252]">{allRouteShipments.length}</Badge>
+            </h2>
+            {allRouteShipments.length > 1 && route.status === "PLANIFICADA" && (
+              <button
+                onClick={selectAllVisible}
+                className="text-sm text-[#C8102E] hover:underline font-medium"
+              >
+                {allRouteShipments.every((rs: any) => selectedShipmentIds.includes(rs.shipment.id)) ? "Deseleccionar todos" : "Seleccionar todos"}
+              </button>
+            )}
+          </div>
 
-          {route.stops.map((stop: any, idx: number) => {
-            const stopCfg = stopStatusConfig[stop.status];
-            const isCurrent = route.status === "EN_RUTA" && stop.status === "PENDIENTE" &&
-              (idx === 0 || route.stops[idx - 1].status === "COMPLETADO");
+          {/* Select all bar */}
+          {allRouteShipments.length > 0 && route.status === "PLANIFICADA" && (
+            <div className="flex items-center gap-2 px-4 py-2 bg-[#F7F7F7] rounded-lg border border-[#D4D4D4]">
+              <Checkbox
+                checked={allRouteShipments.every((rs: any) => selectedShipmentIds.includes(rs.shipment.id))}
+                onCheckedChange={selectAllVisible}
+                className="border-[#D4D4D4] data-[state=checked]:bg-[#C8102E] data-[state=checked]:border-[#C8102E]"
+              />
+              <span className="text-sm text-[#525252] font-medium">
+                {selectedShipmentIds.length > 0
+                  ? `${selectedShipmentIds.length} seleccionado(s)`
+                  : "Seleccionar todos los envios"}
+              </span>
+            </div>
+          )}
 
-            return (
-              <Card key={stop.id} className={`border-2 ${isCurrent ? "border-[#C8102E]" : "border-[#F0F0F0]"}`}>
-                <CardContent className="p-4">
-                  {/* Stop Header */}
-                  <div className="flex items-center justify-between mb-3">
+          {/* Shipment cards */}
+          {allRouteShipments.length === 0 ? (
+            <Card className="border-[#D4D4D4]">
+              <CardContent className="p-8 text-center">
+                <Package className="w-10 h-10 text-[#D4D4D4] mx-auto mb-2" />
+                <p className="text-[#8A8A8A]">No hay envios asignados a esta ruta</p>
+              </CardContent>
+            </Card>
+          ) : (
+            allRouteShipments.map((rs: any) => {
+              const s = rs.shipment;
+              if (!s) return null;
+              const shCfg = shipmentStatusConfig[rs.status];
+              const isSelected = selectedShipmentIds.includes(s.id);
+
+              return (
+                <Card key={rs.id} className={`border-[#F0F0F0] hover:shadow-md transition-shadow ${isSelected ? "ring-2 ring-[#C8102E]/20 border-[#C8102E]/30" : ""}`}>
+                  <CardContent className="p-4">
                     <div className="flex items-center gap-3">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                        stop.status === "COMPLETADO" ? "bg-[#1B6B3E] text-white" :
-                        stop.status === "LLEGADO" ? "bg-[#B8860B] text-white" :
-                        isCurrent ? "bg-[#C8102E] text-white" : "bg-[#F0F0F0] text-[#8A8A8A]"
-                      }`}>
-                        {idx + 1}
-                      </div>
-                      <div>
-                        <p className="font-semibold text-[#1A1A1A]">{stop.cityName}</p>
-                        <div className="flex items-center gap-2 text-xs">
-                          {stopCfg && <Badge variant="secondary" className={stopCfg.color}>{stopCfg.label}</Badge>}
-                          <span className="text-[#8A8A8A]">
-                            {stop.totalShipments} envio{stop.totalShipments !== 1 ? "s" : ""}
-                            {stop.delivered > 0 && ` (${stop.delivered} entregados)`}
-                          </span>
-                          {(() => {
-                            const pendingForStop = allPending?.find(g =>
-                              stop.cityName.toLowerCase().includes(g.cityName.toLowerCase()) ||
-                              g.cityName.toLowerCase().includes(stop.cityName.toLowerCase())
-                            );
-                            if (pendingForStop && pendingForStop.count > 0) {
-                              return (
-                                <Badge className="bg-amber-100 text-amber-700 border-amber-200">
-                                  <AlertTriangle className="w-3 h-3 mr-1" />
-                                  {pendingForStop.count} sin asignar
-                                </Badge>
-                              );
-                            }
-                            return null;
-                          })()}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {route.status === "EN_RUTA" && stop.status === "PENDIENTE" && isCurrent && (
-                        <Button
-                          size="sm"
-                          onClick={() => updateStopMutation.mutate({ stopId: stop.id, status: "LLEGADO" })}
-                          className="bg-[#B8860B] hover:bg-[#8B6508]"
-                          disabled={updateStopMutation.isPending}
-                        >
-                          <MapPin className="w-3.5 h-3.5 mr-1" />
-                          Llego
-                        </Button>
+                      {/* Checkbox (only for PLANIFICADA) */}
+                      {route.status === "PLANIFICADA" && (
+                        <Checkbox
+                          checked={isSelected}
+                          onCheckedChange={() => toggleShipment(s.id)}
+                          className="border-[#D4D4D4] data-[state=checked]:bg-[#C8102E] data-[state=checked]:border-[#C8102E]"
+                        />
                       )}
-                     {stop.status === "LLEGADO" && (
-  <>
-    <Button
-      size="sm"
-      onClick={() => updateStopMutation.mutate({ stopId: stop.id, status: "COMPLETADO" })}
-      className="bg-[#1B6B3E] hover:bg-[#145a32]"
-      disabled={updateStopMutation.isPending}
-    >
-      <CheckCircle className="w-3.5 h-3.5 mr-1" />
-      Completar
-    </Button>
-    <Button
-      size="sm"
-      variant="outline"
-      onClick={() => repairEnParadaMutation.mutate()}
-      className="text-[#B8860B] border-[#B8860B] hover:bg-[#B8860B] hover:text-white"
-      disabled={repairEnParadaMutation.isPending}
-    >
-      {repairEnParadaMutation.isPending ? "Reparando..." : "Reparar Estados"}
-    </Button>
-  </>
-)}
-                    </div>
-                  </div>
 
-                  {/* Shipments */}
-                  {stop.shipments.length > 0 && (
-                    <div className="space-y-2 mt-3 pt-3 border-t border-[#F0F0F0]">
-                      {stop.shipments.map((rs: any) => {
-                        const s = rs.shipment;
-                        if (!s) return null;
-                        const shCfg = shipmentStatusConfig[rs.status];
-                        return (
-                          <div key={rs.id} className="flex items-center gap-3 p-2 rounded-lg bg-[#F7F7F7]">
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className="inline-block bg-[#1A1A1A] text-white text-xs font-mono font-bold px-2 py-0.5 rounded">
-                                  {s.trackingNumber}
-                                </span>
-                                {shCfg && <Badge variant="secondary" className={shCfg.color}>{shCfg.label}</Badge>}
-                                <span className="text-xs text-orange-600 font-semibold bg-orange-50 px-1.5 py-0.5 rounded">
-                                  <MapPin className="w-3 h-3 inline mr-0.5" />
-                                  {s.destinationFranchise?.displayName?.replace("Recogida - ", "") || s.destinationFranchise?.name || "-"}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-3 mt-1 text-xs text-[#525252]">
-                                <span className="flex items-center gap-1"><User className="w-3 h-3" />{s.senderName}</span>
-                                <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{s.senderPhone}</span>
-                              </div>
-                              <p className="text-xs text-[#8A8A8A] mt-0.5 truncate">
-                                {s.items?.map((i: any) => `${i.description} x${i.quantity}`).join(", ")}
-                              </p>
-                            </div>
-                            <div className="flex items-center gap-1 shrink-0">
-                              {rs.status === "ASIGNADO" && stop.status !== "LLEGADO" && (
-                                <select
-                                  className="text-xs border border-[#D4D4D4] rounded px-2 py-1 bg-white"
-                                  onChange={(e) => {
-                                    const newStopId = parseInt(e.target.value);
-                                    if (newStopId) {
-                                      moveShipmentMutation.mutate({ routeShipmentId: rs.id, newStopId });
-                                      e.target.value = "";
-                                    }
-                                  }}
-                                  disabled={moveShipmentMutation.isPending}
-                                >
-                                  <option value="">Mover a...</option>
-                                  {route.stops
-                                    .filter((otherStop: any) => otherStop.id !== stop.id)
-                                    .map((otherStop: any) => (
-                                      <option key={otherStop.id} value={otherStop.id}>
-                                        {otherStop.cityName}
-                                      </option>
-                                    ))}
-                                </select>
-                              )}
-                              {rs.status === "ASIGNADO" && stop.status === "LLEGADO" && (
-                                <>
-                                  <Button size="sm" variant="outline" onClick={() => handleCall(s.senderPhone)} className="h-8 px-2">
-                                    <Phone className="w-3.5 h-3.5 text-[#1B6B3E]" />
-                                  </Button>
-                                  <Button size="sm" variant="outline" onClick={() => handleWhatsApp(s.senderPhone, s.trackingNumber, stop.cityName)} className="h-8 px-2">
-                                    <MessageCircle className="w-3.5 h-3.5 text-[#25D366]" />
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    onClick={() => updateShipmentMutation.mutate({ routeShipmentId: rs.id, status: "ENTREGADO" })}
-                                    className="bg-[#1B6B3E] hover:bg-[#145a32] h-8 px-2"
-                                    disabled={updateShipmentMutation.isPending}
-                                  >
-                                    <CheckCircle className="w-3.5 h-3.5" />
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => updateShipmentMutation.mutate({ routeShipmentId: rs.id, status: "NO_RECOGIDO" })}
-                                    className="text-red-600 h-8 px-2"
-                                    disabled={updateShipmentMutation.isPending}
-                                  >
-                                    <XCircle className="w-3.5 h-3.5" />
-                                  </Button>
-                                </>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  {/* Toggle inline assign panel */}
-                  {(route.status === "PLANIFICADA" || route.status === "EN_RUTA") && stop.status !== "COMPLETADO" && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setExpandedStopId(expandedStopId === stop.id ? null : stop.id);
-                        setSelectedShipmentIds([]);
-                        setSearchFilter("");
-                      }}
-                      className="mt-3 text-[#C8102E]"
-                    >
-                      <Package className="w-3.5 h-3.5 mr-1" />
-                      {expandedStopId === stop.id ? "Ocultar" : "Asignar envios"}
-                    </Button>
-                  )}
-
-                  {/* Inline Assign Panel */}
-                  {expandedStopId === stop.id && (
-                    <div className="mt-3 pt-3 border-t border-[#F0F0F0]">
-                      {!availableShipments || availableShipments.length === 0 ? (
-                        <div className="text-center py-4 text-[#8A8A8A] text-sm">
-                          <Package className="w-8 h-8 text-[#D4D4D4] mx-auto mb-1" />
-                          <p>No hay envios disponibles para {stop.cityName}</p>
+                      <div className="flex-1 min-w-0">
+                        {/* Top row: tracking + status + city */}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="inline-block bg-[#1A1A1A] text-white text-xs font-mono font-bold px-2 py-0.5 rounded">
+                            {s.trackingNumber}
+                          </span>
+                          {shCfg && <Badge variant="secondary" className={shCfg.color}>{shCfg.label}</Badge>}
+                          <Badge className="bg-orange-50 text-orange-700 border-orange-200">
+                            <MapPin className="w-3 h-3 mr-1" />
+                            {rs.stopName}
+                          </Badge>
                         </div>
-                      ) : (
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <p className="text-sm text-[#8A8A8A]">{availableShipments.length} envios disponibles</p>
-                            <div className="flex gap-2">
-                              <Button size="sm" variant="outline" onClick={() => setSelectedShipmentIds(availableShipments.map((s: any) => s.id))}>
-                                Todos
-                              </Button>
-                              <Button size="sm" variant="outline" onClick={() => setSelectedShipmentIds([])}>
-                                Limpiar
-                              </Button>
-                            </div>
-                          </div>
-                          <div className="relative">
-                            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#8A8A8A]" />
-                            <input
-                              type="text"
-                              placeholder="Buscar..."
-                              value={searchFilter}
-                              onChange={(e) => setSearchFilter(e.target.value)}
-                              className="w-full pl-9 pr-3 py-1.5 text-sm border border-[#D4D4D4] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C8102E] focus:border-transparent"
-                            />
-                          </div>
-                          <div className="max-h-60 overflow-y-auto space-y-1">
-                            {availableShipments
-                              .filter((s: any) => {
-                                const q = searchFilter.toLowerCase();
-                                return !q || s.trackingNumber?.toLowerCase().includes(q) || s.senderName?.toLowerCase().includes(q) || s.senderPhone?.includes(q);
-                              })
-                              .map((s: any) => (
-                                <div
-                                  key={s.id}
-                                  className={`p-2 rounded border cursor-pointer text-sm ${selectedShipmentIds.includes(s.id) ? "border-[#C8102E] bg-[#FFF5F5]" : "border-[#F0F0F0] hover:border-[#D4D4D4]"}`}
-                                  onClick={() => {
-                                    setSelectedShipmentIds(prev => prev.includes(s.id) ? prev.filter(i => i !== s.id) : [...prev, s.id]);
-                                  }}
-                                >
-                                  <div className="flex items-center gap-2">
-                                    <Checkbox checked={selectedShipmentIds.includes(s.id)} />
-                                    <span className="font-mono font-bold text-xs">{s.trackingNumber}</span>
-                                    <span className="text-[#525252] text-xs">{s.senderName}</span>
-                                  </div>
-                                </div>
-                              ))}
-                          </div>
+
+                        {/* Client info */}
+                        <div className="flex items-center gap-3 mt-1.5 text-xs text-[#525252]">
+                          <span className="flex items-center gap-1"><User className="w-3 h-3" />{s.senderName}</span>
+                          <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{s.senderPhone}</span>
+                        </div>
+
+                        {/* Items */}
+                        <p className="text-xs text-[#8A8A8A] mt-0.5 truncate">
+                          {s.items?.map((i: any) => `${i.description} x${i.quantity}`).join(", ")}
+                        </p>
+                      </div>
+
+                      {/* Action buttons (only when EN_RUTA and stop is LLEGADO) */}
+                      {route.status === "EN_RUTA" && rs.status === "ASIGNADO" && (
+                        <div className="flex items-center gap-1 shrink-0">
+                          <Button size="sm" variant="outline" onClick={() => handleCall(s.senderPhone)} className="h-8 px-2">
+                            <Phone className="w-3.5 h-3.5 text-[#1B6B3E]" />
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => handleWhatsApp(s.senderPhone, s.trackingNumber, rs.stopName)} className="h-8 px-2">
+                            <MessageCircle className="w-3.5 h-3.5 text-[#25D366]" />
+                          </Button>
                           <Button
-                            onClick={() => {
-                              if (selectedShipmentIds.length > 0) {
-                                assignMutation.mutate({ routeId, stopId: stop.id, shipmentIds: selectedShipmentIds });
-                                // Close panel and reload page immediately to show updated data
-                                setExpandedStopId(null);
-                                setSelectedShipmentIds([]);
-                                setSearchFilter("");
-                                window.location.reload();
-                              }
-                            }}
-                            className="w-full bg-[#C8102E] hover:bg-[#9B0B22]"
-                            disabled={assignMutation.isPending || selectedShipmentIds.length === 0}
+                            size="sm"
+                            onClick={() => updateShipmentMutation.mutate({ routeShipmentId: rs.id, status: "ENTREGADO" })}
+                            className="bg-[#1B6B3E] hover:bg-[#145a32] h-8 px-2"
+                            disabled={updateShipmentMutation.isPending}
                           >
-                            {assignMutation.isPending ? "Asignando..." : `Asignar ${selectedShipmentIds.length} envio${selectedShipmentIds.length !== 1 ? "s" : ""}`}
+                            <CheckCircle className="w-3.5 h-3.5" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => updateShipmentMutation.mutate({ routeShipmentId: rs.id, status: "NO_RECOGIDO" })}
+                            className="text-red-600 h-8 px-2"
+                            disabled={updateShipmentMutation.isPending}
+                          >
+                            <XCircle className="w-3.5 h-3.5" />
                           </Button>
                         </div>
                       )}
                     </div>
-                  )}
-                </CardContent>
-              </Card>
-            );
-          })}
+                  </CardContent>
+                </Card>
+              );
+            })
+          )}
         </div>
-      </div>
 
+        {/* Stops progress (compact visual) */}
+        {route.stops.length > 0 && (
+          <div className="space-y-2">
+            <h3 className="text-sm font-medium text-[#8A8A8A] uppercase tracking-wider">Paradas del recorrido</h3>
+            <div className="flex items-center gap-2 flex-wrap">
+              {route.stops.map((stop: any, idx: number) => {
+                const stopCfg = stopStatusConfig[stop.status];
+                const isCurrent = route.status === "EN_RUTA" && stop.status === "PENDIENTE" &&
+                  (idx === 0 || route.stops[idx - 1].status === "COMPLETADO");
+                return (
+                  <div key={stop.id} className="flex items-center gap-2">
+                    <div className={`px-3 py-1.5 rounded-lg border text-xs font-medium ${
+                      stop.status === "COMPLETADO" ? "bg-emerald-50 text-[#1B6B3E] border-emerald-200" :
+                      stop.status === "LLEGADO" ? "bg-amber-50 text-[#B8860B] border-amber-200" :
+                      isCurrent ? "bg-[#FFF5F5] text-[#C8102E] border-[#C8102E]" :
+                      "bg-[#F7F7F7] text-[#8A8A8A] border-[#F0F0F0]"
+                    }`}>
+                      {idx + 1}. {stop.cityName}
+                      {stop.totalShipments > 0 && ` (${stop.totalShipments})`}
+                    </div>
+                    {route.status === "EN_RUTA" && stop.status === "PENDIENTE" && isCurrent && (
+                      <Button
+                        size="sm"
+                        onClick={() => updateStopMutation.mutate({ stopId: stop.id, status: "LLEGADO" })}
+                        className="bg-[#B8860B] hover:bg-[#8B6508] h-7 text-xs"
+                        disabled={updateStopMutation.isPending}
+                      >
+                        <MapPin className="w-3 h-3 mr-1" />
+                        Llego
+                      </Button>
+                    )}
+                    {stop.status === "LLEGADO" && (
+                      <Button
+                        size="sm"
+                        onClick={() => updateStopMutation.mutate({ stopId: stop.id, status: "COMPLETADO" })}
+                        className="bg-[#1B6B3E] hover:bg-[#145a32] h-7 text-xs"
+                        disabled={updateStopMutation.isPending}
+                      >
+                        <CheckCircle className="w-3 h-3 mr-1" />
+                        Completar
+                      </Button>
+                    )}
+                    {idx < route.stops.length - 1 && <ChevronRight className="w-4 h-4 text-[#D4D4D4]" />}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Confirmation Dialog */}
+        <Dialog open={confirmDialog.open} onOpenChange={(open) => !open && closeConfirmDialog()}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{confirmDialog.title}</DialogTitle>
+              <DialogDescription>{confirmDialog.description}</DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={closeConfirmDialog}>
+                Cancelar
+              </Button>
+              <Button
+                className="bg-[#C8102E] hover:bg-[#9B0B22] text-white"
+                onClick={() => {
+                  confirmDialog.action?.();
+                  closeConfirmDialog();
+                }}
+              >
+                Confirmar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
     </FranchiseLayout>
   );
 }
