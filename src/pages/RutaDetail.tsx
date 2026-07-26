@@ -36,7 +36,8 @@ const stopStatusConfig: Record<string, { color: string; label: string }> = {
 };
 
 const shipmentStatusConfig: Record<string, { color: string; label: string }> = {
-  ASIGNADO: { color: "bg-blue-50 text-blue-700", label: "Pendiente" },
+  ASIGNADO: { color: "bg-blue-50 text-blue-700", label: "En Ruta" },
+  EN_PARADA: { color: "bg-amber-50 text-[#B8860B]", label: "En Parada" },
   ENTREGADO: { color: "bg-emerald-50 text-[#1B6B3E]", label: "Entregado" },
   NO_RECOGIDO: { color: "bg-red-50 text-red-700", label: "No recogido" },
 };
@@ -115,6 +116,7 @@ export default function RutaDetail() {
     onSuccess: () => {
       utils.route.getById.invalidate({ id: routeId });
       utils.route.list.invalidate();
+      utils.shipment.list.invalidate();
     },
     onError: (err) => toast.error(err.message),
   });
@@ -573,8 +575,8 @@ export default function RutaDetail() {
                         </p>
                       </div>
 
-                      {/* Action buttons (only when EN_RUTA and stop is LLEGADO) */}
-                      {route.status === "EN_RUTA" && rs.status === "ASIGNADO" && (
+                      {/* Action buttons (when EN_RUTA and shipment is ASIGNADO or EN_PARADA) */}
+                      {route.status === "EN_RUTA" && (rs.status === "ASIGNADO" || rs.status === "EN_PARADA") && (
                         <div className="flex items-center gap-1 shrink-0">
                           <Button size="sm" variant="outline" onClick={() => handleCall(s.senderPhone)} className="h-8 px-2">
                             <Phone className="w-3.5 h-3.5 text-[#1B6B3E]" />
