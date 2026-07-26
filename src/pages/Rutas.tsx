@@ -65,8 +65,18 @@ export default function Rutas() {
     ?.map(g => g.cityName)
     .filter((c, i, arr) => arr.indexOf(c) === i) || [];
 
-  // Cities that are NOT yet added to the route
-  const unaddedCities = availableCities.filter(c => !cities.includes(c));
+  // Cities that are NOT yet added to the route — fixed order: San Ramon, Palmares, Grecia
+  const preferredOrder = ["San Ramon", "Palmares", "Grecia"];
+  const unaddedCities = availableCities
+    .filter(c => !cities.includes(c))
+    .sort((a, b) => {
+      const idxA = preferredOrder.indexOf(a);
+      const idxB = preferredOrder.indexOf(b);
+      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+      if (idxA !== -1) return -1;
+      if (idxB !== -1) return 1;
+      return a.localeCompare(b);
+    });
 
   const createMutation = trpc.route.create.useMutation({
     onSuccess: () => {
