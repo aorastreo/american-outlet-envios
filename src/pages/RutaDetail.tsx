@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-  Truck, MapPin, Phone, Package, CheckCircle, XCircle, Play, ArrowLeft,
+  Truck, MapPin, Package, CheckCircle, XCircle, Play, ArrowLeft,
   ChevronRight, AlertCircle, Clock, User, Calendar, ArrowUpRight, MessageCircle,
   AlertTriangle, Search, ClipboardList, ArrowUp, ArrowDown,
 } from "lucide-react";
@@ -177,10 +177,6 @@ export default function RutaDetail() {
 
   // Get ALL pending shipments to show alerts for stops that have unassigned shipments
   const { data: allPending } = trpc.route.pendingByPickupPoint.useQuery();
-
-  const handleCall = (phone: string) => {
-    window.open(`tel:${phone.replace(/-/g, "")}`, "_self");
-  };
 
   const handleWhatsApp = (phone: string, trackingNumber: string, cityName: string) => {
     const cleanPhone = phone.replace(/\D/g, "");
@@ -575,14 +571,17 @@ export default function RutaDetail() {
                         </p>
                       </div>
 
-                      {/* Action buttons (when EN_RUTA and shipment is ASIGNADO or EN_PARADA) */}
+                      {/* Action buttons — WhatsApp only, no phone call */}
                       {route.status === "EN_RUTA" && (rs.status === "ASIGNADO" || rs.status === "EN_PARADA") && (
                         <div className="flex items-center gap-1 shrink-0">
-                          <Button size="sm" variant="outline" onClick={() => handleCall(s.senderPhone)} className="h-8 px-2">
-                            <Phone className="w-3.5 h-3.5 text-[#1B6B3E]" />
-                          </Button>
-                          <Button size="sm" variant="outline" onClick={() => handleWhatsApp(s.senderPhone, s.trackingNumber, rs.stopName)} className="h-8 px-2">
-                            <MessageCircle className="w-3.5 h-3.5 text-[#25D366]" />
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleWhatsApp(s.senderPhone, s.trackingNumber, rs.stopName)}
+                            className="h-8 px-2 bg-[#25D366]/10 border-[#25D366]/30 text-[#25D366] hover:bg-[#25D366] hover:text-white"
+                          >
+                            <MessageCircle className="w-3.5 h-3.5 mr-1" />
+                            WhatsApp
                           </Button>
                           <Button
                             size="sm"
@@ -611,55 +610,132 @@ export default function RutaDetail() {
           )}
         </div>
 
-        {/* Stops progress (compact visual) */}
-        {route.stops.length > 0 && (
-          <div className="space-y-2">
-            <h3 className="text-sm font-medium text-[#8A8A8A] uppercase tracking-wider">Paradas del recorrido</h3>
-            <div className="flex items-center gap-2 flex-wrap">
-              {route.stops.map((stop: any, idx: number) => {
-                const stopCfg = stopStatusConfig[stop.status];
-                const isCurrent = route.status === "EN_RUTA" && stop.status === "PENDIENTE" &&
-                  (idx === 0 || route.stops[idx - 1].status === "COMPLETADO");
-                return (
-                  <div key={stop.id} className="flex items-center gap-2">
-                    <div className={`px-3 py-1.5 rounded-lg border text-xs font-medium ${
-                      stop.status === "COMPLETADO" ? "bg-emerald-50 text-[#1B6B3E] border-emerald-200" :
-                      stop.status === "LLEGADO" ? "bg-amber-50 text-[#B8860B] border-amber-200" :
-                      isCurrent ? "bg-[#FFF5F5] text-[#C8102E] border-[#C8102E]" :
-                      "bg-[#F7F7F7] text-[#8A8A8A] border-[#F0F0F0]"
-                    }`}>
-                      {idx + 1}. {stop.cityName}
-                      {stop.totalShipments > 0 && ` (${stop.totalShipments})`}
-                    </div>
-                    {route.status === "EN_RUTA" && stop.status === "PENDIENTE" && isCurrent && (
-                      <Button
-                        size="sm"
-                        onClick={() => updateStopMutation.mutate({ stopId: stop.id, status: "LLEGADO" })}
-                        className="bg-[#B8860B] hover:bg-[#8B6508] h-7 text-xs"
-                        disabled={updateStopMutation.isPending}
-                      >
-                        <MapPin className="w-3 h-3 mr-1" />
-                        Llego
-                      </Button>
-                    )}
-                    {stop.status === "LLEGADO" && (
-                      <Button
-                        size="sm"
-                        onClick={() => updateStopMutation.mutate({ stopId: stop.id, status: "COMPLETADO" })}
-                        className="bg-[#1B6B3E] hover:bg-[#145a32] h-7 text-xs"
-                        disabled={updateStopMutation.isPending}
-                      >
-                        <CheckCircle className="w-3 h-3 mr-1" />
-                        Completar
-                      </Button>
-                    )}
-                    {idx < route.stops.length - 1 && <ChevronRight className="w-4 h-4 text-[#D4D4D4]" />}
+        {/* Shipments grouped by city — each city is a section */}
+        {route.stops.map((stop: any, idx: number) => {
+          const stopCfg = stopStatusConfig[stop.status];
+          const isCurrent = route.status === "EN_RUTA" && stop.status === "PENDIENTE" &&
+            (idx === 0 || route.stops[idx - 1].status === "COMPLETADO");
+          const stopShipments = stop.shipments || [];
+
+          return (
+            <div key={stop.id} className="space-y-3">
+              {/* City Header with action button */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                    stop.status === "COMPLETADO" ? "bg-[#1B6B3E] text-white" :
+                    stop.status === "LLEGADO" ? "bg-[#B8860B] text-white" :
+                    isCurrent ? "bg-[#C8102E] text-white" : "bg-[#F0F0F0] text-[#8A8A8A]"
+                  }`}>
+                    {idx + 1}
                   </div>
-                );
-              })}
+                  <div>
+                    <h3 className="text-lg font-semibold text-[#1A1A1A]">{stop.cityName}</h3>
+                    <div className="flex items-center gap-2 text-xs">
+                      {stopCfg && <Badge variant="secondary" className={stopCfg.color}>{stopCfg.label}</Badge>}
+                      <span className="text-[#8A8A8A]">{stopShipments.length} envio{stopShipments.length !== 1 ? "s" : ""}</span>
+                    </div>
+                  </div>
+                </div>
+                {/* Action buttons */}
+                {route.status === "EN_RUTA" && stop.status === "PENDIENTE" && isCurrent && (
+                  <Button
+                    size="sm"
+                    onClick={() => updateStopMutation.mutate({ stopId: stop.id, status: "LLEGADO" })}
+                    className="bg-[#B8860B] hover:bg-[#8B6508]"
+                    disabled={updateStopMutation.isPending}
+                  >
+                    <MapPin className="w-4 h-4 mr-1.5" />
+                    Llego
+                  </Button>
+                )}
+                {stop.status === "LLEGADO" && (
+                  <Button
+                    size="sm"
+                    onClick={() => updateStopMutation.mutate({ stopId: stop.id, status: "COMPLETADO" })}
+                    className="bg-[#1B6B3E] hover:bg-[#145a32]"
+                    disabled={updateStopMutation.isPending}
+                  >
+                    <CheckCircle className="w-4 h-4 mr-1.5" />
+                    Completar
+                  </Button>
+                )}
+              </div>
+
+              {/* Shipments for this city */}
+              {stopShipments.length === 0 ? (
+                <Card className="border-[#D4D4D4]">
+                  <CardContent className="p-6 text-center">
+                    <Package className="w-8 h-8 text-[#D4D4D4] mx-auto mb-1" />
+                    <p className="text-sm text-[#8A8A8A]">Sin envios para {stop.cityName}</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="space-y-2">
+                  {stopShipments.map((rs: any) => {
+                    const s = rs.shipment;
+                    if (!s) return null;
+                    const shCfg = shipmentStatusConfig[rs.status];
+                    return (
+                      <Card key={rs.id} className="border-[#F0F0F0] hover:shadow-md transition-shadow">
+                        <CardContent className="p-4">
+                          <div className="flex items-center gap-3">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="inline-block bg-[#1A1A1A] text-white text-xs font-mono font-bold px-2 py-0.5 rounded">
+                                  {s.trackingNumber}
+                                </span>
+                                {shCfg && <Badge variant="secondary" className={shCfg.color}>{shCfg.label}</Badge>}
+                              </div>
+                              <div className="flex items-center gap-3 mt-1.5 text-xs text-[#525252]">
+                                <span className="flex items-center gap-1"><User className="w-3 h-3" />{s.senderName}</span>
+                                <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{s.senderPhone}</span>
+                              </div>
+                              <p className="text-xs text-[#8A8A8A] mt-0.5 truncate">
+                                {s.items?.map((i: any) => `${i.description} x${i.quantity}`).join(", ")}
+                              </p>
+                            </div>
+                            {/* WhatsApp only — no phone call */}
+                            {route.status === "EN_RUTA" && (rs.status === "ASIGNADO" || rs.status === "EN_PARADA") && (
+                              <div className="flex items-center gap-1 shrink-0">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleWhatsApp(s.senderPhone, s.trackingNumber, stop.cityName)}
+                                  className="h-9 px-3 bg-[#25D366]/10 border-[#25D366]/30 text-[#25D366] hover:bg-[#25D366] hover:text-white"
+                                >
+                                  <MessageCircle className="w-4 h-4 mr-1.5" />
+                                  WhatsApp
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  onClick={() => updateShipmentMutation.mutate({ routeShipmentId: rs.id, status: "ENTREGADO" })}
+                                  className="bg-[#1B6B3E] hover:bg-[#145a32] h-9 px-2"
+                                  disabled={updateShipmentMutation.isPending}
+                                >
+                                  <CheckCircle className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => updateShipmentMutation.mutate({ routeShipmentId: rs.id, status: "NO_RECOGIDO" })}
+                                  className="text-red-600 h-9 px-2"
+                                  disabled={updateShipmentMutation.isPending}
+                                >
+                                  <XCircle className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
             </div>
-          </div>
-        )}
+          );
+        })}
 
         {/* Confirmation Dialog */}
         <Dialog open={confirmDialog.open} onOpenChange={(open) => !open && closeConfirmDialog()}>
