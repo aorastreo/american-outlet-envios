@@ -66,6 +66,7 @@ export default function RutaDetail() {
 
   const [expandedStopId, setExpandedStopId] = useState<number | null>(null);
   const [selectedShipmentIds, setSelectedShipmentIds] = useState<number[]>([]);
+  const [availableSelectedIds, setAvailableSelectedIds] = useState<number[]>([]);
   const [searchFilter, setSearchFilter] = useState("");
 
   // Confirmation dialog for route start
@@ -159,6 +160,12 @@ export default function RutaDetail() {
     { enabled: expandedStopId !== null }
   );
 
+  // Get ALL available shipments for route assignment (all pickup points)
+  const { data: allAvailableShipments } = trpc.route.availableShipments.useQuery(
+    undefined,
+    { enabled: route?.status === "PLANIFICADA" }
+  );
+
   // Get ALL pending shipments to show alerts for stops that have unassigned shipments
   const { data: allPending } = trpc.route.pendingByPickupPoint.useQuery();
 
@@ -211,6 +218,53 @@ export default function RutaDetail() {
   };
   const toggleShipment = (shipmentId: number) => {
     setSelectedShipmentIds(prev => prev.includes(shipmentId) ? prev.filter(id => id !== shipmentId) : [...prev, shipmentId]);
+  };
+
+  // Filter available shipments that match route cities
+  const routeCityNames = route?.stops.map((s: any) => s.cityName.toLowerCase()) || [];
+  const matchingAvailableShipments = (allAvailableShipments || []).filter((s: any) => {
+    const destName = (s.destinationFranchise?.displayName || s.destinationFranchise?.name || "").toLowerCase();
+    return routeCityNames.some((city: string) => destName.includes(city));
+  });
+
+  // Toggle available shipment selection
+  const toggleAvailableShipment = (shipmentId: number) => {
+    setAvailableSelectedIds(prev => prev.includes(shipmentId) ? prev.filter(id => id !== shipmentId) : [...prev, shipmentId]);
+  };
+  const selectAllAvailable = () => {
+    if (availableSelectedIds.length === matchingAvailableShipments.length) {
+      setAvailableSelectedIds([]);
+    } else {
+      setAvailableSelectedIds(matchingAvailableShipments.map((s: any) => s.id));
+    }
+  };
+
+  // Assign selected available shipments to route
+  const handleAssignToRoute = () => {
+    if (availableSelectedIds.length === 0 || !route) return;
+    // Group by stop (city) and assign to each stop
+    const stopMap = new Map(route.stops.map((s: any) => [s.cityName.toLowerCase(), s.id]));
+    const shipmentsByStop = new Map<number, number[]>();
+    for (const shipment of matchingAvailableShipments) {
+      if (!availableSelectedIds.includes(shipment.id)) continue;
+      const destName = (shipment.destinationFranchise?.displayName || shipment.destinationFranchise?.name || "").toLowerCase();
+      for (const [cityName, stopId] of stopMap) {
+        if (destName.includes(cityName)) {
+          if (!shipmentsByStop.has(stopId)) shipmentsByStop.set(stopId, []);
+          shipmentsByStop.get(stopId)!.push(shipment.id);
+          break;
+        }
+      }
+    }
+    // Assign to each stop
+    for (const [stopId, shipmentIds] of shipmentsByStop) {
+      assignMutation.mutate({ routeId, stopId, shipmentIds });
+    }
+    setAvailableSelectedIds([]);
+    setTimeout(() => {
+      utils.route.getById.invalidate({ id: routeId });
+      utils.route.list.invalidate();
+    }, 500);
   };
 
   return (
@@ -324,6 +378,84 @@ export default function RutaDetail() {
             <CheckCircle className="w-5 h-5 mr-2" />
             {updateRouteMutation.isPending ? "Completando..." : "Completar Ruta"}
           </Button>
+        )}
+
+        {/* Available Shipments — for assignment when route is PLANIFICADA */}
+        {route.status === "PLANIFICADA" && matchingAvailableShipments.length > 0 && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-[#1A1A1A] flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-[#B8860B]" />
+                Envios Disponibles
+                <Badge className="bg-amber-50 text-[#B8860B]">{matchingAvailableShipments.length}</Badge>
+              </h2>
+              <button
+                onClick={selectAllAvailable}
+                className="text-sm text-[#B8860B] hover:underline font-medium"
+              >
+                {availableSelectedIds.length === matchingAvailableShipments.length ? "Deseleccionar todos" : "Seleccionar todos"}
+              </button>
+            </div>
+
+            <div className="flex items-center gap-2 px-4 py-2 bg-amber-50 rounded-lg border border-amber-200">
+              <Checkbox
+                checked={availableSelectedIds.length === matchingAvailableShipments.length && matchingAvailableShipments.length > 0}
+                onCheckedChange={selectAllAvailable}
+                className="border-amber-300 data-[state=checked]:bg-[#B8860B] data-[state=checked]:border-[#B8860B]"
+              />
+              <span className="text-sm text-[#525252] font-medium">
+                {availableSelectedIds.length > 0
+                  ? `${availableSelectedIds.length} seleccionado(s) para asignar`
+                  : "Seleccionar envios para asignar a la ruta"}
+              </span>
+            </div>
+
+            <div className="space-y-2">
+              {matchingAvailableShipments.map((s: any) => {
+                const isSelected = availableSelectedIds.includes(s.id);
+                const destName = s.destinationFranchise?.displayName?.replace("Recogida - ", "") || s.destinationFranchise?.name || "-";
+                return (
+                  <Card key={s.id} className={`border-[#F0F0F0] hover:shadow-md transition-shadow ${isSelected ? "ring-2 ring-[#B8860B]/20 border-[#B8860B]/30" : ""}`}>
+                    <CardContent className="p-3">
+                      <div className="flex items-center gap-3">
+                        <Checkbox
+                          checked={isSelected}
+                          onCheckedChange={() => toggleAvailableShipment(s.id)}
+                          className="border-[#D4D4D4] data-[state=checked]:bg-[#B8860B] data-[state=checked]:border-[#B8860B]"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="inline-block bg-[#1A1A1A] text-white text-xs font-mono font-bold px-2 py-0.5 rounded">
+                              {s.trackingNumber}
+                            </span>
+                            <Badge className="bg-orange-50 text-orange-700 border-orange-200">
+                              <MapPin className="w-3 h-3 mr-1" />
+                              {destName}
+                            </Badge>
+                          </div>
+                          <div className="flex items-center gap-3 mt-1 text-xs text-[#525252]">
+                            <span className="flex items-center gap-1"><User className="w-3 h-3" />{s.senderName}</span>
+                            <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{s.senderPhone}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+
+            {availableSelectedIds.length > 0 && (
+              <Button
+                onClick={handleAssignToRoute}
+                className="w-full bg-[#B8860B] hover:bg-[#8B6508]"
+                disabled={assignMutation.isPending}
+              >
+                <Package className="w-4 h-4 mr-2" />
+                {assignMutation.isPending ? "Asignando..." : `Asignar ${availableSelectedIds.length} envio(s) a la Ruta`}
+              </Button>
+            )}
+          </div>
         )}
 
         {/* Unified Shipment List — Same flow as Shipments page */}
