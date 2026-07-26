@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-  Truck, MapPin, Package, CheckCircle, XCircle, Play, ArrowLeft,
+  Truck, MapPin, Phone, Package, CheckCircle, XCircle, Play, ArrowLeft,
   ChevronRight, AlertCircle, Clock, User, Calendar, ArrowUpRight, MessageCircle,
   AlertTriangle, Search, ClipboardList, ArrowUp, ArrowDown,
 } from "lucide-react";
