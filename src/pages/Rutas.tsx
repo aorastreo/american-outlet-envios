@@ -9,8 +9,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Truck, Plus, MapPin, Package, ChevronRight, AlertCircle, Play, CheckCircle, XCircle, ClipboardList } from "lucide-react";
+import { Truck, Plus, MapPin, Package, ChevronRight, AlertCircle, Play, CheckCircle, XCircle, ClipboardList, ArrowUp, ArrowDown, Trash2 } from "lucide-react";
 import toast from "react-hot-toast";
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
 
 function getStatusConfig(status: string) {
   const configs: Record<string, { color: string; label: string; icon: React.ElementType }> = {
@@ -40,14 +42,30 @@ export default function Rutas() {
   const [createDialog, setCreateDialog] = useState(false);
   const [pendingDialog, setPendingDialog] = useState(false);
   const [routeName, setRouteName] = useState("");
-  const [cities, setCities] = useState<string[]>([""]);
+  const [cities, setCities] = useState<string[]>([]);
   const [selectedShipmentIds, setSelectedShipmentIds] = useState<number[]>([]);
   const utils = trpc.useUtils();
 
   const { data: routes, isLoading } = trpc.route.list.useQuery();
   const { data: pendingByCity } = trpc.route.pendingByPickupPoint.useQuery(undefined, {
-    enabled: pendingDialog,
+    enabled: pendingDialog || createDialog,
   });
+
+  // Auto-fill route name with today's date when dialog opens
+  useEffect(() => {
+    if (createDialog && !routeName) {
+      const today = format(new Date(), "dd/MM/yyyy", { locale: es });
+      setRouteName(`Ruta ${today}`);
+    }
+  }, [createDialog]);
+
+  // Get available cities from pending shipments
+  const availableCities = pendingByCity
+    ?.map(g => g.cityName)
+    .filter((c, i, arr) => arr.indexOf(c) === i) || [];
+
+  // Get cities already selected (to disable in dropdown)
+  const selectedCities = cities.filter(Boolean);
 
   const createMutation = trpc.route.create.useMutation({
     onSuccess: () => {
@@ -60,15 +78,32 @@ export default function Rutas() {
     onError: (err) => toast.error(err.message),
   });
 
-  const addCity = () => setCities([...cities, ""]);
+  const addCity = () => {
+    // Find first available city not yet selected
+    const nextAvailable = availableCities.find(c => !selectedCities.includes(c));
+    if (nextAvailable) {
+      setCities([...cities, nextAvailable]);
+    }
+  };
   const updateCity = (idx: number, val: string) => {
     const next = [...cities];
     next[idx] = val;
     setCities(next);
   };
   const removeCity = (idx: number) => {
-    if (cities.length <= 1) return;
     setCities(cities.filter((_, i) => i !== idx));
+  };
+  const moveCityUp = (idx: number) => {
+    if (idx === 0) return;
+    const next = [...cities];
+    [next[idx - 1], next[idx]] = [next[idx], next[idx - 1]];
+    setCities(next);
+  };
+  const moveCityDown = (idx: number) => {
+    if (idx === cities.length - 1) return;
+    const next = [...cities];
+    [next[idx], next[idx + 1]] = [next[idx + 1], next[idx]];
+    setCities(next);
   };
 
   const handleCreate = () => {
@@ -201,7 +236,7 @@ export default function Rutas() {
       </div>
 
       {/* Create Route Dialog */}
-      <Dialog open={createDialog} onOpenChange={setCreateDialog}>
+      <Dialog open={createDialog} onOpenChange={(open) => { setCreateDialog(open); if (!open) { setRouteName(""); setCities([]); } }}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -210,47 +245,117 @@ export default function Rutas() {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
+            {/* Route Name — pre-filled with date */}
             <div>
               <label className="text-sm font-medium text-[#1A1A1A] block mb-1">Nombre de la ruta</label>
               <Input
-                placeholder="Ej: Ruta Semana 15-21 Junio"
                 value={routeName}
                 onChange={(e) => setRouteName(e.target.value)}
+                className="focus:ring-[#C8102E] focus:border-[#C8102E]"
               />
             </div>
+
+            {/* Cities — dropdown selectors */}
             <div>
-              <label className="text-sm font-medium text-[#1A1A1A] block mb-1">Ciudades de parada (en orden)</label>
-              <div className="space-y-2">
-                {cities.map((city, idx) => (
-                  <div key={idx} className="flex gap-2">
-                    <div className="w-8 h-8 bg-[#F7F7F7] rounded flex items-center justify-center text-xs font-mono text-[#525252] font-bold shrink-0">
-                      {idx + 1}
-                    </div>
-                    <Input
-                      placeholder="Ej: San Ramon"
-                      value={city}
-                      onChange={(e) => updateCity(idx, e.target.value)}
-                      className="flex-1"
-                    />
-                    {cities.length > 1 && (
-                      <Button variant="outline" size="sm" onClick={() => removeCity(idx)} className="text-red-600">
-                        X
-                      </Button>
-                    )}
-                  </div>
-                ))}
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-sm font-medium text-[#1A1A1A]">Paradas del camion (en orden)</label>
+                {availableCities.length > 0 && (
+                  <span className="text-xs text-[#8A8A8A]">{availableCities.length - selectedCities.length} disponible(s)</span>
+                )}
               </div>
-              <Button variant="outline" size="sm" onClick={addCity} className="mt-2 text-[#C8102E]">
-                <MapPin className="w-3 h-3 mr-1" />
-                Agregar parada
-              </Button>
+
+              {cities.length === 0 ? (
+                <div className="text-center py-4 bg-[#F7F7F7] rounded-lg border border-dashed border-[#D4D4D4]">
+                  <MapPin className="w-6 h-6 text-[#D4D4D4] mx-auto mb-1" />
+                  <p className="text-xs text-[#8A8A8A]">Agregue las paradas del recorrido</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {cities.map((city, idx) => (
+                    <div key={idx} className="flex items-center gap-2">
+                      {/* Order number */}
+                      <div className="w-7 h-7 bg-[#C8102E] rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0">
+                        {idx + 1}
+                      </div>
+
+                      {/* City dropdown */}
+                      <select
+                        value={city}
+                        onChange={(e) => updateCity(idx, e.target.value)}
+                        className="flex-1 h-9 px-3 text-sm border border-[#D4D4D4] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C8102E]/20 focus:border-[#C8102E] bg-white"
+                      >
+                        <option value="">Seleccionar ciudad...</option>
+                        {availableCities.map((availCity) => {
+                          const isUsed = selectedCities.includes(availCity) && availCity !== city;
+                          return (
+                            <option key={availCity} value={availCity} disabled={isUsed}>
+                              {availCity} {isUsed ? "(ya seleccionada)" : ""}
+                            </option>
+                          );
+                        })}
+                      </select>
+
+                      {/* Reorder arrows */}
+                      <div className="flex flex-col gap-0.5">
+                        <button
+                          onClick={() => moveCityUp(idx)}
+                          disabled={idx === 0}
+                          className="p-0.5 rounded hover:bg-[#F7F7F7] disabled:opacity-30 disabled:cursor-not-allowed text-[#525252]"
+                          title="Mover arriba"
+                        >
+                          <ArrowUp className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => moveCityDown(idx)}
+                          disabled={idx === cities.length - 1}
+                          className="p-0.5 rounded hover:bg-[#F7F7F7] disabled:opacity-30 disabled:cursor-not-allowed text-[#525252]"
+                          title="Mover abajo"
+                        >
+                          <ArrowDown className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                      {/* Remove */}
+                      <button
+                        onClick={() => removeCity(idx)}
+                        className="p-1.5 rounded hover:bg-red-50 text-[#A3A3A3] hover:text-red-600 transition-colors"
+                        title="Eliminar parada"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Add city button */}
+              {availableCities.length > selectedCities.length && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={addCity}
+                  className="mt-2 text-[#C8102E] border-[#C8102E]/20 hover:bg-[#FFF5F5]"
+                >
+                  <Plus className="w-3.5 h-3.5 mr-1.5" />
+                  Agregar parada
+                </Button>
+              )}
             </div>
+
+            {/* Summary */}
+            {cities.length > 0 && (
+              <div className="flex items-center gap-2 text-xs text-[#8A8A8A] bg-[#F7F7F7] p-2 rounded-lg">
+                <Truck className="w-3.5 h-3.5" />
+                Recorrido: {cities.filter(Boolean).join(" → ")}
+              </div>
+            )}
+
             <Button
               onClick={handleCreate}
               className="w-full bg-[#C8102E] hover:bg-[#9B0B22]"
-              disabled={createMutation.isPending}
+              disabled={createMutation.isPending || cities.filter(Boolean).length === 0}
             >
-              {createMutation.isPending ? "Creando..." : "Crear Ruta"}
+              {createMutation.isPending ? "Creando..." : `Crear Ruta${cities.filter(Boolean).length > 0 ? ` (${cities.filter(Boolean).length} parada${cities.filter(Boolean).length !== 1 ? "s" : ""})` : ""}`}
             </Button>
           </div>
         </DialogContent>
