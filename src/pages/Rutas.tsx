@@ -51,11 +51,26 @@ export default function Rutas() {
     enabled: pendingDialog || createDialog,
   });
 
-  // Auto-fill route name with today's date when dialog opens
+  // Auto-fill route name and cities when dialog opens
   useEffect(() => {
-    if (createDialog && !routeName) {
-      const today = format(new Date(), "dd/MM/yyyy", { locale: es });
-      setRouteName(`Ruta ${today}`);
+    if (createDialog) {
+      if (!routeName) {
+        const today = format(new Date(), "dd/MM/yyyy", { locale: es });
+        setRouteName(`Ruta ${today}`);
+      }
+      // Pre-load cities in order: San Ramon, Palmares, Grecia
+      if (cities.length === 0 && pendingByCity && pendingByCity.length > 0) {
+        const cityMap = new Map(pendingByCity.map(g => [g.cityName, g.cityName]));
+        const preferredOrder = ["San Ramon", "Palmares", "Grecia"];
+        const ordered = preferredOrder
+          .map(name => cityMap.get(name))
+          .filter(Boolean) as string[];
+        // Add any other cities not in preferred order
+        const others = pendingByCity
+          .map(g => g.cityName)
+          .filter(c => !ordered.includes(c));
+        setCities([...ordered, ...others]);
+      }
     }
   }, [createDialog]);
 
@@ -64,15 +79,12 @@ export default function Rutas() {
     ?.map(g => g.cityName)
     .filter((c, i, arr) => arr.indexOf(c) === i) || [];
 
-  // Get cities already selected (to disable in dropdown)
-  const selectedCities = cities.filter(Boolean);
-
   const createMutation = trpc.route.create.useMutation({
     onSuccess: () => {
       utils.route.list.invalidate();
       setCreateDialog(false);
       setRouteName("");
-      setCities([""]);
+      setCities([]);
       toast.success("Ruta creada exitosamente");
     },
     onError: (err) => toast.error(err.message),
@@ -107,9 +119,9 @@ export default function Rutas() {
   };
 
   const handleCreate = () => {
-    const validCities = cities.map(c => c.trim()).filter(Boolean);
+    const validCities = cities.filter(Boolean);
     if (!routeName.trim() || validCities.length === 0) {
-      toast.error("Ingrese nombre y al menos una ciudad");
+      toast.error("Seleccione al menos una ciudad");
       return;
     }
     createMutation.mutate({ name: routeName.trim(), stops: validCities.map(c => ({ cityName: c })) });
@@ -123,9 +135,11 @@ export default function Rutas() {
 
   const addCityFromPending = (cityName: string) => {
     const cleanCity = cityName.replace("Recogida - ", "").trim();
-    if (!cities.some(c => c.trim().toLowerCase() === cleanCity.toLowerCase())) {
-      setCities([...cities.filter(c => c.trim()), cleanCity]);
+    if (!cities.filter(Boolean).some(c => c.toLowerCase() === cleanCity.toLowerCase())) {
+      setCities([...cities.filter(Boolean), cleanCity]);
     }
+    setPendingDialog(false);
+    setCreateDialog(true);
   };
 
   const totalPending = pendingByCity?.reduce((sum, group) => sum + group.count, 0) || 0;
@@ -236,7 +250,8 @@ export default function Rutas() {
       </div>
 
       {/* Create Route Dialog */}
-      <Dialog open={createDialog} onOpenChange={(open) => { setCreateDialog(open); if (!open) { setRouteName(""); setCities([]); } }}>
+      <Dialog open={createDialog} onOpenChange={(open) => { setCreateDialog(open); if (!open) { setRouteName(""); setCities([]); } }}
+      >
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -255,95 +270,87 @@ export default function Rutas() {
               />
             </div>
 
-            {/* Cities — dropdown selectors */}
+            {/* Cities — listed with checkboxes and reorder arrows */}
             <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="text-sm font-medium text-[#1A1A1A]">Paradas del camion (en orden)</label>
-                {availableCities.length > 0 && (
-                  <span className="text-xs text-[#8A8A8A]">{availableCities.length - selectedCities.length} disponible(s)</span>
-                )}
-              </div>
+              <label className="text-sm font-medium text-[#1A1A1A] block mb-2">
+                Paradas del camion (seleccione y ordene)
+              </label>
 
               {cities.length === 0 ? (
                 <div className="text-center py-4 bg-[#F7F7F7] rounded-lg border border-dashed border-[#D4D4D4]">
                   <MapPin className="w-6 h-6 text-[#D4D4D4] mx-auto mb-1" />
-                  <p className="text-xs text-[#8A8A8A]">Agregue las paradas del recorrido</p>
+                  <p className="text-xs text-[#8A8A8A]">No hay envios pendientes para ruta</p>
                 </div>
               ) : (
-                <div className="space-y-2">
+                <div className="space-y-1">
                   {cities.map((city, idx) => (
-                    <div key={idx} className="flex items-center gap-2">
+                    <div
+                      key={idx}
+                      className={`flex items-center gap-2 p-2 rounded-lg border ${
+                        city ? "bg-white border-[#F0F0F0]" : "bg-[#F7F7F7] border-dashed border-[#D4D4D4]"
+                      }`}
+                    >
+                      {/* Checkbox */}
+                      <Checkbox
+                        checked={!!city}
+                        onCheckedChange={() => {
+                          if (city) {
+                            // Deselect: mark as empty but keep slot
+                            updateCity(idx, "");
+                          } else {
+                            // Reselect: restore from available
+                            const firstAvailable = availableCities.find(
+                              c => !cities.includes(c)
+                            );
+                            if (firstAvailable) updateCity(idx, firstAvailable);
+                          }
+                        }}
+                        className="border-[#D4D4D4] data-[state=checked]:bg-[#C8102E] data-[state=checked]:border-[#C8102E]"
+                      />
+
                       {/* Order number */}
-                      <div className="w-7 h-7 bg-[#C8102E] rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0">
+                      <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
+                        city ? "bg-[#C8102E] text-white" : "bg-[#F0F0F0] text-[#A3A3A3]"
+                      }`}>
                         {idx + 1}
                       </div>
 
-                      {/* City dropdown */}
-                      <select
-                        value={city}
-                        onChange={(e) => updateCity(idx, e.target.value)}
-                        className="flex-1 h-9 px-3 text-sm border border-[#D4D4D4] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C8102E]/20 focus:border-[#C8102E] bg-white"
-                      >
-                        <option value="">Seleccionar ciudad...</option>
-                        {availableCities.map((availCity) => {
-                          const isUsed = selectedCities.includes(availCity) && availCity !== city;
-                          return (
-                            <option key={availCity} value={availCity} disabled={isUsed}>
-                              {availCity} {isUsed ? "(ya seleccionada)" : ""}
-                            </option>
-                          );
-                        })}
-                      </select>
+                      {/* City name */}
+                      <span className={`flex-1 text-sm font-medium ${
+                        city ? "text-[#1A1A1A]" : "text-[#A3A3A3] line-through"
+                      }`}>
+                        {city || "(sin seleccionar)"}
+                      </span>
 
                       {/* Reorder arrows */}
-                      <div className="flex flex-col gap-0.5">
-                        <button
-                          onClick={() => moveCityUp(idx)}
-                          disabled={idx === 0}
-                          className="p-0.5 rounded hover:bg-[#F7F7F7] disabled:opacity-30 disabled:cursor-not-allowed text-[#525252]"
-                          title="Mover arriba"
-                        >
-                          <ArrowUp className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => moveCityDown(idx)}
-                          disabled={idx === cities.length - 1}
-                          className="p-0.5 rounded hover:bg-[#F7F7F7] disabled:opacity-30 disabled:cursor-not-allowed text-[#525252]"
-                          title="Mover abajo"
-                        >
-                          <ArrowDown className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-
-                      {/* Remove */}
-                      <button
-                        onClick={() => removeCity(idx)}
-                        className="p-1.5 rounded hover:bg-red-50 text-[#A3A3A3] hover:text-red-600 transition-colors"
-                        title="Eliminar parada"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      {city && (
+                        <div className="flex flex-col gap-0.5">
+                          <button
+                            onClick={() => moveCityUp(idx)}
+                            disabled={idx === 0}
+                            className="p-0.5 rounded hover:bg-[#F7F7F7] disabled:opacity-30 disabled:cursor-not-allowed text-[#525252]"
+                            title="Mover arriba"
+                          >
+                            <ArrowUp className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => moveCityDown(idx)}
+                            disabled={idx === cities.length - 1}
+                            className="p-0.5 rounded hover:bg-[#F7F7F7] disabled:opacity-30 disabled:cursor-not-allowed text-[#525252]"
+                            title="Mover abajo"
+                          >
+                            <ArrowDown className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
               )}
-
-              {/* Add city button */}
-              {availableCities.length > selectedCities.length && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={addCity}
-                  className="mt-2 text-[#C8102E] border-[#C8102E]/20 hover:bg-[#FFF5F5]"
-                >
-                  <Plus className="w-3.5 h-3.5 mr-1.5" />
-                  Agregar parada
-                </Button>
-              )}
             </div>
 
             {/* Summary */}
-            {cities.length > 0 && (
+            {cities.filter(Boolean).length > 0 && (
               <div className="flex items-center gap-2 text-xs text-[#8A8A8A] bg-[#F7F7F7] p-2 rounded-lg">
                 <Truck className="w-3.5 h-3.5" />
                 Recorrido: {cities.filter(Boolean).join(" → ")}
