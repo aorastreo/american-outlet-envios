@@ -139,6 +139,13 @@ export default function RutaDetail() {
   const assignMutation = trpc.route.assignShipments.useMutation({
     onSuccess: () => {
       toast.success("Envios asignados");
+      // Invalidate queries to refresh the lists
+      utils.route.availableShipments.invalidate();
+      utils.route.getById.invalidate({ id: routeId });
+      utils.route.list.invalidate();
+      utils.route.pendingByPickupPoint.invalidate();
+      // Clear selection
+      setAvailableSelectedIds([]);
     },
     onError: (err) => toast.error(err.message),
   });
@@ -240,7 +247,7 @@ export default function RutaDetail() {
   };
 
   // Assign selected available shipments to route
-  const handleAssignToRoute = () => {
+  const handleAssignToRoute = async () => {
     if (availableSelectedIds.length === 0 || !route) return;
     // Group by stop (city) and assign to each stop
     const stopMap = new Map(route.stops.map((s: any) => [s.cityName.toLowerCase(), s.id]));
@@ -256,15 +263,22 @@ export default function RutaDetail() {
         }
       }
     }
-    // Assign to each stop
+    // Assign to each stop and wait for all to complete
+    const promises = [];
     for (const [stopId, shipmentIds] of shipmentsByStop) {
-      assignMutation.mutate({ routeId, stopId, shipmentIds });
+      promises.push(assignMutation.mutateAsync({ routeId, stopId, shipmentIds }));
     }
-    setAvailableSelectedIds([]);
-    setTimeout(() => {
+    try {
+      await Promise.all(promises);
+      // After all assignments complete, invalidate queries
+      utils.route.availableShipments.invalidate();
       utils.route.getById.invalidate({ id: routeId });
       utils.route.list.invalidate();
-    }, 500);
+      utils.route.pendingByPickupPoint.invalidate();
+      setAvailableSelectedIds([]);
+    } catch (err) {
+      // Error handled by mutation onError
+    }
   };
 
   return (
@@ -461,7 +475,7 @@ export default function RutaDetail() {
                 <Button
                   onClick={handleAssignToRoute}
                   className="flex-1 bg-[#B8860B] hover:bg-[#8B6508]"
-                  disabled={assignMutation.isPending}
+                  disabled={assignMutation.isPending || availableSelectedIds.length === 0}
                 >
                   <Package className="w-4 h-4 mr-2" />
                   {assignMutation.isPending ? "Asignando..." : `Asignar ${availableSelectedIds.length} envio(s)`}
