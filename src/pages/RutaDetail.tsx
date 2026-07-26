@@ -446,14 +446,27 @@ export default function RutaDetail() {
             </div>
 
             {availableSelectedIds.length > 0 && (
-              <Button
-                onClick={handleAssignToRoute}
-                className="w-full bg-[#B8860B] hover:bg-[#8B6508]"
-                disabled={assignMutation.isPending}
-              >
-                <Package className="w-4 h-4 mr-2" />
-                {assignMutation.isPending ? "Asignando..." : `Asignar ${availableSelectedIds.length} envio(s) a la Ruta`}
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => {
+                    const idsParam = availableSelectedIds.join(",");
+                    window.open(`/bitacora?ids=${idsParam}`, "_blank");
+                  }}
+                  variant="outline"
+                  className="flex-1 border-[#C8102E]/20 text-[#C8102E] hover:bg-[#FFF5F5]"
+                >
+                  <ClipboardList className="w-4 h-4 mr-2" />
+                  Generar Bitacora
+                </Button>
+                <Button
+                  onClick={handleAssignToRoute}
+                  className="flex-1 bg-[#B8860B] hover:bg-[#8B6508]"
+                  disabled={assignMutation.isPending}
+                >
+                  <Package className="w-4 h-4 mr-2" />
+                  {assignMutation.isPending ? "Asignando..." : `Asignar ${availableSelectedIds.length} envio(s)`}
+                </Button>
+              </div>
             )}
           </div>
         )}
