@@ -136,7 +136,19 @@ export default function CreateShipment() {
     navigate("/envios");
   };
 
-  const availableFranchises = franchises?.filter((f) => !f.isWarehouse) || [];
+  // Helper to identify route pickup points (not valid as normal destinations)
+  const isRoutePickup = (name: string) => {
+    const n = name.toLowerCase();
+    return n.includes("grecia") || n.includes("palmares") || n.includes("san ramon");
+  };
+
+  // Filter: exclude own store, warehouses, and route pickup points
+  const availableFranchises = (franchises || []).filter((f) => {
+    if (f.isWarehouse) return false; // No bodegas
+    if (f.id === user?.franchiseId) return false; // No tienda propia
+    if (isRoutePickup(f.displayName || f.name || "")) return false; // No rutas
+    return true;
+  });
 
   return (
     <FranchiseLayout>
@@ -228,18 +240,24 @@ export default function CreateShipment() {
                 </div>
                 <div className="space-y-2">
                   <Label>Franquicia Destino *</Label>
-                  <Select value={destinationFranchiseId} onValueChange={setDestinationFranchiseId}>
-                    <SelectTrigger className="h-11">
-                      <SelectValue placeholder="Seleccione destino" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableFranchises.map((franchise) => (
-                        <SelectItem key={franchise.id} value={franchise.id.toString()}>
-                          {cleanName(franchise.displayName)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {availableFranchises.length === 0 ? (
+                    <div className="h-11 px-3 flex items-center text-sm text-[#8A8A8A] bg-[#F7F7F7] border border-[#D4D4D4] rounded-md">
+                      No hay tiendas disponibles para enviar
+                    </div>
+                  ) : (
+                    <Select value={destinationFranchiseId} onValueChange={setDestinationFranchiseId}>
+                      <SelectTrigger className="h-11">
+                        <SelectValue placeholder="Seleccione destino" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableFranchises.map((franchise) => (
+                          <SelectItem key={franchise.id} value={franchise.id.toString()}>
+                            {cleanName(franchise.displayName)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
               </div>
               <div className="space-y-2">
