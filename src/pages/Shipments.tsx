@@ -378,6 +378,8 @@ export default function Shipments() {
 
       // Store-specific filtering by origin/dest
       if (!isBodega && myFranchiseId) {
+        // POR_ENVIAR: only show shipments CREATED BY this store
+        if (activeTab === "POR_ENVIAR" && s.originFranchiseId !== myFranchiseId) return false;
         // POR_RECIBIR: only show shipments coming TO the current store
         if (activeTab === "POR_RECIBIR" && s.destinationFranchiseId !== myFranchiseId) return false;
         // EN_TIENDA: only show shipments received IN the current store (destino)
@@ -437,13 +439,16 @@ export default function Shipments() {
 
         // Store-specific counting with origin/dest logic
         if (!isBodega && myFranchiseId) {
-          if (tab.key === "POR_RECIBIR" && s.destinationFranchiseId === myFranchiseId) {
+          if (tab.key === "POR_ENVIAR" && s.originFranchiseId === myFranchiseId) {
+            counts[tab.key]++;
+          } else if (tab.key === "POR_RECIBIR" && s.destinationFranchiseId === myFranchiseId) {
             counts[tab.key]++;
           } else if (tab.key === "EN_TIENDA" && s.destinationFranchiseId === myFranchiseId) {
             counts[tab.key]++;
           } else if (tab.key === "COMPLETADOS" && s.originFranchiseId === myFranchiseId) {
             counts[tab.key]++;
           } else if (
+            tab.key !== "POR_ENVIAR" &&
             tab.key !== "POR_RECIBIR" &&
             tab.key !== "EN_TIENDA" &&
             tab.key !== "COMPLETADOS"
