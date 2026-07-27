@@ -58,16 +58,20 @@ export default function Home() {
     return configs[status] || { color: "bg-gray-100 text-gray-500", label: status, icon: Package };
   }
 
-  // Detect pickup route: Grecia=5, San Ramon=6, Palmares=7
-  const destId = shipment?.destinationFranchiseId;
-  const isPickup = destId === 5 || destId === 6 || destId === 7;
-
+  // Detect route type
   const originIsWarehouse = useMemo(() => {
     return shipment?.originFranchise?.isWarehouse === 1;
   }, [shipment]);
 
   const destIsWarehouse = useMemo(() => {
     return (shipment as any)?.destinationIsWarehouse === true || (shipment?.destinationFranchise as any)?.isWarehouse === 1;
+  }, [shipment]);
+
+  // Use isPickupRoute from backend (reliable) or fallback to name detection
+  const isPickup = useMemo(() => {
+    if ((shipment as any)?.isPickupRoute === true) return true;
+    const destName = (shipment?.destinationFranchise?.displayName || shipment?.destinationName || "").toLowerCase();
+    return destName.includes("recogida") || ["grecia", "palmares", "san ramon"].some(city => destName.includes(city));
   }, [shipment]);
 
   const timelineSteps = useMemo(() => {
@@ -80,7 +84,7 @@ export default function Home() {
       ];
     }
     if (isPickup) {
-      // Pickup point route: includes EN_RUTA and EN_PARADA
+      // Pickup point route (Grecia, Palmares, San Ramon) — includes EN_RUTA and EN_PARADA
       return originIsWarehouse
         ? [
             { status: "CREADO", label: "Creado", desc: "Envio registrado" },
@@ -98,7 +102,7 @@ export default function Home() {
             { status: "RECIBIDO_EN_DESTINO", label: "Entregado", desc: "Cliente recibio" },
           ];
     }
-    // Regular store route
+    // Regular store-to-store
     return originIsWarehouse
       ? [
           { status: "CREADO", label: "Creado", desc: "Envio registrado" },

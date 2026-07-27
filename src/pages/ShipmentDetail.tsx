@@ -185,7 +185,10 @@ export default function ShipmentDetail() {
   const isCancelled = shipment.status === "CANCELADO";
   const isDelivered = shipment.status === "RECIBIDO_EN_DESTINO";
    const canCancel = !isCancelled && !isDelivered && (isOrigin || isDestination || shipment.currentLocationId === franchiseId);
-  const isPickup = shipment.destinationFranchiseId === 5 || shipment.destinationFranchiseId === 6 || shipment.destinationFranchiseId === 7;
+  const destNameLower = (shipment.destinationFranchise?.displayName || shipment.destinationName || "").toLowerCase();
+  const isPickup = (shipment as any).isPickupRoute === true ||
+    destNameLower.includes("recogida") ||
+    ["grecia", "palmares", "san ramon"].some(city => destNameLower.includes(city));
 
   // ─── AVAILABLE ACTIONS ──────────────────────────────────────
   const availableActions: { label: string; status: string; icon: React.ReactNode; color: string; desc: string; needsReceiver?: boolean }[] = [];

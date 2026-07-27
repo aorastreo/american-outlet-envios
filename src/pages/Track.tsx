@@ -96,13 +96,14 @@ export default function Track() {
     }
   };
 
-  // Ultra simple: is this a pickup point? Grecia=5, SanRamon=6, Palmares=7
-  const destId = shipment?.destinationFranchiseId;
-  const isPickup = destId === 5 || destId === 6 || destId === 7;
-
   const originIsWarehouse = shipment?.originFranchise?.isWarehouse === 1;
   const destIsWarehouse = (shipment as any)?.destinationIsWarehouse === true;
-  console.log("[Track] destIsWarehouse:", destIsWarehouse, "destId:", destId, "isPickup:", isPickup);
+
+  // Use isPickupRoute from backend (reliable) or fallback to name detection
+  const destName = (shipment?.destinationFranchise?.displayName || shipment?.destinationName || "").toLowerCase();
+  const isPickup = (shipment as any)?.isPickupRoute === true ||
+    destName.includes("recogida") ||
+    ["grecia", "palmares", "san ramon"].some(city => destName.includes(city));
 
   // Select timeline based on destination type
   let timelineSteps;
