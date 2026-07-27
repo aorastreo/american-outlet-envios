@@ -50,7 +50,6 @@ const pickupTimeline = [
   { status: "RECIBIDO_EN_BODEGA", label: "En Bodega" },
   { status: "EN_RUTA", label: "En Ruta" },
   { status: "EN_PARADA", label: "En Parada" },
-  { status: "NO_RECOGIDO", label: "No Recogido" },
   { status: "RECIBIDO_EN_DESTINO", label: "Entregado" },
 ];
 
@@ -60,7 +59,6 @@ const directPickupTimeline = [
   { status: "ENVIADO_A_DESTINO", label: "Enviado a Destino" },
   { status: "EN_RUTA", label: "En Ruta" },
   { status: "EN_PARADA", label: "En Parada" },
-  { status: "NO_RECOGIDO", label: "No Recogido" },
   { status: "RECIBIDO_EN_DESTINO", label: "Entregado" },
 ];
 
@@ -214,15 +212,13 @@ export default function ShipmentDetail() {
     }
   }
 
-  // Backend tells us directly if this is a pickup route
-  const isPickupRoute = (shipment as any).isPickupRoute || false;
-
   // Detect if destination is a warehouse (bodega) — NOT a route pickup point
   const destIsWarehouse = (shipment.destinationFranchise as any)?.isWarehouse === 1;
 
   // Choose correct timeline based on destination type
+  // isPickup already computed above with fallback to name-based detection
   let timelineSteps;
-  if (isPickupRoute) {
+  if (isPickup) {
     // Route pickup point (Grecia, Palmares, San Ramon)
     timelineSteps = originIsWarehouse ? directPickupTimeline : pickupTimeline;
   } else if (destIsWarehouse) {
@@ -232,7 +228,11 @@ export default function ShipmentDetail() {
     // Normal store-to-store
     timelineSteps = originIsWarehouse ? directStoreTimeline : storeTimeline;
   }
-  const currentStepIndex = timelineSteps.findIndex((s) => s.status === shipment.status);
+  let currentStepIndex = timelineSteps.findIndex((s) => s.status === shipment.status);
+  // NO_RECOGIDO no esta en el timeline regular; mostrar hasta EN_PARADA como completado
+  if (currentStepIndex === -1 && shipment.status === "NO_RECOGIDO") {
+    currentStepIndex = timelineSteps.findIndex((s) => s.status === "EN_PARADA");
+  }
 
   return (
     <FranchiseLayout>
@@ -385,20 +385,14 @@ export default function ShipmentDetail() {
                   {timelineSteps.map((step, index) => {
                     const isCompleted = index <= currentStepIndex;
                     const isCurrent = index === currentStepIndex;
-                    const isNoRecogido = step.status === "NO_RECOGIDO";
                     return (
                       <div key={step.status} className="flex flex-col items-center relative z-10 flex-1">
                         <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-colors ${
-                          isNoRecogido && isCurrent ? "bg-red-600 border-red-600 text-white ring-4 ring-red-100" :
-                          isNoRecogido && isCompleted ? "bg-red-400 border-red-400 text-white" :
                           isCompleted ? "bg-[#C8102E] border-[#C8102E] text-white" : "bg-white border-[#D4D4D4] text-[#A3A3A3]"
-                        } ${isCurrent && !isNoRecogido ? "ring-4 ring-[#C8102E]/20" : ""}`}>
-                          {step.status === "RECIBIDO_EN_DESTINO" ? <CheckCircle className="w-5 h-5" /> : step.status === "RECIBIDO_EN_BODEGA" ? <ClipboardCheck className="w-5 h-5" /> : step.status === "ENVIADO_A_DESTINO" ? <Truck className="w-5 h-5" /> : step.status === "ENVIADO_A_BODEGA" ? <Send className="w-5 h-5" /> : step.status === "EN_RUTA" ? <Truck className="w-5 h-5" /> : step.status === "EN_PARADA" ? <MapPin className="w-5 h-5" /> : step.status === "NO_RECOGIDO" ? <XCircle className="w-5 h-5" /> : <Package className="w-5 h-5" />}
+                        } ${isCurrent ? "ring-4 ring-[#C8102E]/20" : ""}`}>
+                          {step.status === "RECIBIDO_EN_DESTINO" ? <CheckCircle className="w-5 h-5" /> : step.status === "RECIBIDO_EN_BODEGA" ? <ClipboardCheck className="w-5 h-5" /> : step.status === "ENVIADO_A_DESTINO" ? <Truck className="w-5 h-5" /> : step.status === "ENVIADO_A_BODEGA" ? <Send className="w-5 h-5" /> : step.status === "EN_RUTA" ? <Truck className="w-5 h-5" /> : step.status === "EN_PARADA" ? <MapPin className="w-5 h-5" /> : <Package className="w-5 h-5" />}
                         </div>
-                        <span className={`text-xs mt-2 text-center font-medium ${
-                          isNoRecogido && isCurrent ? "text-red-700 font-bold" :
-                          isCompleted ? "text-[#1A1A1A]" : "text-[#A3A3A3]"
-                        }`}>{step.label}</span>
+                        <span className={`text-xs mt-2 text-center font-medium ${isCompleted ? "text-[#1A1A1A]" : "text-[#A3A3A3]"}`}>{step.label}</span>
                       </div>
                     );
                   })}
