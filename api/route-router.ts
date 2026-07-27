@@ -358,10 +358,13 @@ export const routeRouter = createRouter({
     .query(async ({ input }) => {
       const db = getDb();
 
-      // Get all pickup point franchise IDs (displayName contains "recogida")
+      // Get all pickup point franchise IDs: by code, name, or hardcoded IDs
       const allFranchises = await db.select().from(franchises);
+      const pickupCodes = ["grecia", "palmares", "san_ramon"];
       const pickupFranchises = allFranchises.filter(f =>
-        f.displayName?.toLowerCase().includes("recogida")
+        pickupCodes.includes(f.code?.toLowerCase() || "") ||
+        f.displayName?.toLowerCase().includes("recogida") ||
+        [5, 6, 7].includes(f.id)
       );
       const pickupIds = pickupFranchises.map(f => f.id);
 
@@ -425,7 +428,13 @@ export const routeRouter = createRouter({
     .query(async () => {
       const db = getDb();
       const allFranchises = await db.select().from(franchises);
-      const pickupPoints = allFranchises.filter(f => f.displayName?.toLowerCase().includes("recogida"));
+      // Detect pickup points: by code (grecia, palmares, san_ramon), by name (recogida), or by hardcoded IDs
+      const pickupCodes = ["grecia", "palmares", "san_ramon"];
+      const pickupPoints = allFranchises.filter(f =>
+        pickupCodes.includes(f.code?.toLowerCase() || "") ||
+        f.displayName?.toLowerCase().includes("recogida") ||
+        [5, 6, 7].includes(f.id)
+      );
       const pickupIds = pickupPoints.map(f => f.id);
 
       if (pickupIds.length === 0) return [];
