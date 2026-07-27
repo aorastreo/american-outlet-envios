@@ -323,15 +323,18 @@ export const routeRouter = createRouter({
         // Get shipmentId for tracking
         const rsData = await db.select().from(routeShipments).where(eq(routeShipments.id, input.routeShipmentId)).limit(1);
         
-        if (rsData.length > 0 && input.status === "ENTREGADO") {
+        if (rsData.length > 0) {
+          // Insert tracking history for BOTH statuses
           await db.insert(shipmentTracking).values({
             shipmentId: rsData[0].shipmentId,
-            status: "RECIBIDO_EN_DESTINO",
+            status: input.status === "ENTREGADO" ? "RECIBIDO_EN_DESTINO" : "NO_RECOGIDO",
             locationId: 0,
-            notes: input.notes?.trim() ? `Recibido por el cliente: ${input.notes.trim()}` : "Recibido por el cliente en punto de recogida",
+            notes: input.status === "ENTREGADO"
+              ? (input.notes?.trim() ? `Recibido por el cliente: ${input.notes.trim()}` : "Recibido por el cliente en punto de recogida")
+              : "Cliente no se presento a recoger el paquete en el punto de recogida",
             createdBy: ctx.franchiseUser!.id,
           });
-          console.log("[updateShipmentStatus] tracking inserted");
+          console.log("[updateShipmentStatus] tracking inserted:", input.status);
         }
         
         // Update main shipment status
