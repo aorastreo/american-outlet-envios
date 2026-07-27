@@ -124,8 +124,12 @@ export default function RutaDetail() {
     onSuccess: () => {
       utils.route.getById.invalidate({ id: routeId });
       utils.route.list.invalidate();
+      toast.success("Estado actualizado correctamente");
     },
-    onError: (err) => toast.error(err.message),
+    onError: (err) => {
+      console.error("updateShipmentStatus error:", err);
+      toast.error(`Error: ${err.message}`);
+    },
   });
 
   const moveShipmentMutation = trpc.route.moveShipment.useMutation({
@@ -563,35 +567,20 @@ export default function RutaDetail() {
                                 </Button>
                                 <Button
                                   size="sm"
-                                  onClick={() => {
-                                    toast.loading("Marcando como entregado...");
-                                    updateShipmentMutation.mutate({ routeShipmentId: rs.id, status: "ENTREGADO" }, {
-                                      onSuccess: () => toast.dismiss(),
-                                      onError: () => toast.dismiss(),
-                                    });
-                                  }}
+                                  onClick={() => updateShipmentMutation.mutate({ routeShipmentId: rs.id, status: "ENTREGADO" })}
                                   className="bg-[#1B6B3E] hover:bg-[#145a32] h-9 px-2"
                                   disabled={updateShipmentMutation.isPending}
                                 >
-                                  {updateShipmentMutation.isPending ? <span className="animate-spin">⟳</span> : <CheckCircle className="w-4 h-4" />}
+                                  <CheckCircle className="w-4 h-4" />
                                 </Button>
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  onClick={() => {
-                                    toast.loading("Marcando como no recogido...");
-                                    updateShipmentMutation.mutate({ routeShipmentId: rs.id, status: "NO_RECOGIDO" }, {
-                                      onSuccess: () => {
-                                        toast.dismiss();
-                                        toast.success("Marcado como No Recogido");
-                                      },
-                                      onError: () => toast.dismiss(),
-                                    });
-                                  }}
+                                  onClick={() => updateShipmentMutation.mutate({ routeShipmentId: rs.id, status: "NO_RECOGIDO" })}
                                   className="text-red-600 h-9 px-2 hover:bg-red-50"
                                   disabled={updateShipmentMutation.isPending}
                                 >
-                                  {updateShipmentMutation.isPending ? <span className="animate-spin">⟳</span> : <XCircle className="w-4 h-4" />}
+                                  <XCircle className="w-4 h-4" />
                                 </Button>
                               </div>
                             )}
