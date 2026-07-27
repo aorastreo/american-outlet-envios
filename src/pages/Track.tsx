@@ -28,6 +28,7 @@ function getStatusConfig(status: string) {
     ENVIADO_A_DESTINO: { color: "bg-[#FFF5F5] text-[#C8102E]", label: "Enviado a Destino", icon: Truck },
     EN_RUTA: { color: "bg-blue-100 text-blue-700", label: "En Ruta de Camion", icon: Truck },
     EN_PARADA: { color: "bg-orange-100 text-orange-700", label: "En Punto de Recogida", icon: MapPin },
+    NO_RECOGIDO: { color: "bg-red-100 text-red-700", label: "No Recogido", icon: AlertTriangle },
     RECIBIDO_EN_DESTINO: { color: "bg-emerald-100 text-emerald-700", label: "Entregado", icon: CheckCircle },
     CANCELADO: { color: "bg-red-100 text-red-700", label: "Cancelado", icon: AlertTriangle },
     SOLICITADO_RECOLECCION: { color: "bg-amber-100 text-amber-700", label: "Solicitado Recoleccion", icon: Clock },
@@ -72,6 +73,13 @@ const directStoreTimeline = [
   { status: "RECIBIDO_EN_DESTINO", label: "Entregado", desc: "Cliente recibio" },
 ];
 
+// Timeline para envio de TIENDA a BODEGA (destino final es bodega)
+const toWarehouseTimeline = [
+  { status: "CREADO", label: "Creado", desc: "Envio registrado" },
+  { status: "ENVIADO_A_BODEGA", label: "Enviado a Bodega", desc: "Tienda envio a bodega" },
+  { status: "RECIBIDO_EN_BODEGA", label: "Recibido en Bodega", desc: "Bodega recibio" },
+];
+
 export default function Track() {
   const [trackingNumber, setTrackingNumber] = useState("");
   const [searchedTracking, setSearchedTracking] = useState("");
@@ -96,10 +104,22 @@ export default function Track() {
     return shipment?.originFranchise?.isWarehouse === 1;
   }, [shipment]);
 
-  // Pickup = route timeline, Store = store timeline
-   const timelineSteps = isPickup
-    ? (originIsWarehouse ? directPickupTimeline : pickupTimeline)
-    : (originIsWarehouse ? directStoreTimeline : storeTimeline);
+  const destIsWarehouse = useMemo(() => {
+    return shipment?.destinationFranchise?.isWarehouse === 1;
+  }, [shipment]);
+
+  // Select timeline based on destination type
+  let timelineSteps;
+  if (isPickup) {
+    // Route pickup point (Grecia, Palmares, San Ramon)
+    timelineSteps = originIsWarehouse ? directPickupTimeline : pickupTimeline;
+  } else if (destIsWarehouse) {
+    // Destination is warehouse (bodega) — simplified 3-step timeline
+    timelineSteps = toWarehouseTimeline;
+  } else {
+    // Normal store-to-store
+    timelineSteps = originIsWarehouse ? directStoreTimeline : storeTimeline;
+  }
 
   const currentStepIndex = shipment ? timelineSteps.findIndex((s) => s.status === shipment.status) : -1;
 
