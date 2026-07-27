@@ -400,13 +400,16 @@ export const shipmentRouter = createRouter({
       const isPickupRoute = pickupCodes.includes(destFranchise?.code?.toLowerCase() || "") ||
                             (destFranchise?.displayName?.toLowerCase() || "").includes("recogida");
 
+      const destFranchiseData = franchiseMap.get(shipment[0].destinationFranchiseId);
+
       return {
         ...shipment[0],
         items,
         tracking: trackingHistory,
         originFranchise: franchiseMap.get(shipment[0].originFranchiseId),
-        destinationFranchise: franchiseMap.get(shipment[0].destinationFranchiseId),
+        destinationFranchise: destFranchiseData,
         destinationFranchiseId: shipment[0].destinationFranchiseId,
+        destinationIsWarehouse: destFranchiseData?.isWarehouse === 1,
         currentLocation: franchiseMap.get(shipment[0].currentLocationId),
         isPickupRoute,
       };
