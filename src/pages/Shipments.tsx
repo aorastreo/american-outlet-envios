@@ -260,6 +260,11 @@ export default function Shipments() {
     (f) => !f.isWarehouse && !isRouteFranchise(f)
   );
 
+  // All origin options for warehouse users: stores + warehouses that can create shipments
+  const originFranchisesForFilter = isBodega
+    ? (allFranchises || []).filter((f) => !isRouteFranchise(f) && !isSabana(f.displayName || f.name || ""))
+    : storeFranchises;
+
   // Select tabs based on user type
   const TABS = isReceivingWarehouse
     ? SABANA_TABS
@@ -965,7 +970,7 @@ export default function Shipments() {
                 className="flex-1 h-11 px-3 text-sm border border-[#D4D4D4] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C8102E]/20 focus:border-[#C8102E] text-[#1A1A1A] bg-white"
               >
                 <option value="ALL">Todas las tiendas (origen)</option>
-                {storeFranchises.map((f) => (
+                {originFranchisesForFilter.map((f) => (
                   <option key={f.id} value={f.id.toString()}>
                     {cleanName(f.displayName)}
                   </option>
