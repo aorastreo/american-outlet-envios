@@ -40,6 +40,17 @@ function cleanName(name: string | undefined): string {
   return name.replace(/AMERICAN OUTLET\s*/i, "").trim() || name;
 }
 
+// Defensive: verify destination is actually a route pickup point
+function isRouteDestination(shipment: any): boolean {
+  const destName = (shipment.destinationFranchise?.displayName || "").toLowerCase();
+  const destCode = (shipment.destinationFranchise?.code || "").toLowerCase();
+  return (
+    destName.includes("recogida") ||
+    ["grecia", "palmares", "san ramon"].some((city) => destName.includes(city)) ||
+    ["grecia", "palmares", "san_ramon"].includes(destCode)
+  );
+}
+
 type RouteTab = "EN_BODEGA" | "EN_RUTA" | "ENTREGADOS";
 
 const TABS: { key: RouteTab; label: string; icon: React.ElementType; statuses: string[]; color: string; activeColor: string; activeBg: string; activeBorder: string; badgeColor: string }[] = [
@@ -47,7 +58,7 @@ const TABS: { key: RouteTab; label: string; icon: React.ElementType; statuses: s
     key: "EN_BODEGA",
     label: "En Bodega",
     icon: ClipboardCheck,
-    statuses: ["CREADO", "RECIBIDO_EN_BODEGA"],
+    statuses: ["RECIBIDO_EN_BODEGA"],
     color: "text-[#525252]",
     activeColor: "text-purple-700",
     activeBg: "bg-purple-50",
@@ -108,20 +119,39 @@ export default function Rutas() {
     enabled: pendingDialog || createDialog,
   });
 
-  // Filter shipments by active tab
+  // Filter shipments by active tab — defensive: only route shipments + correct status
   const filteredShipments = useMemo(() => {
-    const tab = TABS.find(t => t.key === activeTab);
-    if (!tab) return [];
-    return (routeShipments || []).filter(s => tab.statuses.includes(s.status));
+    if (!routeShipments) return [];
+    const routeOnly = routeShipments.filter(isRouteDestination);
+    if (activeTab === "EN_BODEGA") {
+      // In bodega: RECIBIDO_EN_BODEGA (from stores), OR CREADO from warehouse
+      return routeOnly.filter(
+        (s) =>
+          s.status === "RECIBIDO_EN_BODEGA" ||
+          (s.status === "CREADO" && s.originFranchise?.isWarehouse === 1)
+      );
+    }
+    if (activeTab === "EN_RUTA") {
+      return routeOnly.filter((s) => s.status === "EN_RUTA" || s.status === "EN_PARADA");
+    }
+    // ENTREGADOS
+    return routeOnly.filter((s) => s.status === "RECIBIDO_EN_DESTINO");
   }, [routeShipments, activeTab]);
 
   // Count per tab
   const tabCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const t of TABS) {
-      counts[t.key] = (routeShipments || []).filter(s => t.statuses.includes(s.status)).length;
-    }
-    return counts;
+    if (!routeShipments) return { EN_BODEGA: 0, EN_RUTA: 0, ENTREGADOS: 0 };
+    const routeOnly = routeShipments.filter(isRouteDestination);
+    return {
+      EN_BODEGA:
+        routeOnly.filter(
+          (s) =>
+            s.status === "RECIBIDO_EN_BODEGA" ||
+            (s.status === "CREADO" && s.originFranchise?.isWarehouse === 1)
+        ).length,
+      EN_RUTA: routeOnly.filter((s) => s.status === "EN_RUTA" || s.status === "EN_PARADA").length,
+      ENTREGADOS: routeOnly.filter((s) => s.status === "RECIBIDO_EN_DESTINO").length,
+    };
   }, [routeShipments]);
 
   // Current tab
