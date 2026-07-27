@@ -326,7 +326,7 @@ export const routeRouter = createRouter({
           .where(eq(shipments.id, rsData[0].shipmentId));
       }
 
-      return { success: true };
+      return { success: true, status: input.status };
     }),
 
   // ─── Get Available Shipments (in warehouse, NOT assigned, ONLY pickup points) ──

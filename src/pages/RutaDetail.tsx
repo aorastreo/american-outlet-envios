@@ -563,20 +563,35 @@ export default function RutaDetail() {
                                 </Button>
                                 <Button
                                   size="sm"
-                                  onClick={() => updateShipmentMutation.mutate({ routeShipmentId: rs.id, status: "ENTREGADO" })}
+                                  onClick={() => {
+                                    toast.loading("Marcando como entregado...");
+                                    updateShipmentMutation.mutate({ routeShipmentId: rs.id, status: "ENTREGADO" }, {
+                                      onSuccess: () => toast.dismiss(),
+                                      onError: () => toast.dismiss(),
+                                    });
+                                  }}
                                   className="bg-[#1B6B3E] hover:bg-[#145a32] h-9 px-2"
                                   disabled={updateShipmentMutation.isPending}
                                 >
-                                  <CheckCircle className="w-4 h-4" />
+                                  {updateShipmentMutation.isPending ? <span className="animate-spin">⟳</span> : <CheckCircle className="w-4 h-4" />}
                                 </Button>
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  onClick={() => updateShipmentMutation.mutate({ routeShipmentId: rs.id, status: "NO_RECOGIDO" })}
-                                  className="text-red-600 h-9 px-2"
+                                  onClick={() => {
+                                    toast.loading("Marcando como no recogido...");
+                                    updateShipmentMutation.mutate({ routeShipmentId: rs.id, status: "NO_RECOGIDO" }, {
+                                      onSuccess: () => {
+                                        toast.dismiss();
+                                        toast.success("Marcado como No Recogido");
+                                      },
+                                      onError: () => toast.dismiss(),
+                                    });
+                                  }}
+                                  className="text-red-600 h-9 px-2 hover:bg-red-50"
                                   disabled={updateShipmentMutation.isPending}
                                 >
-                                  <XCircle className="w-4 h-4" />
+                                  {updateShipmentMutation.isPending ? <span className="animate-spin">⟳</span> : <XCircle className="w-4 h-4" />}
                                 </Button>
                               </div>
                             )}
