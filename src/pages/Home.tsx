@@ -50,6 +50,7 @@ export default function Home() {
       RECIBIDO_EN_BODEGA: { color: "bg-purple-50 text-purple-700", label: "Recibido en Bodega", icon: ClipboardCheck },
       EN_RUTA: { color: "bg-blue-50 text-blue-700", label: "En Ruta de Camion", icon: Truck },
       EN_PARADA: { color: "bg-orange-50 text-orange-700", label: "En Punto de Recogida", icon: MapPin },
+      NO_RECOGIDO: { color: "bg-red-50 text-red-700", label: "No Recogido", icon: AlertTriangle },
       ENVIADO_A_DESTINO: { color: "bg-[#FFF5F5] text-[#C8102E]", label: "Enviado a Destino", icon: Truck },
       RECIBIDO_EN_DESTINO: { color: "bg-emerald-50 text-[#1B6B3E]", label: "Entregado", icon: CheckCircle },
       CANCELADO: { color: "bg-red-50 text-red-700", label: "Cancelado", icon: AlertTriangle },
@@ -65,7 +66,19 @@ export default function Home() {
     return shipment?.originFranchise?.isWarehouse === 1;
   }, [shipment]);
 
+  const destIsWarehouse = useMemo(() => {
+    return (shipment as any)?.destinationIsWarehouse === true || (shipment?.destinationFranchise as any)?.isWarehouse === 1;
+  }, [shipment]);
+
   const timelineSteps = useMemo(() => {
+    if (destIsWarehouse) {
+      // Destination is BODEGA — simplified 3-step timeline
+      return [
+        { status: "CREADO", label: "Creado", desc: "Envio registrado" },
+        { status: "ENVIADO_A_BODEGA", label: "Enviado a Bodega", desc: "Camion recoge en tienda" },
+        { status: "RECIBIDO_EN_BODEGA", label: "Recibido en Bodega", desc: "Cliente retira en bodega" },
+      ];
+    }
     if (isPickup) {
       // Pickup point route: includes EN_RUTA and EN_PARADA
       return originIsWarehouse
@@ -99,7 +112,7 @@ export default function Home() {
           { status: "ENVIADO_A_DESTINO", label: "Enviado a Destino", desc: "Bodega envio a tienda" },
           { status: "RECIBIDO_EN_DESTINO", label: "Entregado", desc: "Tienda recibio" },
         ];
-  }, [isPickup, originIsWarehouse]);
+  }, [isPickup, originIsWarehouse, destIsWarehouse]);
 
   const currentStepIndex = shipment
     ? timelineSteps.findIndex((s) => s.status === shipment.status)
