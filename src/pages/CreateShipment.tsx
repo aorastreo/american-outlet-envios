@@ -136,17 +136,13 @@ export default function CreateShipment() {
     navigate("/envios");
   };
 
-  // Helper to identify route pickup points (not valid as normal destinations)
-  const isRoutePickup = (name: string) => {
-    const n = name.toLowerCase();
-    return n.includes("grecia") || n.includes("palmares") || n.includes("san ramon");
-  };
+  // Sabana is a receiving warehouse only — not a destination for normal shipments
+  const isSabana = (name: string) => name.toLowerCase().includes("sabana");
 
-  // Filter: exclude own store, warehouses, and route pickup points
+  // Filter: exclude own store and Sabana (receiving warehouse only)
   const availableFranchises = (franchises || []).filter((f) => {
-    if (f.isWarehouse) return false; // No bodegas
     if (f.id === user?.franchiseId) return false; // No tienda propia
-    if (isRoutePickup(f.displayName || f.name || "")) return false; // No rutas
+    if (isSabana(f.displayName || f.name || "")) return false; // No bodega Sabana
     return true;
   });
 
