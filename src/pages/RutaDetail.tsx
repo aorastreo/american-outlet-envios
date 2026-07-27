@@ -550,7 +550,7 @@ export default function RutaDetail() {
                               </p>
                             </div>
                             {/* WhatsApp only — no phone call */}
-                            {route.status === "EN_RUTA" && (rs.status === "ASIGNADO" || rs.status === "EN_PARADA") && (
+                            {route.status === "EN_RUTA" && (rs.status === "ASIGNADO" || rs.status === "EN_PARADA" || rs.status === "NO_RECOGIDO") && (
                               <div className="flex items-center gap-1 shrink-0">
                                 <Button
                                   size="sm"

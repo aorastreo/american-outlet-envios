@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  ArrowLeft, Truck, Package, CheckCircle, MapPin,
+  ArrowLeft, Truck, Package, CheckCircle, XCircle, MapPin,
   Send, RotateCcw, User, Phone, Barcode, FileText, ClipboardCheck,
   Zap, Ban, Printer, MessageCircle,
 } from "lucide-react";
@@ -28,6 +28,7 @@ function getStatusConfig(status: string) {
     EN_RUTA: { color: "bg-blue-100 text-blue-700", label: "En Ruta de Camion", icon: Truck },
     EN_PARADA: { color: "bg-orange-100 text-orange-700", label: "En Punto de Recogida", icon: MapPin },
     RECIBIDO_EN_DESTINO: { color: "bg-emerald-100 text-emerald-700", label: "Entregado", icon: CheckCircle },
+    NO_RECOGIDO: { color: "bg-red-100 text-red-700", label: "No Recogido", icon: XCircle },
     CANCELADO: { color: "bg-red-100 text-red-700", label: "Cancelado", icon: Ban },
   };
   return configs[status] || { color: "bg-gray-100 text-gray-500", label: status, icon: Package };
@@ -49,6 +50,7 @@ const pickupTimeline = [
   { status: "RECIBIDO_EN_BODEGA", label: "En Bodega" },
   { status: "EN_RUTA", label: "En Ruta" },
   { status: "EN_PARADA", label: "En Parada" },
+  { status: "NO_RECOGIDO", label: "No Recogido" },
   { status: "RECIBIDO_EN_DESTINO", label: "Entregado" },
 ];
 
@@ -58,6 +60,7 @@ const directPickupTimeline = [
   { status: "ENVIADO_A_DESTINO", label: "Enviado a Destino" },
   { status: "EN_RUTA", label: "En Ruta" },
   { status: "EN_PARADA", label: "En Parada" },
+  { status: "NO_RECOGIDO", label: "No Recogido" },
   { status: "RECIBIDO_EN_DESTINO", label: "Entregado" },
 ];
 
@@ -364,12 +367,20 @@ export default function ShipmentDetail() {
                   {timelineSteps.map((step, index) => {
                     const isCompleted = index <= currentStepIndex;
                     const isCurrent = index === currentStepIndex;
+                    const isNoRecogido = step.status === "NO_RECOGIDO";
                     return (
                       <div key={step.status} className="flex flex-col items-center relative z-10 flex-1">
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-colors ${isCompleted ? "bg-[#C8102E] border-blue-600 text-white" : "bg-white border-[#D4D4D4] text-[#A3A3A3]"} ${isCurrent ? "ring-4 ring-blue-100" : ""}`}>
-                          {step.status === "RECIBIDO_EN_DESTINO" ? <CheckCircle className="w-5 h-5" /> : step.status === "RECIBIDO_EN_BODEGA" ? <ClipboardCheck className="w-5 h-5" /> : step.status === "ENVIADO_A_DESTINO" ? <Truck className="w-5 h-5" /> : step.status === "ENVIADO_A_BODEGA" ? <Send className="w-5 h-5" /> : step.status === "EN_RUTA" ? <Truck className="w-5 h-5" /> : step.status === "EN_PARADA" ? <MapPin className="w-5 h-5" /> : <Package className="w-5 h-5" />}
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-colors ${
+                          isNoRecogido && isCurrent ? "bg-red-600 border-red-600 text-white ring-4 ring-red-100" :
+                          isNoRecogido && isCompleted ? "bg-red-400 border-red-400 text-white" :
+                          isCompleted ? "bg-[#C8102E] border-[#C8102E] text-white" : "bg-white border-[#D4D4D4] text-[#A3A3A3]"
+                        } ${isCurrent && !isNoRecogido ? "ring-4 ring-[#C8102E]/20" : ""}`}>
+                          {step.status === "RECIBIDO_EN_DESTINO" ? <CheckCircle className="w-5 h-5" /> : step.status === "RECIBIDO_EN_BODEGA" ? <ClipboardCheck className="w-5 h-5" /> : step.status === "ENVIADO_A_DESTINO" ? <Truck className="w-5 h-5" /> : step.status === "ENVIADO_A_BODEGA" ? <Send className="w-5 h-5" /> : step.status === "EN_RUTA" ? <Truck className="w-5 h-5" /> : step.status === "EN_PARADA" ? <MapPin className="w-5 h-5" /> : step.status === "NO_RECOGIDO" ? <XCircle className="w-5 h-5" /> : <Package className="w-5 h-5" />}
                         </div>
-                        <span className={`text-xs mt-2 text-center font-medium ${isCompleted ? "text-[#1A1A1A]" : "text-[#A3A3A3]"}`}>{step.label}</span>
+                        <span className={`text-xs mt-2 text-center font-medium ${
+                          isNoRecogido && isCurrent ? "text-red-700 font-bold" :
+                          isCompleted ? "text-[#1A1A1A]" : "text-[#A3A3A3]"
+                        }`}>{step.label}</span>
                       </div>
                     );
                   })}
