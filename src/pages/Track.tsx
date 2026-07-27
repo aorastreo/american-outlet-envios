@@ -100,22 +100,18 @@ export default function Track() {
   const destId = shipment?.destinationFranchiseId;
   const isPickup = destId === 5 || destId === 6 || destId === 7;
 
-  const originIsWarehouse = useMemo(() => {
-    return shipment?.originFranchise?.isWarehouse === 1;
-  }, [shipment]);
-
-  const destIsWarehouse = useMemo(() => {
-    return (shipment as any)?.destinationIsWarehouse === true;
-  }, [shipment]);
+  const originIsWarehouse = shipment?.originFranchise?.isWarehouse === 1;
+  const destIsWarehouse = (shipment as any)?.destinationIsWarehouse === true;
+  console.log("[Track] destIsWarehouse:", destIsWarehouse, "destId:", destId, "isPickup:", isPickup);
 
   // Select timeline based on destination type
   let timelineSteps;
-  if (isPickup) {
-    // Route pickup point (Grecia, Palmares, San Ramon)
-    timelineSteps = originIsWarehouse ? directPickupTimeline : pickupTimeline;
-  } else if (destIsWarehouse) {
+  if (destIsWarehouse) {
     // Destination is warehouse (bodega) — simplified 3-step timeline
     timelineSteps = toWarehouseTimeline;
+  } else if (isPickup) {
+    // Route pickup point (Grecia, Palmares, San Ramon)
+    timelineSteps = originIsWarehouse ? directPickupTimeline : pickupTimeline;
   } else {
     // Normal store-to-store
     timelineSteps = originIsWarehouse ? directStoreTimeline : storeTimeline;
