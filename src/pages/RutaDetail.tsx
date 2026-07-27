@@ -567,20 +567,38 @@ export default function RutaDetail() {
                                 </Button>
                                 <Button
                                   size="sm"
-                                  onClick={() => updateShipmentMutation.mutate({ routeShipmentId: rs.id, status: "ENTREGADO" })}
+                                  onClick={() => {
+                                    console.log("ENTREGADO click - routeShipmentId:", rs.id);
+                                    updateShipmentMutation.mutate(
+                                      { routeShipmentId: rs.id, status: "ENTREGADO" },
+                                      {
+                                        onSuccess: (data) => console.log("ENTREGADO success:", data),
+                                        onError: (err) => console.error("ENTREGADO error:", err),
+                                      }
+                                    );
+                                  }}
                                   className="bg-[#1B6B3E] hover:bg-[#145a32] h-9 px-2"
                                   disabled={updateShipmentMutation.isPending}
                                 >
-                                  <CheckCircle className="w-4 h-4" />
+                                  {updateShipmentMutation.isPending ? "..." : <CheckCircle className="w-4 h-4" />}
                                 </Button>
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  onClick={() => updateShipmentMutation.mutate({ routeShipmentId: rs.id, status: "NO_RECOGIDO" })}
+                                  onClick={() => {
+                                    console.log("NO_RECOGIDO click - routeShipmentId:", rs.id);
+                                    updateShipmentMutation.mutate(
+                                      { routeShipmentId: rs.id, status: "NO_RECOGIDO" },
+                                      {
+                                        onSuccess: (data) => console.log("NO_RECOGIDO success:", data),
+                                        onError: (err) => console.error("NO_RECOGIDO error:", err),
+                                      }
+                                    );
+                                  }}
                                   className="text-red-600 h-9 px-2 hover:bg-red-50"
                                   disabled={updateShipmentMutation.isPending}
                                 >
-                                  <XCircle className="w-4 h-4" />
+                                  {updateShipmentMutation.isPending ? "..." : <XCircle className="w-4 h-4" />}
                                 </Button>
                               </div>
                             )}

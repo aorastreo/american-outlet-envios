@@ -299,34 +299,54 @@ export const routeRouter = createRouter({
       notes: z.string().optional(),
     }))
     .mutation(async ({ input, ctx }) => {
-      const db = getDb();
-      const updateData: Record<string, any> = {
-        status: input.status,
-        deliveredAt: new Date(),
-      };
-      if (input.notes) updateData.notes = input.notes;
+      try {
+        const db = getDb();
+        console.log("[updateShipmentStatus] routeShipmentId:", input.routeShipmentId, "status:", input.status);
+        
+        // Verify routeShipment exists
+        const existing = await db.select().from(routeShipments).where(eq(routeShipments.id, input.routeShipmentId)).limit(1);
+        console.log("[updateShipmentStatus] existing:", existing);
+        
+        if (existing.length === 0) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Route shipment not found" });
+        }
 
-      await db.update(routeShipments).set(updateData).where(eq(routeShipments.id, input.routeShipmentId));
+        const updateData: Record<string, any> = {
+          status: input.status,
+          deliveredAt: new Date(),
+        };
+        if (input.notes) updateData.notes = input.notes;
 
-      // Get shipmentId for tracking
-      const rsData = await db.select().from(routeShipments).where(eq(routeShipments.id, input.routeShipmentId)).limit(1);
-            if (rsData.length > 0 && input.status === "ENTREGADO") {
-        await db.insert(shipmentTracking).values({
-          shipmentId: rsData[0].shipmentId,
-          status: "RECIBIDO_EN_DESTINO",
-          locationId: 0,
-          notes: input.notes?.trim() ? `Recibido por el cliente: ${input.notes.trim()}` : "Recibido por el cliente en punto de recogida",
-          createdBy: ctx.franchiseUser!.id,
-        });
+        await db.update(routeShipments).set(updateData).where(eq(routeShipments.id, input.routeShipmentId));
+        console.log("[updateShipmentStatus] routeShipments updated");
+
+        // Get shipmentId for tracking
+        const rsData = await db.select().from(routeShipments).where(eq(routeShipments.id, input.routeShipmentId)).limit(1);
+        
+        if (rsData.length > 0 && input.status === "ENTREGADO") {
+          await db.insert(shipmentTracking).values({
+            shipmentId: rsData[0].shipmentId,
+            status: "RECIBIDO_EN_DESTINO",
+            locationId: 0,
+            notes: input.notes?.trim() ? `Recibido por el cliente: ${input.notes.trim()}` : "Recibido por el cliente en punto de recogida",
+            createdBy: ctx.franchiseUser!.id,
+          });
+          console.log("[updateShipmentStatus] tracking inserted");
+        }
+        
+        // Update main shipment status
+        if (rsData.length > 0) {
+          await db.update(shipments)
+            .set({ status: input.status === "ENTREGADO" ? "RECIBIDO_EN_DESTINO" : "NO_RECOGIDO" })
+            .where(eq(shipments.id, rsData[0].shipmentId));
+          console.log("[updateShipmentStatus] shipments updated");
+        }
+
+        return { success: true, status: input.status };
+      } catch (error: any) {
+        console.error("[updateShipmentStatus] ERROR:", error);
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message || "Error updating shipment" });
       }
-      // Update main shipment status
-      if (rsData.length > 0) {
-        await db.update(shipments)
-          .set({ status: input.status === "ENTREGADO" ? "RECIBIDO_EN_DESTINO" : "NO_RECOGIDO" })
-          .where(eq(shipments.id, rsData[0].shipmentId));
-      }
-
-      return { success: true, status: input.status };
     }),
 
   // ─── Get Available Shipments (in warehouse, NOT assigned, ONLY pickup points) ──
