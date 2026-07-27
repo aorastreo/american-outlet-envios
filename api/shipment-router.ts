@@ -401,6 +401,7 @@ export const shipmentRouter = createRouter({
                             (destFranchise?.displayName?.toLowerCase() || "").includes("recogida");
 
       const destFranchiseData = franchiseMap.get(shipment[0].destinationFranchiseId);
+      console.log("[track] destFranchise:", destFranchiseData?.displayName, "isWarehouse:", destFranchiseData?.isWarehouse, "destId:", shipment[0].destinationFranchiseId);
 
       return {
         ...shipment[0],
