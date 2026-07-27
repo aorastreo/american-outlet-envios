@@ -211,26 +211,10 @@ export default function Bitacora() {
         {/* === CHOFER === */}
         <div className="border-[3px] border-slate-900 rounded-lg p-4 mb-4">
           <p className="text-[10px] uppercase tracking-wider text-[#404040] font-bold mb-3">Informacion del Chofer</p>
-          <div className="grid grid-cols-3 gap-4">
-            <div>
-              <p className="text-[9px] text-[#525252] uppercase mb-1 font-semibold">Nombre</p>
-              <div className="border-b-2 border-[#D4D4D4] h-6"></div>
-            </div>
-            <div>
-              <p className="text-[9px] text-[#525252] uppercase mb-1 font-semibold">Telefono</p>
-              <div className="border-b-2 border-[#D4D4D4] h-6"></div>
-            </div>
-            <div>
-              <p className="text-[9px] text-[#525252] uppercase mb-1 font-semibold">Placa del vehiculo</p>
-              <div className="border-b-2 border-[#D4D4D4] h-6"></div>
-            </div>
+          <div>
+            <p className="text-[9px] text-[#525252] uppercase mb-1 font-semibold">Nombre</p>
+            <div className="border-b-2 border-[#D4D4D4] h-6"></div>
           </div>
-        </div>
-
-        {/* === OBSERVATIONS === */}
-        <div className="border-[3px] border-slate-900 rounded-lg p-4 mb-4">
-          <p className="text-[10px] uppercase tracking-wider text-[#404040] font-bold mb-2">Observaciones</p>
-          <div className="border-b-2 border-[#D4D4D4] h-16"></div>
         </div>
 
         {/* === FOOTER === */}
