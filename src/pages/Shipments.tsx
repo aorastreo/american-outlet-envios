@@ -275,6 +275,12 @@ export default function Shipments() {
   // Sabana is a receiving warehouse only — not a destination/origin for normal shipments
   const isSabana = (name: string) => name.toLowerCase().includes("sabana");
 
+  // Helper: check if a shipment's destination is a warehouse (uses loaded franchises)
+  const isDestWarehouse = (shipment: any) => {
+    const dest = (allFranchises || []).find((f) => f.id === shipment.destinationFranchiseId);
+    return dest?.isWarehouse === 1;
+  };
+
   // All origin options for warehouse users: stores + warehouses that can create shipments
   const originFranchisesForFilter = isBodega
     ? (allFranchises || []).filter((f) => !isRouteFranchise(f) && !isSabana(f.displayName || f.name || ""))
@@ -411,13 +417,11 @@ export default function Shipments() {
       // Warehouse-specific: EN_BODEGA tab — CREADO only if created FROM warehouse, exclude dest=bodega
       if (isBodega && activeTab === "EN_BODEGA") {
         if (s.status === "CREADO" && (s.originFranchise as any)?.isWarehouse !== 1) return false;
-        const destIsBodega = (s.destinationFranchise as any)?.isWarehouse === 1;
-        if (destIsBodega) return false; // dest=bodega goes to ENTREGA_CLIENTE
+        if (isDestWarehouse(s)) return false; // dest=bodega goes to ENTREGA_CLIENTE
       }
       // Warehouse-specific: ENTREGA_CLIENTE tab — only dest=bodega + RECIBIDO_EN_BODEGA
       if (isBodega && activeTab === "ENTREGA_CLIENTE") {
-        const destIsBodega = (s.destinationFranchise as any)?.isWarehouse === 1;
-        if (!destIsBodega || s.status !== "RECIBIDO_EN_BODEGA") return false;
+        if (!isDestWarehouse(s) || s.status !== "RECIBIDO_EN_BODEGA") return false;
       }
 
       // Search filter
@@ -492,11 +496,11 @@ export default function Shipments() {
           if (isBodega && tab.key === "EN_BODEGA") {
             const destName = (s.destinationName || "").toLowerCase();
             if (destName.includes("grecia") || destName.includes("palmares") || destName.includes("san ramon")) continue;
-            if ((s.destinationFranchise as any)?.isWarehouse === 1) continue; // goes to ENTREGA_CLIENTE
+            if (isDestWarehouse(s)) continue; // goes to ENTREGA_CLIENTE
             if (s.status === "CREADO" && (s.originFranchise as any)?.isWarehouse !== 1) continue;
             counts[tab.key]++;
           } else if (isBodega && tab.key === "ENTREGA_CLIENTE") {
-            if ((s.destinationFranchise as any)?.isWarehouse === 1 && s.status === "RECIBIDO_EN_BODEGA") {
+            if (isDestWarehouse(s) && s.status === "RECIBIDO_EN_BODEGA") {
               counts[tab.key]++;
             }
           } else {
