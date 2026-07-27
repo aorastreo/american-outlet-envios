@@ -596,4 +596,46 @@ export const routeRouter = createRouter({
         details: results,
       };
     }),
+
+  // ─── Get All Route Shipments (for route management page) ──────
+  // Returns ALL shipments going to pickup points (Grecia, Palmares, San Ramon)
+  // with items and franchise info, grouped by status for the frontend tabs
+  getRouteShipments: franchiseAuthedQuery
+    .query(async () => {
+      const db = getDb();
+
+      // Find pickup point franchise IDs
+      const allFranchises = await db.select().from(franchises);
+      const pickupCodes = ["grecia", "palmares", "san_ramon"];
+      const pickupFranchises = allFranchises.filter(f =>
+        pickupCodes.includes(f.code?.toLowerCase() || "") ||
+        f.displayName?.toLowerCase().includes("recogida") ||
+        [5, 6, 7].includes(f.id)
+      );
+      const pickupIds = pickupFranchises.map(f => f.id);
+
+      if (pickupIds.length === 0) return [];
+
+      // Get all route shipments (any status, from any origin)
+      const routeShipments = await db.select().from(shipments)
+        .where(inArray(shipments.destinationFranchiseId, pickupIds))
+        .orderBy(shipments.createdAt);
+
+      if (routeShipments.length === 0) return [];
+
+      // Get items
+      const shipmentIds = routeShipments.map(s => s.id);
+      const items = await db.select().from(shipmentItems)
+        .where(inArray(shipmentItems.shipmentId, shipmentIds));
+
+      // Build franchise map
+      const franchiseMap = new Map(allFranchises.map(f => [f.id, f]));
+
+      return routeShipments.map(s => ({
+        ...s,
+        items: items.filter(i => i.shipmentId === s.id),
+        originFranchise: franchiseMap.get(s.originFranchiseId),
+        destinationFranchise: franchiseMap.get(s.destinationFranchiseId),
+      }));
+    }),
 });
