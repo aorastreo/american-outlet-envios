@@ -260,6 +260,9 @@ export default function Shipments() {
     (f) => !f.isWarehouse && !isRouteFranchise(f)
   );
 
+  // Sabana is a receiving warehouse only — not a destination/origin for normal shipments
+  const isSabana = (name: string) => name.toLowerCase().includes("sabana");
+
   // All origin options for warehouse users: stores + warehouses that can create shipments
   const originFranchisesForFilter = isBodega
     ? (allFranchises || []).filter((f) => !isRouteFranchise(f) && !isSabana(f.displayName || f.name || ""))
