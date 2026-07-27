@@ -396,6 +396,11 @@ export default function Shipments() {
         if (activeTab === "COMPLETADOS" && s.originFranchiseId !== myFranchiseId) return false;
       }
 
+      // Warehouse-specific: EN_BODEGA tab — CREADO only if created FROM warehouse
+      if (isBodega && activeTab === "EN_BODEGA" && s.status === "CREADO" && (s.originFranchise as any)?.isWarehouse !== 1) {
+        return false; // Tienda-created shipments not yet in warehouse
+      }
+
       // Search filter
       const q = searchQuery.toLowerCase();
       const matchesSearch =
@@ -464,12 +469,14 @@ export default function Shipments() {
             counts[tab.key]++;
           }
         } else {
-          // Warehouse: exclude route shipments (Grecia, Palmares, San Ramon) from EN_BODEGA count. Sabana is NOT a route.
+          // Warehouse: EN_BODEGA — exclude routes, and CREADO only from warehouse
           if (isBodega && tab.key === "EN_BODEGA") {
             const destName = (s.destinationName || "").toLowerCase();
-            if (!destName.includes("grecia") && !destName.includes("palmares") && !destName.includes("san ramon")) {
-              counts[tab.key]++;
-            }
+            // Exclude route shipments
+            if (destName.includes("grecia") || destName.includes("palmares") || destName.includes("san ramon")) continue;
+            // CREADO only if from warehouse
+            if (s.status === "CREADO" && (s.originFranchise as any)?.isWarehouse !== 1) continue;
+            counts[tab.key]++;
           } else {
             counts[tab.key]++;
           }
