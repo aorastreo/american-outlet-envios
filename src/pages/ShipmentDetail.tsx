@@ -71,6 +71,13 @@ const directStoreTimeline = [
   { status: "RECIBIDO_EN_DESTINO", label: "Entregado" },
 ];
 
+// Timeline para envio de TIENDA a BODEGA (destino final es bodega)
+const toWarehouseTimeline = [
+  { status: "CREADO", label: "Creado" },
+  { status: "ENVIADO_A_BODEGA", label: "Enviado a Bodega" },
+  { status: "RECIBIDO_EN_BODEGA", label: "Recibido en Bodega" },
+];
+
 export default function ShipmentDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -207,11 +214,19 @@ export default function ShipmentDetail() {
   // Backend tells us directly if this is a pickup route
   const isPickupRoute = (shipment as any).isPickupRoute || false;
 
-  // Choose correct timeline: route timeline if backend says it's a pickup route
+  // Detect if destination is a warehouse (bodega) — NOT a route pickup point
+  const destIsWarehouse = (shipment.destinationFranchise as any)?.isWarehouse === 1;
+
+  // Choose correct timeline based on destination type
   let timelineSteps;
   if (isPickupRoute) {
+    // Route pickup point (Grecia, Palmares, San Ramon)
     timelineSteps = originIsWarehouse ? directPickupTimeline : pickupTimeline;
+  } else if (destIsWarehouse) {
+    // Destination is warehouse (bodega) — simplified 3-step timeline
+    timelineSteps = toWarehouseTimeline;
   } else {
+    // Normal store-to-store
     timelineSteps = originIsWarehouse ? directStoreTimeline : storeTimeline;
   }
   const currentStepIndex = timelineSteps.findIndex((s) => s.status === shipment.status);
