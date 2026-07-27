@@ -42,7 +42,7 @@ import toast from "react-hot-toast";
 /* ─── tab definitions ─────────────────────────────────────────── */
 
 type StoreTabKey = "POR_ENVIAR" | "ENVIADOS" | "POR_RECIBIR" | "EN_TIENDA" | "COMPLETADOS";
-type WarehouseTabKey = "POR_RECIBIR" | "EN_BODEGA" | "EN_RUTA" | "ENTREGADOS";
+type WarehouseTabKey = "POR_RECIBIR" | "EN_BODEGA" | "ENTREGA_CLIENTE" | "EN_RUTA" | "ENTREGADOS";
 type SabanaTabKey = "POR_RECIBIR" | "EN_BODEGA";
 
 interface TabDef<T extends string> {
@@ -141,12 +141,24 @@ const WAREHOUSE_TABS: TabDef<WarehouseTabKey>[] = [
     label: "En Bodega",
     icon: ClipboardCheck,
     statuses: ["CREADO", "RECIBIDO_EN_BODEGA"],
-    description: "Creados en bodega y recibidos de tiendas",
+    description: "Creados en bodega y recibidos de tiendas para reenvio",
     color: "text-[#525252]",
     activeColor: "text-purple-700",
     activeBg: "bg-purple-50",
     activeBorder: "border-purple-700",
     badgeColor: "bg-purple-700 text-white",
+  },
+  {
+    key: "ENTREGA_CLIENTE",
+    label: "Entrega a Cliente",
+    icon: User,
+    statuses: ["RECIBIDO_EN_BODEGA"],
+    description: "Envios recibidos de tiendas que el cliente retira en bodega",
+    color: "text-[#525252]",
+    activeColor: "text-teal-700",
+    activeBg: "bg-teal-50",
+    activeBorder: "border-teal-700",
+    badgeColor: "bg-teal-700 text-white",
   },
   {
     key: "EN_RUTA",
@@ -396,9 +408,16 @@ export default function Shipments() {
         if (activeTab === "COMPLETADOS" && s.originFranchiseId !== myFranchiseId) return false;
       }
 
-      // Warehouse-specific: EN_BODEGA tab — CREADO only if created FROM warehouse
-      if (isBodega && activeTab === "EN_BODEGA" && s.status === "CREADO" && (s.originFranchise as any)?.isWarehouse !== 1) {
-        return false; // Tienda-created shipments not yet in warehouse
+      // Warehouse-specific: EN_BODEGA tab — CREADO only if created FROM warehouse, exclude dest=bodega
+      if (isBodega && activeTab === "EN_BODEGA") {
+        if (s.status === "CREADO" && (s.originFranchise as any)?.isWarehouse !== 1) return false;
+        const destIsBodega = (s.destinationFranchise as any)?.isWarehouse === 1;
+        if (destIsBodega) return false; // dest=bodega goes to ENTREGA_CLIENTE
+      }
+      // Warehouse-specific: ENTREGA_CLIENTE tab — only dest=bodega + RECIBIDO_EN_BODEGA
+      if (isBodega && activeTab === "ENTREGA_CLIENTE") {
+        const destIsBodega = (s.destinationFranchise as any)?.isWarehouse === 1;
+        if (!destIsBodega || s.status !== "RECIBIDO_EN_BODEGA") return false;
       }
 
       // Search filter
@@ -469,14 +488,17 @@ export default function Shipments() {
             counts[tab.key]++;
           }
         } else {
-          // Warehouse: EN_BODEGA — exclude routes, and CREADO only from warehouse
+          // Warehouse: EN_BODEGA — exclude routes, exclude dest=bodega, CREADO only from warehouse
           if (isBodega && tab.key === "EN_BODEGA") {
             const destName = (s.destinationName || "").toLowerCase();
-            // Exclude route shipments
             if (destName.includes("grecia") || destName.includes("palmares") || destName.includes("san ramon")) continue;
-            // CREADO only if from warehouse
+            if ((s.destinationFranchise as any)?.isWarehouse === 1) continue; // goes to ENTREGA_CLIENTE
             if (s.status === "CREADO" && (s.originFranchise as any)?.isWarehouse !== 1) continue;
             counts[tab.key]++;
+          } else if (isBodega && tab.key === "ENTREGA_CLIENTE") {
+            if ((s.destinationFranchise as any)?.isWarehouse === 1 && s.status === "RECIBIDO_EN_BODEGA") {
+              counts[tab.key]++;
+            }
           } else {
             counts[tab.key]++;
           }
