@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Plus, Trash2, Send, AlertCircle, Package, Copy, Check, User, FileText, Zap } from "lucide-react";
+import { Plus, Trash2, Send, AlertCircle, Package, Copy, Check, User, FileText, Zap, X } from "lucide-react";
 import { useFranchiseAuth } from "@/hooks/useFranchiseAuth";
 
 interface ShipmentItem {
@@ -39,10 +39,15 @@ export default function CreateShipment() {
   ]);
   const [error, setError] = useState("");
   const [successDialog, setSuccessDialog] = useState(false);
+  const [validationDialog, setValidationDialog] = useState<{ open: boolean; missingFields: string[] }>({ open: false, missingFields: [] });
   const [createdTrackingNumber, setCreatedTrackingNumber] = useState("");
   const [copied, setCopied] = useState(false);
+  const [touchedFields, setTouchedFields] = useState<Record<string, boolean>>({});
 
   const { data: franchises } = trpc.franchise.list.useQuery();
+
+  const fieldError = (field: string, value: string) =>
+    touchedFields[field] && !value.trim() ? "border-red-400 focus-visible:ring-red-200" : "";
   const utils = trpc.useUtils();
 
   const createMutation = trpc.shipment.create.useMutation({
@@ -73,33 +78,37 @@ export default function CreateShipment() {
     setItems(items.map((item) => (item.id === id ? { ...item, [field]: value } : item)));
   };
 
+  const markAllTouched = () => {
+    const allTouched: Record<string, boolean> = {};
+    items.forEach((_, i) => {
+      allTouched[`item_${i}`] = true;
+    });
+    setTouchedFields({
+      senderName: true, senderPhone: true, invoiceNumber: true,
+      destinationFranchiseId: true, ...allTouched,
+    });
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    const missing: string[] = [];
 
-    if (!senderName.trim()) {
-      setError("Ingrese el nombre de la persona que envia");
-      return;
-    }
-    if (!senderPhone.trim()) {
-      setError("Ingrese el numero de telefono");
-      return;
-    }
-    if (!invoiceNumber.trim()) {
-      setError("Ingrese el numero de factura");
-      return;
-    }
-    if (!destinationFranchiseId) {
-      setError("Seleccione la franquicia destino");
+    if (!senderName.trim()) missing.push("Nombre del remitente");
+    if (!senderPhone.trim()) missing.push("Telefono");
+    if (!invoiceNumber.trim()) missing.push("Numero de factura");
+    if (!destinationFranchiseId) missing.push("Franquicia de destino");
+
+    const hasValidItem = items.some((item) => item.description.trim() !== "");
+    if (!hasValidItem) missing.push("Descripcion del articulo");
+
+    if (missing.length > 0) {
+      markAllTouched();
+      setValidationDialog({ open: true, missingFields: missing });
       return;
     }
 
     const validItems = items.filter((item) => item.description.trim() !== "");
-    if (validItems.length === 0) {
-      setError("Agregue al menos un articulo con descripcion");
-      return;
-    }
-
     createMutation.mutate({
       invoiceNumber: invoiceNumber.trim(),
       senderName: senderName.trim(),
@@ -179,6 +188,32 @@ export default function CreateShipment() {
           </Alert>
         )}
 
+        {/* Validation Dialog */}
+        <Dialog open={validationDialog.open} onOpenChange={(open) => setValidationDialog((prev) => ({ ...prev, open }))}>
+          <DialogContent className="sm:max-w-md border-red-200">
+            <DialogHeader className="text-center">
+              <div className="w-14 h-14 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-2">
+                <AlertCircle className="w-7 h-7 text-red-500" />
+              </div>
+              <DialogTitle className="text-red-600 text-lg">Faltan datos obligatorios</DialogTitle>
+            </DialogHeader>
+            <div className="py-2">
+              <p className="text-sm text-[#525252] mb-3">Por favor complete los siguientes campos para continuar:</p>
+              <ul className="space-y-2">
+                {validationDialog.missingFields.map((field) => (
+                  <li key={field} className="flex items-center gap-2.5 px-3 py-2 bg-red-50/50 border border-red-100 rounded-lg">
+                    <span className="w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-[10px] font-bold shrink-0">!</span>
+                    <span className="text-sm text-red-700 font-medium">{field}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <Button onClick={() => setValidationDialog({ open: false, missingFields: [] })} className="w-full bg-red-500 hover:bg-red-600">
+              Entendido, completar datos
+            </Button>
+          </DialogContent>
+        </Dialog>
+
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Sender Info */}
           <Card>
@@ -197,7 +232,8 @@ export default function CreateShipment() {
                     placeholder="Ej: Juan Perez"
                     value={senderName}
                     onChange={(e) => setSenderName(e.target.value)}
-                    className="h-11"
+                    onBlur={() => setTouchedFields((p) => ({ ...p, senderName: true }))}
+                    className={`h-11 ${fieldError("senderName", senderName)}`}
                   />
                 </div>
                 <div className="space-y-2">
@@ -208,7 +244,8 @@ export default function CreateShipment() {
                     placeholder="Ej: 8888-8888"
                     value={senderPhone}
                     onChange={(e) => setSenderPhone(e.target.value)}
-                    className="h-11"
+                    onBlur={() => setTouchedFields((p) => ({ ...p, senderPhone: true }))}
+                    className={`h-11 ${fieldError("senderPhone", senderPhone)}`}
                   />
                 </div>
               </div>
@@ -234,7 +271,8 @@ export default function CreateShipment() {
                       placeholder="Ej: FAC-001234"
                       value={invoiceNumber}
                       onChange={(e) => setInvoiceNumber(e.target.value)}
-                      className="h-11 pl-10"
+                      onBlur={() => setTouchedFields((p) => ({ ...p, invoiceNumber: true }))}
+                      className={`h-11 pl-10 ${fieldError("invoiceNumber", invoiceNumber)}`}
                     />
                   </div>
                 </div>
@@ -245,8 +283,8 @@ export default function CreateShipment() {
                       No hay tiendas disponibles para enviar
                     </div>
                   ) : (
-                    <Select value={destinationFranchiseId} onValueChange={setDestinationFranchiseId}>
-                      <SelectTrigger className="h-11">
+                    <Select value={destinationFranchiseId} onValueChange={(val) => { setDestinationFranchiseId(val); setTouchedFields((p) => ({ ...p, destinationFranchiseId: true })); }}>
+                      <SelectTrigger className={`h-11 ${touchedFields["destinationFranchiseId"] && !destinationFranchiseId ? "border-red-400 focus:ring-red-200" : ""}`}>
                         <SelectValue placeholder="Seleccione destino" />
                       </SelectTrigger>
                       <SelectContent>
@@ -314,6 +352,8 @@ export default function CreateShipment() {
                         placeholder="Ej: Zapatos Nike talla 42"
                         value={item.description}
                         onChange={(e) => updateItem(item.id, "description", e.target.value)}
+                        onBlur={() => setTouchedFields((p) => ({ ...p, [`item_${index}`]: true }))}
+                        className={touchedFields[`item_${index}`] && !item.description.trim() ? "border-red-400 focus-visible:ring-red-200" : ""}
                       />
                     </div>
                     <div className="space-y-2">
