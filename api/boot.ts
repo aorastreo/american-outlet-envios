@@ -933,6 +933,7 @@ app.get("/api/debug/track-raw", async (c) => {
       destinationFranchiseId: shipment[0].destinationFranchiseId,
       destinationCode: destFranchise?.code,
       destinationName: destFranchise?.displayName,
+      destinationIsWarehouse: destFranchise?.isWarehouse === 1,
       isPickupRoute,
       pickupCodes,
       status: shipment[0].status,

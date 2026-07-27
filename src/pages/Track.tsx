@@ -105,7 +105,7 @@ export default function Track() {
   }, [shipment]);
 
   const destIsWarehouse = useMemo(() => {
-    return shipment?.destinationFranchise?.isWarehouse === 1;
+    return (shipment as any)?.destinationIsWarehouse === true;
   }, [shipment]);
 
   // Select timeline based on destination type
