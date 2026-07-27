@@ -383,9 +383,9 @@ export const routeRouter = createRouter({
         }
       }
 
-      // Get shipments in warehouse
+      // Get shipments in warehouse: desde tiendas (RECIBIDO_EN_BODEGA), desde bodega (CREADO), o no recogidos
       const allShipments = await db.select().from(shipments)
-  .where(inArray(shipments.status, ["RECIBIDO_EN_BODEGA", "NO_RECOGIDO"]));
+  .where(inArray(shipments.status, ["CREADO", "RECIBIDO_EN_BODEGA", "NO_RECOGIDO"]));
 
       if (allShipments.length === 0) return [];
 
@@ -430,9 +430,10 @@ export const routeRouter = createRouter({
 
       if (pickupIds.length === 0) return [];
 
+      // Envios a puntos de recogida: desde bodega estan en CREADO, desde tiendas en RECIBIDO_EN_BODEGA
       const pending = await db.select().from(shipments)
         .where(and(
-          eq(shipments.status, "RECIBIDO_EN_BODEGA"),
+          inArray(shipments.status, ["CREADO", "RECIBIDO_EN_BODEGA"]),
           inArray(shipments.destinationFranchiseId, pickupIds)
         ));
 
