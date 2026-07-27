@@ -233,6 +233,10 @@ export default function ShipmentDetail() {
   if (currentStepIndex === -1 && shipment.status === "NO_RECOGIDO") {
     currentStepIndex = timelineSteps.findIndex((s) => s.status === "EN_PARADA");
   }
+  // RECIBIDO_EN_BODEGA para envios directos desde bodega: mapear al paso CREADO
+  if (currentStepIndex === -1 && shipment.status === "RECIBIDO_EN_BODEGA" && originIsWarehouse) {
+    currentStepIndex = timelineSteps.findIndex((s) => s.status === "CREADO");
+  }
 
   return (
     <FranchiseLayout>
