@@ -85,6 +85,10 @@ export default function CreateShipment() {
       setError("Ingrese el numero de telefono");
       return;
     }
+    if (!invoiceNumber.trim()) {
+      setError("Ingrese el numero de factura");
+      return;
+    }
     if (!destinationFranchiseId) {
       setError("Seleccione la franquicia destino");
       return;
@@ -97,7 +101,7 @@ export default function CreateShipment() {
     }
 
     createMutation.mutate({
-      invoiceNumber: invoiceNumber.trim() || undefined,
+      invoiceNumber: invoiceNumber.trim(),
       senderName: senderName.trim(),
       senderPhone: senderPhone.trim(),
       destinationFranchiseId: parseInt(destinationFranchiseId),
@@ -222,7 +226,7 @@ export default function CreateShipment() {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="invoice">Numero de Factura (opcional)</Label>
+                  <Label htmlFor="invoice">Numero de Factura *</Label>
                   <div className="relative">
                     <FileText className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#A3A3A3]" />
                     <Input
