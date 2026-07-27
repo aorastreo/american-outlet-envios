@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   ArrowLeft, Truck, Package, CheckCircle, MapPin,
   Send, RotateCcw, User, Phone, Barcode, FileText, ClipboardCheck,
-  Zap, Ban, Printer,
+  Zap, Ban, Printer, MessageCircle,
 } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -270,7 +270,28 @@ export default function ShipmentDetail() {
             <p className="text-xs font-semibold text-[#8A8A8A] uppercase tracking-wider mb-3">Informacion del Cliente</p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="flex items-center gap-2"><User className="w-4 h-4 text-[#C8102E]" /><div><p className="text-xs text-[#8A8A8A]">Remitente</p><p className="font-medium text-[#1A1A1A]">{shipment.senderName}</p></div></div>
-              <div className="flex items-center gap-2"><Phone className="w-4 h-4 text-[#C8102E]" /><div><p className="text-xs text-[#8A8A8A]">Telefono</p><p className="font-medium text-[#1A1A1A]">{shipment.senderPhone}</p></div></div>
+              <div className="flex items-center gap-2">
+                <Phone className="w-4 h-4 text-[#C8102E]" />
+                <div className="flex-1">
+                  <p className="text-xs text-[#8A8A8A]">Telefono</p>
+                  <p className="font-medium text-[#1A1A1A]">{shipment.senderPhone}</p>
+                </div>
+                {shipment.senderPhone && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      const phone = shipment.senderPhone!.replace(/\D/g, "");
+                      const message = `Hola! Soy el encargado de American Outlet. Su pedido *${shipment.trackingNumber}* ya esta disponible para retirar en *${shipment.destinationName}*. Por favor pasar a recogerlo. Gracias!`;
+                      window.open(`https://wa.me/506${phone}?text=${encodeURIComponent(message)}`, "_blank");
+                    }}
+                    className="h-7 px-2 text-xs bg-[#25D366]/10 border-[#25D366]/30 text-[#25D366] hover:bg-[#25D366] hover:text-white"
+                  >
+                    <MessageCircle className="w-3.5 h-3.5 mr-1" />
+                    WhatsApp
+                  </Button>
+                )}
+              </div>
               <div className="flex items-center gap-2"><MapPin className="w-4 h-4 text-[#C8102E]" /><div><p className="text-xs text-[#8A8A8A]">Ubicacion</p><p className="font-medium text-[#1A1A1A]">{shipment.currentLocation?.displayName || "-"}</p></div></div>
             </div>
             {shipment.receiverName && (
