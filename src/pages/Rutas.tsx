@@ -9,7 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Truck, Plus, MapPin, Package, ChevronRight, AlertCircle, Play, CheckCircle, XCircle, ClipboardList, ArrowUp, ArrowDown, Trash2 } from "lucide-react";
+import { Truck, Plus, MapPin, Package, ChevronRight, AlertCircle, Play, CheckCircle, XCircle, ClipboardList, ArrowUp, ArrowDown, Trash2, User, Phone, MessageCircle } from "lucide-react";
 import toast from "react-hot-toast";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -427,31 +427,80 @@ export default function Rutas() {
                     </Button>
                   </div>
 
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     {group.shipments.map((s: any) => (
                       <div
                         key={s.id}
-                        className="flex items-center gap-3 p-2 rounded bg-white border border-[#F0F0F0]"
+                        className="p-4 rounded-lg bg-white border border-[#F0F0F0] hover:border-[#C8102E]/30 hover:shadow-sm transition-all"
                       >
-                        <Checkbox
-                          checked={selectedShipmentIds.includes(s.id)}
-                          onCheckedChange={() => toggleShipment(s.id)}
-                        />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-mono font-bold text-[#C8102E]">{s.trackingNumber}</span>
-                            {s.invoiceNumber && <span className="text-xs text-[#525252]">Fact: #{s.invoiceNumber}</span>}
+                        {/* Header: Tracking + Factura + Checkbox */}
+                        <div className="flex items-center gap-3 mb-3">
+                          <Checkbox
+                            checked={selectedShipmentIds.includes(s.id)}
+                            onCheckedChange={() => toggleShipment(s.id)}
+                            className="border-[#D4D4D4] data-[state=checked]:bg-[#C8102E] data-[state=checked]:border-[#C8102E]"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-sm font-mono font-bold text-[#C8102E]">{s.trackingNumber}</span>
+                              {s.invoiceNumber && (
+                                <span className="inline-block bg-[#C8102E] text-white text-[10px] font-mono font-bold px-2 py-0.5 rounded tracking-wide">
+                                  FACT: {s.invoiceNumber}
+                                </span>
+                              )}
+                            </div>
                           </div>
-                          <div className="flex items-center gap-2 text-xs text-[#525252]">
-                            <span>{s.senderName}</span>
-                            <span className="text-[#8A8A8A]">|</span>
-                            <span>{s.senderPhone}</span>
-                          </div>
-                          <p className="text-xs text-[#8A8A8A] truncate">
-                            {s.items?.map((i: any) => `${i.description} x${i.quantity}`).join(", ")}
-                          </p>
+                          <span className="text-[10px] text-[#8A8A8A] bg-[#F7F7F7] px-2 py-1 rounded shrink-0">
+                            {s.originFranchise?.name || "-"}
+                          </span>
                         </div>
-                        <span className="text-xs text-[#8A8A8A] shrink-0">{s.originFranchise?.name}</span>
+
+                        {/* Client Info */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
+                          <div className="flex items-center gap-2">
+                            <User className="w-3.5 h-3.5 text-[#C8102E]" />
+                            <div>
+                              <p className="text-[10px] text-[#8A8A8A] uppercase">Remitente</p>
+                              <p className="text-sm font-semibold text-[#1A1A1A]">{s.senderName}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Phone className="w-3.5 h-3.5 text-[#C8102E]" />
+                            <div className="flex-1">
+                              <p className="text-[10px] text-[#8A8A8A] uppercase">Telefono</p>
+                              <p className="text-sm font-medium text-[#1A1A1A]">{s.senderPhone}</p>
+                            </div>
+                            {s.senderPhone && (
+                              <a
+                                href={`https://wa.me/506${s.senderPhone.replace(/\D/g, "")}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-[10px] bg-[#25D366]/10 border border-[#25D366]/30 text-[#25D366] hover:bg-[#25D366] hover:text-white px-2 py-1 rounded transition-colors shrink-0"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <MessageCircle className="w-3 h-3" />
+                                WhatsApp
+                              </a>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Items */}
+                        <div className="bg-[#F7F7F7] rounded-lg p-3">
+                          <p className="text-[10px] text-[#8A8A8A] uppercase font-semibold mb-2">
+                            Articulos del Envio ({s.items?.length || 0})
+                          </p>
+                          <div className="space-y-1.5">
+                            {s.items?.map((item: any, idx: number) => (
+                              <div key={idx} className="flex items-center justify-between">
+                                <p className="text-sm text-[#404040]">{item.description}</p>
+                                <span className="text-xs text-[#8A8A8A] bg-white px-2 py-0.5 rounded shrink-0">
+                                  Cant: {item.quantity}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
                       </div>
                     ))}
                   </div>
