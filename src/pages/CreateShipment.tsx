@@ -115,7 +115,23 @@ export default function CreateShipment() {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const resetForm = () => {
+    setSenderName("");
+    setSenderPhone("");
+    setDestinationFranchiseId("");
+    setInvoiceNumber("");
+    setNotes("");
+    setItems([{ id: "1", description: "", quantity: 1, details: "" }]);
+    setError("");
+    setCopied(false);
+  };
+
   const handleCloseDialog = () => {
+    setSuccessDialog(false);
+    resetForm();
+  };
+
+  const handleViewShipments = () => {
     setSuccessDialog(false);
     navigate("/envios");
   };
@@ -326,7 +342,7 @@ export default function CreateShipment() {
         </form>
 
         {/* Success Dialog with Tracking Number */}
-        <Dialog open={successDialog} onOpenChange={setSuccessDialog}>
+        <Dialog open={successDialog} onOpenChange={(open) => { if (!open) handleCloseDialog(); setSuccessDialog(open); }}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle className="text-center text-xl">Envio Creado Exitosamente</DialogTitle>
@@ -362,9 +378,19 @@ export default function CreateShipment() {
                 El cliente puede usar este numero para rastrear su envio desde la pagina principal.
               </p>
             </div>
-            <Button onClick={handleCloseDialog} className="w-full bg-[#C8102E] hover:bg-[#9B0B22]">
-              Ver Mis Envios
-            </Button>
+            <div className="space-y-2">
+              <Button onClick={handleViewShipments} className="w-full bg-[#C8102E] hover:bg-[#9B0B22]">
+                Ver Mis Envios
+              </Button>
+              <Button
+                onClick={handleCloseDialog}
+                variant="outline"
+                className="w-full border-[#D4D4D4] text-[#525252] hover:bg-[#F7F7F7]"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Crear Nuevo Envio
+              </Button>
+            </div>
           </DialogContent>
         </Dialog>
       </div>
