@@ -51,7 +51,7 @@ function isRouteDestination(shipment: any): boolean {
   );
 }
 
-type RouteTab = "EN_BODEGA" | "EN_RUTA" | "ENTREGADOS";
+type RouteTab = "EN_BODEGA" | "EN_RUTA" | "NO_RECOGIDOS" | "ENTREGADOS";
 
 const TABS: { key: RouteTab; label: string; icon: React.ElementType; statuses: string[]; color: string; activeColor: string; activeBg: string; activeBorder: string; badgeColor: string }[] = [
   {
@@ -75,6 +75,17 @@ const TABS: { key: RouteTab; label: string; icon: React.ElementType; statuses: s
     activeBg: "bg-blue-50",
     activeBorder: "border-blue-700",
     badgeColor: "bg-blue-700 text-white",
+  },
+  {
+    key: "NO_RECOGIDOS",
+    label: "No Recogidos",
+    icon: XCircle,
+    statuses: ["NO_RECOGIDO"],
+    color: "text-[#525252]",
+    activeColor: "text-red-700",
+    activeBg: "bg-red-50",
+    activeBorder: "border-red-700",
+    badgeColor: "bg-red-700 text-white",
   },
   {
     key: "ENTREGADOS",
@@ -124,7 +135,6 @@ export default function Rutas() {
     if (!routeShipments) return [];
     const routeOnly = routeShipments.filter(isRouteDestination);
     if (activeTab === "EN_BODEGA") {
-      // In bodega: RECIBIDO_EN_BODEGA (from stores), OR CREADO from warehouse
       return routeOnly.filter(
         (s) =>
           s.status === "RECIBIDO_EN_BODEGA" ||
@@ -134,13 +144,16 @@ export default function Rutas() {
     if (activeTab === "EN_RUTA") {
       return routeOnly.filter((s) => s.status === "EN_RUTA" || s.status === "EN_PARADA");
     }
+    if (activeTab === "NO_RECOGIDOS") {
+      return routeOnly.filter((s) => s.status === "NO_RECOGIDO");
+    }
     // ENTREGADOS
     return routeOnly.filter((s) => s.status === "RECIBIDO_EN_DESTINO");
   }, [routeShipments, activeTab]);
 
   // Count per tab
   const tabCounts = useMemo(() => {
-    if (!routeShipments) return { EN_BODEGA: 0, EN_RUTA: 0, ENTREGADOS: 0 };
+    if (!routeShipments) return { EN_BODEGA: 0, EN_RUTA: 0, NO_RECOGIDOS: 0, ENTREGADOS: 0 };
     const routeOnly = routeShipments.filter(isRouteDestination);
     return {
       EN_BODEGA:
@@ -150,6 +163,7 @@ export default function Rutas() {
             (s.status === "CREADO" && s.originFranchise?.isWarehouse === 1)
         ).length,
       EN_RUTA: routeOnly.filter((s) => s.status === "EN_RUTA" || s.status === "EN_PARADA").length,
+      NO_RECOGIDOS: routeOnly.filter((s) => s.status === "NO_RECOGIDO").length,
       ENTREGADOS: routeOnly.filter((s) => s.status === "RECIBIDO_EN_DESTINO").length,
     };
   }, [routeShipments]);

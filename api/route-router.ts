@@ -439,10 +439,10 @@ export const routeRouter = createRouter({
 
       if (pickupIds.length === 0) return [];
 
-      // Envios a puntos de recogida: desde bodega estan en CREADO, desde tiendas en RECIBIDO_EN_BODEGA
+      // Envios pendientes para ruta: desde bodega (CREADO), desde tiendas (RECIBIDO_EN_BODEGA), o no recogidos (NO_RECOGIDO para reenvio)
       const pending = await db.select().from(shipments)
         .where(and(
-          inArray(shipments.status, ["CREADO", "RECIBIDO_EN_BODEGA"]),
+          inArray(shipments.status, ["CREADO", "RECIBIDO_EN_BODEGA", "NO_RECOGIDO"]),
           inArray(shipments.destinationFranchiseId, pickupIds)
         ));
 
