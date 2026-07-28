@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-  Truck, Plus, MapPin, Package, ChevronRight, AlertCircle, Play, CheckCircle,
+  Truck, Plus, MapPin, Package, ChevronRight, ChevronDown, AlertCircle, Play, CheckCircle,
   XCircle, ClipboardList, ArrowUp, ArrowDown, Trash2, User, Phone,
   MessageCircle, Send, Barcode, FileText, Store, ArrowRight, ClipboardCheck,
 } from "lucide-react";
@@ -117,6 +117,7 @@ export default function Rutas() {
   const [activeTab, setActiveTab] = useState<RouteTab>("EN_BODEGA");
   const [createDialog, setCreateDialog] = useState(false);
   const [pendingDialog, setPendingDialog] = useState(false);
+  const [showCompletedRoutes, setShowCompletedRoutes] = useState(false);
   const [routeName, setRouteName] = useState("");
   const [routeDate, setRouteDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [cities, setCities] = useState<string[]>([]);
@@ -385,6 +386,9 @@ export default function Rutas() {
         {activeTab === "EN_RUTA" && routes && routes.length > 0 && (
           <div className="space-y-2">
             <p className="text-xs font-semibold text-[#8A8A8A] uppercase tracking-wider">Rutas Activas</p>
+            {routes.filter(r => r.status === "EN_RUTA" || r.status === "PLANIFICADA").length === 0 && (
+              <p className="text-sm text-[#8A8A8A] text-center py-4">No hay rutas activas</p>
+            )}
             {routes.filter(r => r.status === "EN_RUTA" || r.status === "PLANIFICADA").map((route) => {
               const rcfg = getStatusConfig(route.status);
               return (
@@ -408,6 +412,49 @@ export default function Rutas() {
                 </Link>
               );
             })}
+
+            {/* ─── Completed Routes (collapsible) ───────────────────── */}
+            {routes.filter(r => r.status === "COMPLETADA").length > 0 && (
+              <div className="mt-4 border-t border-[#F0F0F0] pt-3">
+                <button
+                  onClick={() => setShowCompletedRoutes(!showCompletedRoutes)}
+                  className="flex items-center gap-2 text-sm font-semibold text-[#8A8A8A] hover:text-[#1A1A1A] transition-colors"
+                >
+                  {showCompletedRoutes ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                  Rutas Completadas
+                  <Badge variant="secondary" className="bg-emerald-50 text-[#1B6B3E] text-xs">
+                    {routes.filter(r => r.status === "COMPLETADA").length}
+                  </Badge>
+                </button>
+                {showCompletedRoutes && (
+                  <div className="space-y-2 mt-3">
+                    {routes.filter(r => r.status === "COMPLETADA").map((route) => {
+                      const rcfg = getStatusConfig(route.status);
+                      return (
+                        <Link to={`/rutas/${route.id}`} key={route.id}>
+                          <Card className="hover:shadow-md transition-shadow cursor-pointer border-[#F0F0F0] hover:border-[#C8102E]/20 opacity-75 hover:opacity-100">
+                            <CardContent className="p-3 flex items-center gap-3">
+                              <div className="w-8 h-8 bg-emerald-50 rounded-lg flex items-center justify-center">
+                                <CheckCircle className="w-4 h-4 text-[#1B6B3E]" />
+                              </div>
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-semibold text-[#1A1A1A]">{route.name}</span>
+                                  <Badge variant="secondary" className={rcfg.color}>
+                                    <rcfg.icon className="w-3 h-3 mr-1" />{rcfg.label}
+                                  </Badge>
+                                </div>
+                              </div>
+                              <ChevronRight className="w-5 h-5 text-[#D4D4D4]" />
+                            </CardContent>
+                          </Card>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
