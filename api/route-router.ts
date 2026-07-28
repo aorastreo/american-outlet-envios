@@ -224,20 +224,21 @@ export const routeRouter = createRouter({
         }
       }
 
-      // When route completes (COMPLETADA), mark any remaining ASIGNADO shipments as RECIBIDO_EN_DESTINO
+      // When route completes (COMPLETADA), mark any remaining ASIGNADO shipments as NO_RECOGIDO
+      // (if the driver never marked them, they weren't delivered — assume not collected)
       if (input.status === "COMPLETADA") {
         const allRouteShipments = await db.select().from(routeShipments).where(eq(routeShipments.routeId, input.id));
         for (const rs of allRouteShipments) {
           if (rs.status === "ASIGNADO") {
-            await db.update(routeShipments).set({ status: "ENTREGADO" }).where(eq(routeShipments.id, rs.id));
+            await db.update(routeShipments).set({ status: "NO_RECOGIDO" }).where(eq(routeShipments.id, rs.id));
             await db.insert(shipmentTracking).values({
               shipmentId: rs.shipmentId,
-              status: "RECIBIDO_EN_DESTINO",
+              status: "NO_RECOGIDO",
               locationId: 0,
-              notes: "Entregado en ruta de camion",
+              notes: "No recogido - cliente no paso a retirar el paquete",
               createdBy: ctx.franchiseUser!.id,
             });
-            await db.update(shipments).set({ status: "RECIBIDO_EN_DESTINO" }).where(eq(shipments.id, rs.shipmentId));
+            await db.update(shipments).set({ status: "NO_RECOGIDO" }).where(eq(shipments.id, rs.shipmentId));
           }
           if (rs.status === "NO_RECOGIDO") {
             await db.update(routeShipments).set({ status: "DEVUELTO_A_BODEGA" }).where(eq(routeShipments.id, rs.id));
@@ -637,5 +638,59 @@ export const routeRouter = createRouter({
         originFranchise: franchiseMap.get(s.originFranchiseId),
         destinationFranchise: franchiseMap.get(s.destinationFranchiseId),
       }));
+    }),
+
+  // ─── Fix Stuck EN_PARADA Shipments ─────────────────────────────
+  // Finds shipments stuck in EN_PARADA whose route is already COMPLETADA
+  // and marks them as NO_RECOGIDO so they appear in the "No Recogidos" tab
+  fixStuckEnParada: franchiseAuthedQuery
+    .mutation(async ({ ctx }) => {
+      const db = getDb();
+
+      // Get all completed routes
+      const completedRoutes = await db.select().from(deliveryRoutes)
+        .where(eq(deliveryRoutes.status, "COMPLETADA"));
+
+      if (completedRoutes.length === 0) return { fixed: 0, message: "No rutas completadas" };
+
+      let fixed = 0;
+      for (const route of completedRoutes) {
+        // Get route shipments for this route
+        const rsList = await db.select().from(routeShipments)
+          .where(eq(routeShipments.routeId, route.id));
+
+        for (const rs of rsList) {
+          // Check if shipment is still stuck in EN_PARADA
+          const shipmentData = await db.select().from(shipments)
+            .where(eq(shipments.id, rs.shipmentId))
+            .limit(1);
+
+          if (shipmentData[0]?.status === "EN_PARADA") {
+            // Mark as NO_RECOGIDO
+            await db.update(routeShipments)
+              .set({ status: "NO_RECOGIDO" })
+              .where(eq(routeShipments.id, rs.id));
+
+            await db.insert(shipmentTracking).values({
+              shipmentId: rs.shipmentId,
+              status: "NO_RECOGIDO",
+              locationId: 0,
+              notes: "No recogido - ruta completada, cliente no paso a retirar",
+              createdBy: ctx.franchiseUser!.id,
+            });
+
+            await db.update(shipments)
+              .set({ status: "NO_RECOGIDO" })
+              .where(eq(shipments.id, rs.shipmentId));
+
+            fixed++;
+          }
+        }
+      }
+
+      return {
+        fixed,
+        message: fixed > 0 ? `Corregidos ${fixed} envios atascados en EN_PARADA` : "No hay envios atascados",
+      };
     }),
 });

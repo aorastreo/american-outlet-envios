@@ -130,6 +130,13 @@ export default function Rutas() {
   const { data: pendingByCity } = trpc.route.pendingByPickupPoint.useQuery(undefined, {
     enabled: pendingDialog || createDialog,
   });
+  const fixStuckMutation = trpc.route.fixStuckEnParada.useMutation({
+    onSuccess: (data) => {
+      utils.route.getRouteShipments.invalidate();
+      toast.success(data.message);
+    },
+    onError: (err) => toast.error(err.message),
+  });
 
   // Filter shipments by active tab — defensive: only route shipments + correct status
   const filteredShipments = useMemo(() => {
@@ -146,7 +153,21 @@ export default function Rutas() {
       return routeOnly.filter((s) => s.status === "EN_RUTA" || s.status === "EN_PARADA");
     }
     if (activeTab === "NO_RECOGIDOS") {
-      return routeOnly.filter((s) => s.status === "NO_RECOGIDO");
+      // NO_RECOGIDO + EN_PARADA shipments whose route is completed (stuck)
+      return routeOnly.filter((s) => {
+        if (s.status === "NO_RECOGIDO") return true;
+        if (s.status === "EN_PARADA") {
+          // Check if this shipment is on a completed route
+          const route = routes?.find((r) =>
+            r.status === "COMPLETADA" &&
+            r.stops?.some((stop: any) =>
+              stop.shipments?.some((rs: any) => rs.shipmentId === s.id)
+            )
+          );
+          return !!route;
+        }
+        return false;
+      });
     }
     // ENTREGADOS
     return routeOnly.filter((s) => s.status === "RECIBIDO_EN_DESTINO");
@@ -164,7 +185,19 @@ export default function Rutas() {
             (s.status === "CREADO" && s.originFranchise?.isWarehouse === 1)
         ).length,
       EN_RUTA: routeOnly.filter((s) => s.status === "EN_RUTA" || s.status === "EN_PARADA").length,
-      NO_RECOGIDOS: routeOnly.filter((s) => s.status === "NO_RECOGIDO").length,
+      NO_RECOGIDOS: routeOnly.filter((s) => {
+        if (s.status === "NO_RECOGIDO") return true;
+        if (s.status === "EN_PARADA") {
+          const route = routes?.find((r) =>
+            r.status === "COMPLETADA" &&
+            r.stops?.some((stop: any) =>
+              stop.shipments?.some((rs: any) => rs.shipmentId === s.id)
+            )
+          );
+          return !!route;
+        }
+        return false;
+      }).length,
       ENTREGADOS: routeOnly.filter((s) => s.status === "RECIBIDO_EN_DESTINO").length,
     };
   }, [routeShipments]);
@@ -381,6 +414,38 @@ export default function Rutas() {
             );
           })}
         </div>
+
+        {/* Fix stuck EN_PARADA shipments button */}
+        {routeShipments?.some((s) => {
+          if (s.status !== "EN_PARADA") return false;
+          const route = routes?.find((r) =>
+            r.status === "COMPLETADA" &&
+            r.stops?.some((stop: any) =>
+              stop.shipments?.some((rs: any) => rs.shipmentId === s.id)
+            )
+          );
+          return !!route;
+        }) && (
+          <Card className="border-red-200 bg-red-50">
+            <CardContent className="p-3 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-5 h-5 text-red-600" />
+                <span className="text-sm text-red-700 font-medium">
+                  Hay envios atascados en "En Parada" de rutas completadas
+                </span>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => fixStuckMutation.mutate()}
+                disabled={fixStuckMutation.isPending}
+                className="border-red-300 text-red-700 hover:bg-red-100"
+              >
+                {fixStuckMutation.isPending ? "Corrigiendo..." : "Corregir ahora"}
+              </Button>
+            </CardContent>
+          </Card>
+        )}
 
         {/* ─── Routes list (only for EN_RUTA tab, shows active routes) ── */}
         {activeTab === "EN_RUTA" && routes && routes.length > 0 && (
