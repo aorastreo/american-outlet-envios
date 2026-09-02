@@ -726,7 +726,52 @@ export const shipmentRouter = createRouter({
       return { success: true, count: envios.length };
     }),
 
-  // ─── Recibir en Destino Masiva (tiendas) ──────────────────────
+  // ─── Enviar a Inter-Bodega Masiva ──────────────────────────────
+  // Used when bodega sends packages to another bodega (e.g. Bodega Pavon -> Bodega Cedi)
+  enviarAInterBodegaMasiva: franchiseAuthedQuery
+    .input(z.object({ ids: z.array(z.number()).min(1), warehouseLocation: z.string().optional(), targetBodega: z.string().optional() }))
+    .mutation(async ({ input, ctx }) => {
+      const db = getDb();
+      const franchiseId = ctx.franchiseUser!.franchiseId;
+
+      // Verificar que el usuario sea bodega
+      const userFranchise = await db.select().from(franchises).where(eq(franchises.id, franchiseId)).limit(1);
+      if (userFranchise[0]?.isWarehouse !== 1) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Solo la bodega puede enviar envios a otra bodega" });
+      }
+
+      const envios = await db.select().from(shipments).where(inArray(shipments.id, input.ids));
+      if (envios.length === 0) throw new TRPCError({ code: "NOT_FOUND", message: "No se encontraron envios" });
+
+      // Validar que todos esten en RECIBIDO_EN_BODEGA o CREADO
+      const invalidos = envios.filter((s) => s.status !== "RECIBIDO_EN_BODEGA" && s.status !== "CREADO");
+      if (invalidos.length > 0) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: `${invalidos.length} envio(s) no estan en estado valido para enviar a otra bodega` });
+      }
+
+      const updateSet: any = { status: "ENVIADO_A_BODEGA" };
+      if (input.warehouseLocation) {
+        updateSet.warehouseLocation = input.warehouseLocation;
+      }
+      await db
+        .update(shipments)
+        .set(updateSet)
+        .where(inArray(shipments.id, input.ids));
+
+      for (const envio of envios) {
+        const targetNote = input.targetBodega ? ` hacia ${input.targetBodega}` : "";
+        const locNote = input.warehouseLocation ? ` - Desde: ${input.warehouseLocation}` : "";
+        await db.insert(shipmentTracking).values({
+          shipmentId: envio.id,
+          status: "ENVIADO_A_BODEGA",
+          locationId: franchiseId,
+          notes: `Enviado a otra bodega${targetNote} (${envios.length} envios en lote)${locNote}`,
+          createdBy: ctx.franchiseUser!.id,
+        });
+      }
+
+      return { success: true, count: envios.length };
+    }),
   recibirEnDestinoMasiva: franchiseAuthedQuery
     .input(z.object({ ids: z.array(z.number()).min(1) }))
     .mutation(async ({ input, ctx }) => {

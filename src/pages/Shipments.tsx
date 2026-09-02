@@ -141,7 +141,7 @@ const WAREHOUSE_TABS: TabDef<WarehouseTabKey>[] = [
     label: "En Bodega",
     icon: ClipboardCheck,
     statuses: ["CREADO", "RECIBIDO_EN_BODEGA"],
-    description: "Creados en bodega y recibidos de tiendas para reenvio",
+    description: "Envios listos para enviar a destino o a otra bodega",
     color: "text-[#525252]",
     activeColor: "text-purple-700",
     activeBg: "bg-purple-50",
@@ -262,6 +262,39 @@ export default function Shipments() {
     return name.replace(/AMERICAN OUTLET\s*/i, "").trim() || name;
   }
 
+  // Helper: classify franchise by group (mio, vendedor, route, warehouse)
+  function getFranchiseGroup(name: string | undefined): "mio" | "vendedor" | "route" | "warehouse" | "unknown" {
+    if (!name) return "unknown";
+    const n = name.toLowerCase();
+    if (n.includes("chiles") || n.includes("pavon") || n.includes("santa rosa") || n.includes("ganga")) return "mio";
+    if (n.includes("boca arenal") || n.includes("florencia") || n.includes("fortuna") || n.includes("quesada") || n.includes("puerto viejo")) return "vendedor";
+    if (n.includes("cedi")) return "vendedor";
+    if (n.includes("grecia") || n.includes("palmares") || n.includes("san ramon")) return "route";
+    if (n.includes("bodega") && !n.includes("cedi")) return "warehouse";
+    return "unknown";
+  }
+
+  // Helper: determine if a shipment in bodega needs inter-bodega transfer
+  function needsInterBodega(shipment: any): { needsTransfer: boolean; targetBodega: string } {
+    const originGroup = getFranchiseGroup(shipment.originName);
+    const destGroup = getFranchiseGroup(shipment.destinationName);
+
+    // Same group: direct delivery
+    if (originGroup === destGroup) {
+      return { needsTransfer: false, targetBodega: "" };
+    }
+
+    // Different groups: needs inter-bodega transfer
+    if (originGroup === "mio" && destGroup === "vendedor") {
+      return { needsTransfer: true, targetBodega: "Bodega Cedi" };
+    }
+    if (originGroup === "vendedor" && destGroup === "mio") {
+      return { needsTransfer: true, targetBodega: "Bodega Pavón" };
+    }
+
+    return { needsTransfer: false, targetBodega: "" };
+  }
+
   // Route destinations (Grecia, Palmares, San Ramon) — excluded from normal shipment filters
   const routeCodes = ["grecia", "palmares", "san_ramon"];
   const isRouteFranchise = (f: { code?: string | null; displayName?: string | null }) =>
@@ -379,6 +412,18 @@ export default function Shipments() {
     },
     onError: (error) => {
       toast.error(error.message || "Error al enviar a destino");
+    },
+  });
+
+  // Warehouse: Enviar a otra bodega (inter-bodega)
+  const enviarInterBodegaMutation = trpc.shipment.enviarAInterBodegaMasiva.useMutation({
+    onSuccess: (data) => {
+      toast.success(`${data.count} envio(s) enviado(s) a otra bodega`);
+      utils.shipment.list.invalidate();
+      setSelectedIds([]);
+    },
+    onError: (error) => {
+      toast.error(error.message || "Error al enviar a otra bodega");
     },
   });
 
@@ -586,6 +631,12 @@ export default function Shipments() {
                       📍 {shipment.warehouseLocation}
                     </span>
                   )}
+                  {/* Inter-bodega badge */}
+                  {isBodega && activeTab === "POR_RECIBIR" && (shipment.originFranchise as any)?.isWarehouse === 1 && (
+                    <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">
+                      De otra bodega
+                    </span>
+                  )}
                   <button
                     onClick={(e) => {
                       e.preventDefault();
@@ -680,14 +731,26 @@ export default function Shipments() {
     const seleccionados = filteredShipments.filter((s) => selectedIds.includes(s.id));
     const invalidos = seleccionados.filter((s) => s.status !== "RECIBIDO_EN_BODEGA" && s.status !== "CREADO");
     if (invalidos.length > 0) {
-      toast.error(`${invalidos.length} envio(s) no estan en estado valido para enviar a destino`);
+      toast.error(`${invalidos.length} envio(s) no estan en estado valido para enviar`);
       return;
     }
-    openConfirmDialog(
-      "Confirmar Envio a Destino",
-      `Esta seguro de confirmar el envio a destino de ${selectedIds.length} envio(s) desde ${warehouseLocation}? Esta accion no se puede deshacer.`,
-      () => enviarDestinoMutation.mutate({ ids: selectedIds, warehouseLocation })
-    );
+
+    // Check if any needs inter-bodega transfer
+    const interBodega = seleccionados.length > 0 ? needsInterBodega(seleccionados[0]) : { needsTransfer: false, targetBodega: "" };
+
+    if (interBodega.needsTransfer) {
+      openConfirmDialog(
+        "Confirmar Envio a Otra Bodega",
+        `Esta seguro de enviar ${selectedIds.length} envio(s) desde ${warehouseLocation} hacia ${interBodega.targetBodega}? Esta accion no se puede deshacer.`,
+        () => enviarInterBodegaMutation.mutate({ ids: selectedIds, warehouseLocation, targetBodega: interBodega.targetBodega })
+      );
+    } else {
+      openConfirmDialog(
+        "Confirmar Envio a Destino",
+        `Esta seguro de confirmar el envio a destino de ${selectedIds.length} envio(s) desde ${warehouseLocation}? Esta accion no se puede deshacer.`,
+        () => enviarDestinoMutation.mutate({ ids: selectedIds, warehouseLocation })
+      );
+    }
   };
 
   const recibirEnDestino = () => {
@@ -796,8 +859,13 @@ export default function Shipments() {
       );
     }
 
-    // WAREHOUSE: En Bodega → Enviar a Destino
+    // WAREHOUSE: En Bodega → Enviar a Destino o a Otra Bodega
     if (isBodega && activeTab === "EN_BODEGA") {
+      // Check selected shipments for inter-bodega needs
+      const selectedShipments = filteredShipments.filter((s) => selectedIds.includes(s.id));
+      const interBodega = selectedShipments.length > 0 ? needsInterBodega(selectedShipments[0]) : { needsTransfer: false, targetBodega: "" };
+      const hasInterBodega = selectedShipments.some((s) => needsInterBodega(s).needsTransfer);
+
       return (
         <>
           <div className="flex items-center gap-2">
@@ -811,15 +879,27 @@ export default function Shipments() {
               <option value="Bodega Cedi">Bodega Cedi</option>
             </select>
           </div>
-          <Button
-            onClick={enviarADestino}
-            disabled={enviarDestinoMutation.isPending}
-            variant="outline"
-            className="border-purple-700/20 text-purple-700 hover:bg-purple-50"
-          >
-            <Send className="w-4 h-4 mr-2" />
-            {enviarDestinoMutation.isPending ? "Procesando..." : "Confirmar Envio a Destino"}
-          </Button>
+          {hasInterBodega ? (
+            <Button
+              onClick={enviarADestino}
+              disabled={enviarDestinoMutation.isPending || enviarInterBodegaMutation.isPending}
+              variant="outline"
+              className="border-orange-600/30 text-orange-700 hover:bg-orange-50"
+            >
+              <Truck className="w-4 h-4 mr-2" />
+              {enviarInterBodegaMutation.isPending ? "Procesando..." : `Enviar a ${interBodega.targetBodega}`}
+            </Button>
+          ) : (
+            <Button
+              onClick={enviarADestino}
+              disabled={enviarDestinoMutation.isPending}
+              variant="outline"
+              className="border-purple-700/20 text-purple-700 hover:bg-purple-50"
+            >
+              <Send className="w-4 h-4 mr-2" />
+              {enviarDestinoMutation.isPending ? "Procesando..." : "Enviar a Destino"}
+            </Button>
+          )}
           <Button
             onClick={generateBitacora}
             variant="outline"
