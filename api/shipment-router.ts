@@ -267,6 +267,7 @@ export const shipmentRouter = createRouter({
         newStatus: statusEnum,
         notes: z.string().optional(),
         receiverName: z.string().optional(),
+        warehouseLocation: z.string().optional(),
       })
     )
     .mutation(async ({ input, ctx }) => {
@@ -316,6 +317,12 @@ export const shipmentRouter = createRouter({
         status: input.newStatus,
         currentLocationId: newLocationId,
       };
+      if (input.newStatus === "RECIBIDO_EN_BODEGA" && input.warehouseLocation) {
+        updateData.warehouseLocation = input.warehouseLocation;
+      }
+      if (input.newStatus === "ENVIADO_A_DESTINO" && input.warehouseLocation) {
+        updateData.warehouseLocation = input.warehouseLocation;
+      }
       if (input.newStatus === "RECIBIDO_EN_DESTINO" && input.receiverName?.trim()) {
         updateData.receiverName = input.receiverName.trim();
       }
@@ -630,7 +637,7 @@ export const shipmentRouter = createRouter({
 
   // ─── Recibir en Bodega Masiva ─────────────────────────────────
   recibirEnBodegaMasiva: franchiseAuthedQuery
-    .input(z.object({ ids: z.array(z.number()).min(1) }))
+    .input(z.object({ ids: z.array(z.number()).min(1), warehouseLocation: z.string().optional() }))
     .mutation(async ({ input, ctx }) => {
       const db = getDb();
       const franchiseId = ctx.franchiseUser!.franchiseId;
@@ -650,17 +657,23 @@ export const shipmentRouter = createRouter({
         throw new TRPCError({ code: "BAD_REQUEST", message: `${invalidos.length} envio(s) no estan en estado ENVIADO_A_BODEGA y no pueden ser recibidos` });
       }
 
+      const updateSet: any = { status: "RECIBIDO_EN_BODEGA", currentLocationId: franchiseId };
+      if (input.warehouseLocation) {
+        updateSet.warehouseLocation = input.warehouseLocation;
+      }
+
       await db
         .update(shipments)
-        .set({ status: "RECIBIDO_EN_BODEGA", currentLocationId: franchiseId })
+        .set(updateSet)
         .where(inArray(shipments.id, input.ids));
 
       for (const envio of envios) {
+        const locNote = input.warehouseLocation ? ` - ${input.warehouseLocation}` : "";
         await db.insert(shipmentTracking).values({
           shipmentId: envio.id,
           status: "RECIBIDO_EN_BODEGA",
           locationId: franchiseId,
-          notes: `Recibido en bodega (${envios.length} envios en lote)`,
+          notes: `Recibido en bodega${locNote} (${envios.length} envios en lote)`,
           createdBy: ctx.franchiseUser!.id,
         });
       }
@@ -670,7 +683,7 @@ export const shipmentRouter = createRouter({
 
   // ─── Enviar a Destino Masiva ──────────────────────────────────
   enviarADestinoMasiva: franchiseAuthedQuery
-    .input(z.object({ ids: z.array(z.number()).min(1) }))
+    .input(z.object({ ids: z.array(z.number()).min(1), warehouseLocation: z.string().optional() }))
     .mutation(async ({ input, ctx }) => {
       const db = getDb();
       const franchiseId = ctx.franchiseUser!.franchiseId;
@@ -690,17 +703,22 @@ export const shipmentRouter = createRouter({
         throw new TRPCError({ code: "BAD_REQUEST", message: `${invalidos.length} envio(s) no estan en estado valido para enviar a destino` });
       }
 
+      const updateSet: any = { status: "ENVIADO_A_DESTINO" };
+      if (input.warehouseLocation) {
+        updateSet.warehouseLocation = input.warehouseLocation;
+      }
       await db
         .update(shipments)
-        .set({ status: "ENVIADO_A_DESTINO" })
+        .set(updateSet)
         .where(inArray(shipments.id, input.ids));
 
       for (const envio of envios) {
+        const locNote = input.warehouseLocation ? ` - Desde: ${input.warehouseLocation}` : "";
         await db.insert(shipmentTracking).values({
           shipmentId: envio.id,
           status: "ENVIADO_A_DESTINO",
           locationId: franchiseId,
-          notes: `Enviado a destino (${envios.length} envios en lote) - ${envio.destinationFranchiseId ? `Tienda destino` : ""}`,
+          notes: `Enviado a destino (${envios.length} envios en lote)${locNote}`,
           createdBy: ctx.franchiseUser!.id,
         });
       }

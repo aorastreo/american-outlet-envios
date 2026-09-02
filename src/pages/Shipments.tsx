@@ -239,6 +239,7 @@ export default function Shipments() {
   const { data: allFranchises } = trpc.franchise.list.useQuery();
 
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [warehouseLocation, setWarehouseLocation] = useState<string>("Bodega Pavón");
 
   // Confirmation dialog state
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -580,6 +581,11 @@ export default function Shipments() {
                         : "-"}
                   </p>
                   <p className="text-xs text-[#8A8A8A]">{shipment.currentLocationName}</p>
+                  {shipment.warehouseLocation && (
+                    <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded bg-teal-50 text-teal-700 border border-teal-200">
+                      📍 {shipment.warehouseLocation}
+                    </span>
+                  )}
                   <button
                     onClick={(e) => {
                       e.preventDefault();
@@ -664,8 +670,8 @@ export default function Shipments() {
     }
     openConfirmDialog(
       "Confirmar Recepcion en Bodega",
-      `Esta seguro de confirmar la recepcion de ${selectedIds.length} envio(s) en bodega? Esta accion no se puede deshacer.`,
-      () => recibirBodegaMutation.mutate({ ids: selectedIds })
+      `Esta seguro de confirmar la recepcion de ${selectedIds.length} envio(s) en ${warehouseLocation}? Esta accion no se puede deshacer.`,
+      () => recibirBodegaMutation.mutate({ ids: selectedIds, warehouseLocation })
     );
   };
 
@@ -679,8 +685,8 @@ export default function Shipments() {
     }
     openConfirmDialog(
       "Confirmar Envio a Destino",
-      `Esta seguro de confirmar el envio a destino de ${selectedIds.length} envio(s)? Esta accion no se puede deshacer.`,
-      () => enviarDestinoMutation.mutate({ ids: selectedIds })
+      `Esta seguro de confirmar el envio a destino de ${selectedIds.length} envio(s) desde ${warehouseLocation}? Esta accion no se puede deshacer.`,
+      () => enviarDestinoMutation.mutate({ ids: selectedIds, warehouseLocation })
     );
   };
 
@@ -758,6 +764,17 @@ export default function Shipments() {
     if (isBodega && activeTab === "POR_RECIBIR") {
       return (
         <>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-[#525252]">Ubicacion:</span>
+            <select
+              value={warehouseLocation}
+              onChange={(e) => setWarehouseLocation(e.target.value)}
+              className="h-9 px-2 text-sm border border-[#D4D4D4] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C8102E]/20 focus:border-[#C8102E] text-[#1A1A1A] bg-white"
+            >
+              <option value="Bodega Pavón">Bodega Pavón</option>
+              <option value="Bodega Cedi">Bodega Cedi</option>
+            </select>
+          </div>
           <Button
             onClick={recibirEnBodega}
             disabled={recibirBodegaMutation.isPending}
@@ -783,6 +800,17 @@ export default function Shipments() {
     if (isBodega && activeTab === "EN_BODEGA") {
       return (
         <>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-[#525252]">Ubicacion:</span>
+            <select
+              value={warehouseLocation}
+              onChange={(e) => setWarehouseLocation(e.target.value)}
+              className="h-9 px-2 text-sm border border-[#D4D4D4] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C8102E]/20 focus:border-[#C8102E] text-[#1A1A1A] bg-white"
+            >
+              <option value="Bodega Pavón">Bodega Pavón</option>
+              <option value="Bodega Cedi">Bodega Cedi</option>
+            </select>
+          </div>
           <Button
             onClick={enviarADestino}
             disabled={enviarDestinoMutation.isPending}

@@ -85,6 +85,20 @@ async function initTables() {
       )
     `);
 
+    // Add warehouseLocation column if not exists (for Bodega Pavon vs Bodega Cedi tracking)
+    try {
+      await connection.execute(`
+        ALTER TABLE shipments ADD COLUMN warehouseLocation VARCHAR(50) NULL AFTER currentLocationId
+      `);
+      console.log("[init] Added warehouseLocation column to shipments");
+    } catch (e: any) {
+      if (e.message?.includes("Duplicate column")) {
+        console.log("[init] warehouseLocation column already exists");
+      } else {
+        console.error("[init] ALTER TABLE failed:", e.message);
+      }
+    }
+
     await connection.execute(`
       CREATE TABLE IF NOT EXISTS shipment_items (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -494,6 +508,20 @@ app.get("/api/init-tables", async (c) => {
         updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       )
     `);
+
+    // Add warehouseLocation column if not exists (for Bodega Pavon vs Bodega Cedi tracking)
+    try {
+      await connection.execute(`
+        ALTER TABLE shipments ADD COLUMN warehouseLocation VARCHAR(50) NULL AFTER currentLocationId
+      `);
+      console.log("[init] Added warehouseLocation column to shipments");
+    } catch (e: any) {
+      if (e.message?.includes("Duplicate column")) {
+        console.log("[init] warehouseLocation column already exists");
+      } else {
+        console.error("[init] ALTER TABLE failed:", e.message);
+      }
+    }
 
     await connection.execute(`
       CREATE TABLE IF NOT EXISTS shipment_items (

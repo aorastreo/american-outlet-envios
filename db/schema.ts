@@ -67,6 +67,7 @@ export const shipments = mysqlTable("shipments", {
   originFranchiseId: bigint("originFranchiseId", { mode: "number", unsigned: true }).notNull(),
   destinationFranchiseId: bigint("destinationFranchiseId", { mode: "number", unsigned: true }).notNull(),
   currentLocationId: bigint("currentLocationId", { mode: "number", unsigned: true }).notNull(),
+  warehouseLocation: varchar("warehouseLocation", { length: 50 }),
   status: mysqlEnum("status", [
     "CREADO",
     "ENVIADO_A_BODEGA",
