@@ -147,11 +147,13 @@ export default function ShipmentDetail() {
   });
 
   const handleStatusUpdate = (newStatus: string) => {
+    const whLoc = (shipment as any)?.warehouseLocation;
     updateStatusMutation.mutate({
       id: shipmentId,
       newStatus: newStatus as any,
       notes: actionNotes.trim() || undefined,
       receiverName: newStatus === "RECIBIDO_EN_DESTINO" ? receiverName.trim() || undefined : undefined,
+      warehouseLocation: whLoc,
     });
   };
 
