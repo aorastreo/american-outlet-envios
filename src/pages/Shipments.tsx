@@ -236,15 +236,18 @@ function getStatusConfig(status: string) {
 export default function Shipments() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useFranchiseAuth();
+  const { selectedWarehouse } = useWarehouse();
+
+  const isBodega = user?.franchise?.isWarehouse === 1;
+  // For warehouse users, use the context-selected bodega; for stores, default to Pavon
+  const warehouseLocation = isBodega && selectedWarehouse !== "Todas" ? selectedWarehouse : "Bodega Pavón";
+
   const { data: shipments, isLoading } = trpc.shipment.list.useQuery(
     isBodega && selectedWarehouse !== "Todas" ? { warehouseLocation: selectedWarehouse } : undefined
   );
   const { data: allFranchises } = trpc.franchise.list.useQuery();
 
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
-  const { selectedWarehouse } = useWarehouse();
-  // For warehouse users, use the context-selected bodega; for stores, default to Pavon
-  const warehouseLocation = isBodega && selectedWarehouse !== "Todas" ? selectedWarehouse : "Bodega Pavón";
 
   // Confirmation dialog state
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -256,7 +259,7 @@ export default function Shipments() {
 
   const isWarehouse = user?.franchise?.isWarehouse === 1;
   const isReceivingWarehouse = user?.username === "bodega_sabana";
-  const isBodega = isWarehouse || isReceivingWarehouse;
+  // isBodega ya definido arriba (linea 241)
   const myFranchiseId = user?.franchiseId;
 
   // Helper: clean franchise names (remove "AMERICAN OUTLET" prefix)
