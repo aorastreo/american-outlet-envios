@@ -283,20 +283,30 @@ export default function Shipments() {
   }
 
   // Helper: determine if a shipment in bodega needs inter-bodega transfer
+  // Considers current warehouse location to avoid sending to same bodega again
   function needsInterBodega(shipment: any): { needsTransfer: boolean; targetBodega: string } {
     const originGroup = getFranchiseGroup(shipment.originName);
     const destGroup = getFranchiseGroup(shipment.destinationName);
+    const currentWh = shipment.warehouseLocation as string | undefined;
 
-    // Same group: direct delivery
+    // Same group: direct delivery (e.g., Los Chiles -> Pavon, or Fortuna -> Florencia)
     if (originGroup === destGroup) {
       return { needsTransfer: false, targetBodega: "" };
     }
 
-    // Different groups: needs inter-bodega transfer
+    // Cross-group: Mio -> Vendedor (needs to end at Bodega Cedi)
     if (originGroup === "mio" && destGroup === "vendedor") {
+      if (currentWh === "Bodega Cedi") {
+        return { needsTransfer: false, targetBodega: "" }; // Already at correct bodega
+      }
       return { needsTransfer: true, targetBodega: "Bodega Cedi" };
     }
+
+    // Cross-group: Vendedor -> Mio (needs to end at Bodega Pavon)
     if (originGroup === "vendedor" && destGroup === "mio") {
+      if (currentWh === "Bodega Pavón") {
+        return { needsTransfer: false, targetBodega: "" }; // Already at correct bodega
+      }
       return { needsTransfer: true, targetBodega: "Bodega Pavón" };
     }
 
