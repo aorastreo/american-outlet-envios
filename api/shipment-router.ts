@@ -780,9 +780,11 @@ export const shipmentRouter = createRouter({
         throw new TRPCError({ code: "BAD_REQUEST", message: `${invalidos.length} envio(s) no estan en estado valido para enviar a otra bodega` });
       }
 
+      // Inter-bodega: set warehouseLocation to TARGET bodega (not origin)
+      // so it appears in the destination bodega's "Por Recibir" filter
       const updateSet: any = { status: "ENVIADO_A_BODEGA" };
-      if (input.warehouseLocation) {
-        updateSet.warehouseLocation = input.warehouseLocation;
+      if (input.targetBodega) {
+        updateSet.warehouseLocation = input.targetBodega;
       }
       await db
         .update(shipments)
