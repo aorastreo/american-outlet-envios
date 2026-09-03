@@ -34,47 +34,49 @@ function getStatusConfig(status: string) {
   return configs[status] || { color: "bg-gray-100 text-gray-500", label: status, icon: Package };
 }
 
-// Timeline para envios a TIENDAS NORMALES (sin EN_RUTA ni EN_PARADA)
-const storeTimeline = [
-  { status: "CREADO", label: "Creado" },
-  { status: "ENVIADO_A_BODEGA", label: "Enviado a Bodega" },
-  { status: "RECIBIDO_EN_BODEGA", label: "En Bodega" },
-  { status: "ENVIADO_A_DESTINO", label: "Enviado a Destino" },
-  { status: "RECIBIDO_EN_DESTINO", label: "Entregado" },
-];
-
-// Timeline para envios a PUNTOS DE RECOGIDA (con EN_RUTA y EN_PARADA)
-const pickupTimeline = [
-  { status: "CREADO", label: "Creado" },
-  { status: "ENVIADO_A_BODEGA", label: "Enviado a Bodega" },
-  { status: "RECIBIDO_EN_BODEGA", label: "En Bodega" },
-  { status: "EN_RUTA", label: "En Ruta" },
-  { status: "EN_PARADA", label: "En Parada" },
-  { status: "RECIBIDO_EN_DESTINO", label: "Entregado" },
-];
-
-// Timeline para envio DIRECTO de bodega a PUNTO DE RECOGIDA
-const directPickupTimeline = [
-  { status: "CREADO", label: "Creado" },
-  { status: "ENVIADO_A_DESTINO", label: "Enviado a Destino" },
-  { status: "EN_RUTA", label: "En Ruta" },
-  { status: "EN_PARADA", label: "En Parada" },
-  { status: "RECIBIDO_EN_DESTINO", label: "Entregado" },
-];
-
-// Timeline para envio DIRECTO de bodega a TIENDA
-const directStoreTimeline = [
-  { status: "CREADO", label: "Creado" },
-  { status: "ENVIADO_A_DESTINO", label: "Enviado a Destino" },
-  { status: "RECIBIDO_EN_DESTINO", label: "Entregado" },
-];
-
-// Timeline para envio de TIENDA a BODEGA (destino final es bodega)
-const toWarehouseTimeline = [
-  { status: "CREADO", label: "Creado" },
-  { status: "ENVIADO_A_BODEGA", label: "Enviado a Bodega" },
-  { status: "RECIBIDO_EN_BODEGA", label: "Recibido en Bodega" },
-];
+// Helper: build timeline with specific warehouse names
+function buildStoreTimeline(whLoc?: string | null) {
+  return [
+    { status: "CREADO", label: "Creado" },
+    { status: "ENVIADO_A_BODEGA", label: "Enviado a Bodega" },
+    { status: "RECIBIDO_EN_BODEGA", label: whLoc ? `En ${whLoc}` : "En Bodega" },
+    { status: "ENVIADO_A_DESTINO", label: "Enviado a Destino" },
+    { status: "RECIBIDO_EN_DESTINO", label: "Entregado" },
+  ];
+}
+function buildPickupTimeline(whLoc?: string | null) {
+  return [
+    { status: "CREADO", label: "Creado" },
+    { status: "ENVIADO_A_BODEGA", label: "Enviado a Bodega" },
+    { status: "RECIBIDO_EN_BODEGA", label: whLoc ? `En ${whLoc}` : "En Bodega" },
+    { status: "EN_RUTA", label: "En Ruta" },
+    { status: "EN_PARADA", label: "En Parada" },
+    { status: "RECIBIDO_EN_DESTINO", label: "Entregado" },
+  ];
+}
+function buildDirectPickupTimeline() {
+  return [
+    { status: "CREADO", label: "Creado" },
+    { status: "ENVIADO_A_DESTINO", label: "Enviado a Destino" },
+    { status: "EN_RUTA", label: "En Ruta" },
+    { status: "EN_PARADA", label: "En Parada" },
+    { status: "RECIBIDO_EN_DESTINO", label: "Entregado" },
+  ];
+}
+function buildDirectStoreTimeline() {
+  return [
+    { status: "CREADO", label: "Creado" },
+    { status: "ENVIADO_A_DESTINO", label: "Enviado a Destino" },
+    { status: "RECIBIDO_EN_DESTINO", label: "Entregado" },
+  ];
+}
+function buildToWarehouseTimeline(whLoc?: string | null) {
+  return [
+    { status: "CREADO", label: "Creado" },
+    { status: "ENVIADO_A_BODEGA", label: "Enviado a Bodega" },
+    { status: "RECIBIDO_EN_BODEGA", label: whLoc ? `Recibido en ${whLoc}` : "Recibido en Bodega" },
+  ];
+}
 
 export default function ShipmentDetail() {
   const { id } = useParams<{ id: string }>();
@@ -217,16 +219,17 @@ export default function ShipmentDetail() {
 
   // Choose correct timeline based on destination type
   // isPickup already computed above with fallback to name-based detection
+  const whLoc = (shipment as any).warehouseLocation;
   let timelineSteps;
   if (isPickup) {
     // Route pickup point (Grecia, Palmares, San Ramon)
-    timelineSteps = originIsWarehouse ? directPickupTimeline : pickupTimeline;
+    timelineSteps = originIsWarehouse ? buildDirectPickupTimeline() : buildPickupTimeline(whLoc);
   } else if (destIsWarehouse) {
     // Destination is warehouse (bodega) — simplified 3-step timeline
-    timelineSteps = toWarehouseTimeline;
+    timelineSteps = buildToWarehouseTimeline(whLoc);
   } else {
     // Normal store-to-store
-    timelineSteps = originIsWarehouse ? directStoreTimeline : storeTimeline;
+    timelineSteps = originIsWarehouse ? buildDirectStoreTimeline() : buildStoreTimeline(whLoc);
   }
   let currentStepIndex = timelineSteps.findIndex((s) => s.status === shipment.status);
   // NO_RECOGIDO no esta en el timeline regular; mostrar hasta EN_PARADA como completado
@@ -248,7 +251,16 @@ export default function ShipmentDetail() {
             <div className="flex items-center gap-3 flex-wrap">
               <Barcode className="w-5 h-5 text-[#C8102E]" />
               <h1 className="text-xl font-bold text-[#1A1A1A] font-mono">{shipment.trackingNumber}</h1>
-              {(() => { const cfg = getStatusConfig(shipment.status); return <Badge variant="secondary" className={cfg.color}><cfg.icon className="w-3 h-3 mr-1" />{cfg.label}</Badge>; })()}
+              {(() => {
+                const cfg = getStatusConfig(shipment.status);
+                const whLoc = (shipment as any).warehouseLocation;
+                // Show specific warehouse in label when applicable
+                let label = cfg.label;
+                if ((shipment.status === "RECIBIDO_EN_BODEGA" || shipment.status === "ENVIADO_A_BODEGA") && whLoc) {
+                  label = shipment.status === "RECIBIDO_EN_BODEGA" ? `En ${whLoc}` : `A ${whLoc}`;
+                }
+                return <Badge variant="secondary" className={cfg.color}><cfg.icon className="w-3 h-3 mr-1" />{label}</Badge>;
+              })()}
             </div>
             {shipment.invoiceNumber && <p className="text-sm text-[#8A8A8A] mt-1 flex items-center gap-1"><FileText className="w-3.5 h-3.5" />Factura: #{shipment.invoiceNumber}</p>}
           </div>
@@ -293,7 +305,7 @@ export default function ShipmentDetail() {
           <CardContent className="p-4">
             {/* Info del Cliente */}
             <p className="text-xs font-semibold text-[#8A8A8A] uppercase tracking-wider mb-3">Informacion del Cliente</p>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="flex items-center gap-2"><User className="w-4 h-4 text-[#C8102E]" /><div><p className="text-xs text-[#8A8A8A]">Remitente</p><p className="font-medium text-[#1A1A1A]">{shipment.senderName}</p></div></div>
               <div className="flex items-center gap-2">
                 <Phone className="w-4 h-4 text-[#C8102E]" />
@@ -318,6 +330,9 @@ export default function ShipmentDetail() {
                 )}
               </div>
               <div className="flex items-center gap-2"><MapPin className="w-4 h-4 text-[#C8102E]" /><div><p className="text-xs text-[#8A8A8A]">Ubicacion</p><p className="font-medium text-[#1A1A1A]">{shipment.currentLocation?.displayName || "-"}</p></div></div>
+              {(shipment as any).warehouseLocation && (
+                <div className="flex items-center gap-2"><ClipboardCheck className="w-4 h-4 text-purple-600" /><div><p className="text-xs text-[#8A8A8A]">Bodega</p><p className="font-medium text-purple-700">{(shipment as any).warehouseLocation}</p></div></div>
+              )}
             </div>
             {shipment.receiverName && (
               <div className="mt-3 pt-3 border-t border-[#F0F0F0] flex items-center gap-2">

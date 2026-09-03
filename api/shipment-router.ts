@@ -336,10 +336,20 @@ export const shipmentRouter = createRouter({
 
       await db.update(shipments).set(updateData).where(eq(shipments.id, input.id));
 
+      // Build contextual notes with warehouse location when applicable
+      const bodegaLabel = input.warehouseLocation || "";
       const statusNotes: Record<string, string> = {
-        ENVIADO_A_BODEGA: "Enviado a bodega por tienda de origen",
-        RECIBIDO_EN_BODEGA: "Recibido en bodega",
-        ENVIADO_A_DESTINO: originIsWarehouse ? "Enviado directamente desde bodega a tienda de destino" : "Enviado a tienda de destino desde bodega",
+        ENVIADO_A_BODEGA: bodegaLabel
+          ? `Enviado a ${bodegaLabel} por tienda de origen`
+          : "Enviado a bodega por tienda de origen",
+        RECIBIDO_EN_BODEGA: bodegaLabel
+          ? `Recibido en ${bodegaLabel}`
+          : "Recibido en bodega",
+        ENVIADO_A_DESTINO: bodegaLabel
+          ? `Enviado a destino desde ${bodegaLabel}`
+          : originIsWarehouse
+            ? "Enviado directamente desde bodega a tienda de destino"
+            : "Enviado a tienda de destino desde bodega",
         RECIBIDO_EN_DESTINO: input.receiverName?.trim()
           ? `Recibido por: ${input.receiverName.trim()}`
           : "Recibido en tienda de destino",
