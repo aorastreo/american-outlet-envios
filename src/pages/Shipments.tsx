@@ -3,6 +3,7 @@ import { Link, useSearchParams } from "react-router";
 import FranchiseLayout from "@/components/FranchiseLayout";
 import { trpc } from "@/providers/trpc";
 import { useFranchiseAuth } from "@/hooks/useFranchiseAuth";
+import { useWarehouse } from "@/contexts/WarehouseContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -235,11 +236,15 @@ function getStatusConfig(status: string) {
 export default function Shipments() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useFranchiseAuth();
-  const { data: shipments, isLoading } = trpc.shipment.list.useQuery();
+  const { data: shipments, isLoading } = trpc.shipment.list.useQuery(
+    isBodega && selectedWarehouse !== "Todas" ? { warehouseLocation: selectedWarehouse } : undefined
+  );
   const { data: allFranchises } = trpc.franchise.list.useQuery();
 
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
-  const [warehouseLocation, setWarehouseLocation] = useState<string>("Bodega Pavón");
+  const { selectedWarehouse } = useWarehouse();
+  // For warehouse users, use the context-selected bodega; for stores, default to Pavon
+  const warehouseLocation = isBodega && selectedWarehouse !== "Todas" ? selectedWarehouse : "Bodega Pavón";
 
   // Confirmation dialog state
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -827,16 +832,9 @@ export default function Shipments() {
     if (isBodega && activeTab === "POR_RECIBIR") {
       return (
         <>
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-[#525252]">Ubicacion:</span>
-            <select
-              value={warehouseLocation}
-              onChange={(e) => setWarehouseLocation(e.target.value)}
-              className="h-9 px-2 text-sm border border-[#D4D4D4] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C8102E]/20 focus:border-[#C8102E] text-[#1A1A1A] bg-white"
-            >
-              <option value="Bodega Pavón">Bodega Pavón</option>
-              <option value="Bodega Cedi">Bodega Cedi</option>
-            </select>
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-teal-50 border border-teal-200 rounded-lg">
+            <MapPin className="w-3.5 h-3.5 text-teal-600" />
+            <span className="text-sm font-medium text-teal-700">{warehouseLocation}</span>
           </div>
           <Button
             onClick={recibirEnBodega}
@@ -868,16 +866,9 @@ export default function Shipments() {
 
       return (
         <>
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-[#525252]">Ubicacion:</span>
-            <select
-              value={warehouseLocation}
-              onChange={(e) => setWarehouseLocation(e.target.value)}
-              className="h-9 px-2 text-sm border border-[#D4D4D4] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C8102E]/20 focus:border-[#C8102E] text-[#1A1A1A] bg-white"
-            >
-              <option value="Bodega Pavón">Bodega Pavón</option>
-              <option value="Bodega Cedi">Bodega Cedi</option>
-            </select>
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-teal-50 border border-teal-200 rounded-lg">
+            <MapPin className="w-3.5 h-3.5 text-teal-600" />
+            <span className="text-sm font-medium text-teal-700">{warehouseLocation}</span>
           </div>
           {hasInterBodega ? (
             <Button

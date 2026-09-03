@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { eq, or, desc, sql, inArray } from "drizzle-orm";
+import { eq, or, and, desc, sql, inArray } from "drizzle-orm";
 import { createRouter, publicQuery, franchiseAuthedQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import {
@@ -146,6 +146,7 @@ export const shipmentRouter = createRouter({
       z.object({
         page: z.number().min(1).default(1),
         limit: z.number().min(1).max(100).default(50),
+        warehouseLocation: z.string().optional(),
       }).optional()
     )
     .query(async ({ ctx, input }) => {
@@ -154,6 +155,7 @@ export const shipmentRouter = createRouter({
       const page = input?.page || 1;
       const pageSize = input?.limit || 50;
       const offset = (page - 1) * pageSize;
+      const warehouseFilter = input?.warehouseLocation;
 
       const userFranchise = await db.select().from(franchises).where(eq(franchises.id, franchiseId)).limit(1);
       const isWarehouse = userFranchise[0]?.isWarehouse === 1;
@@ -165,6 +167,10 @@ export const shipmentRouter = createRouter({
       ];
       if (isWarehouse) conditions.push(eq(shipments.status, "ENVIADO_A_BODEGA"));
       conditions.push(sql`${shipments.status} = 'ENVIADO_A_DESTINO' AND ${shipments.destinationFranchiseId} = ${franchiseId}`);
+
+      const whereClause = warehouseFilter && isWarehouse
+        ? and(or(...conditions), eq(shipments.warehouseLocation, warehouseFilter))
+        : or(...conditions);
 
       const result = await db
         .select({
@@ -180,6 +186,7 @@ export const shipmentRouter = createRouter({
           originFranchiseId: shipments.originFranchiseId,
           destinationFranchiseId: shipments.destinationFranchiseId,
           currentLocationId: shipments.currentLocationId,
+          warehouseLocation: shipments.warehouseLocation,
           createdBy: shipments.createdBy,
                    originName: franchises.name,
           destinationName: sql<string>`(SELECT f2.name FROM franchises f2 WHERE f2.id = ${shipments.destinationFranchiseId})`,
@@ -187,7 +194,7 @@ export const shipmentRouter = createRouter({
         })
         .from(shipments)
         .leftJoin(franchises, eq(franchises.id, shipments.originFranchiseId))
-        .where(or(...conditions))
+        .where(whereClause)
         .orderBy(desc(shipments.createdAt))
         .limit(pageSize)
         .offset(offset);
@@ -424,57 +431,71 @@ export const shipmentRouter = createRouter({
     }),
 
   // ─── Stats ─────────────────────────────────────────────────────
-  stats: franchiseAuthedQuery.query(async ({ ctx }) => {
-    const db = getDb();
-    const franchiseId = ctx.franchiseUser!.franchiseId;
-    const userFranchise = await db.select().from(franchises).where(eq(franchises.id, franchiseId)).limit(1);
-    const isWarehouse = userFranchise[0]?.isWarehouse === 1;
+  stats: franchiseAuthedQuery
+    .input(z.object({ warehouseLocation: z.string().optional() }).optional())
+    .query(async ({ ctx, input }) => {
+      const db = getDb();
+      const franchiseId = ctx.franchiseUser!.franchiseId;
+      const warehouseFilter = input?.warehouseLocation;
+      const userFranchise = await db.select().from(franchises).where(eq(franchises.id, franchiseId)).limit(1);
+      const isWarehouse = userFranchise[0]?.isWarehouse === 1;
 
-    const conditions = [
-      eq(shipments.originFranchiseId, franchiseId),
-      eq(shipments.destinationFranchiseId, franchiseId),
-      eq(shipments.currentLocationId, franchiseId),
-    ];
-    if (isWarehouse) conditions.push(eq(shipments.status, "ENVIADO_A_BODEGA"));
-    conditions.push(sql`${shipments.status} = 'ENVIADO_A_DESTINO' AND ${shipments.destinationFranchiseId} = ${franchiseId}`);
+      const conditions = [
+        eq(shipments.originFranchiseId, franchiseId),
+        eq(shipments.destinationFranchiseId, franchiseId),
+        eq(shipments.currentLocationId, franchiseId),
+      ];
+      if (isWarehouse) conditions.push(eq(shipments.status, "ENVIADO_A_BODEGA"));
+      conditions.push(sql`${shipments.status} = 'ENVIADO_A_DESTINO' AND ${shipments.destinationFranchiseId} = ${franchiseId}`);
 
-    const allShipments = await db.select().from(shipments).where(or(...conditions));
-    const pending = allShipments.filter((s) => s.status !== "RECIBIDO_EN_DESTINO" && s.status !== "CANCELADO");
+      const whereClause = warehouseFilter && isWarehouse
+        ? and(or(...conditions), eq(shipments.warehouseLocation, warehouseFilter))
+        : or(...conditions);
 
-    return {
-      total: allShipments.length,
-      pending: pending.length,
-      delivered: allShipments.filter((s) => s.status === "RECIBIDO_EN_DESTINO").length,
-      inTransit: allShipments.filter((s) => s.status === "ENVIADO_A_BODEGA" || s.status === "ENVIADO_A_DESTINO").length,
-      inWarehouse: allShipments.filter((s) => s.status === "RECIBIDO_EN_BODEGA").length,
-      cancelled: allShipments.filter((s) => s.status === "CANCELADO").length,
-    };
-  }),
+      const allShipments = await db.select().from(shipments).where(whereClause);
+      const pending = allShipments.filter((s) => s.status !== "RECIBIDO_EN_DESTINO" && s.status !== "CANCELADO");
+
+      return {
+        total: allShipments.length,
+        pending: pending.length,
+        delivered: allShipments.filter((s) => s.status === "RECIBIDO_EN_DESTINO").length,
+        inTransit: allShipments.filter((s) => s.status === "ENVIADO_A_BODEGA" || s.status === "ENVIADO_A_DESTINO").length,
+        inWarehouse: allShipments.filter((s) => s.status === "RECIBIDO_EN_BODEGA").length,
+        cancelled: allShipments.filter((s) => s.status === "CANCELADO").length,
+      };
+    }),
 
   // ─── Pending count (for sidebar badge) ─────────────────────────
-  pendingCount: franchiseAuthedQuery.query(async ({ ctx }) => {
-    const db = getDb();
-    const franchiseId = ctx.franchiseUser!.franchiseId;
-    const userFranchise = await db.select().from(franchises).where(eq(franchises.id, franchiseId)).limit(1);
-    const isWarehouse = userFranchise[0]?.isWarehouse === 1;
+  pendingCount: franchiseAuthedQuery
+    .input(z.object({ warehouseLocation: z.string().optional() }).optional())
+    .query(async ({ ctx, input }) => {
+      const db = getDb();
+      const franchiseId = ctx.franchiseUser!.franchiseId;
+      const warehouseFilter = input?.warehouseLocation;
+      const userFranchise = await db.select().from(franchises).where(eq(franchises.id, franchiseId)).limit(1);
+      const isWarehouse = userFranchise[0]?.isWarehouse === 1;
 
-    const conditions: any[] = [
-      sql`${shipments.status} = 'ENVIADO_A_DESTINO' AND ${shipments.destinationFranchiseId} = ${franchiseId}`,
-    ];
+      const conditions: any[] = [
+        sql`${shipments.status} = 'ENVIADO_A_DESTINO' AND ${shipments.destinationFranchiseId} = ${franchiseId}`,
+      ];
 
-    if (isWarehouse) {
-      conditions.push(eq(shipments.status, "ENVIADO_A_BODEGA"));
-    } else {
-      conditions.push(sql`${shipments.status} = 'CREADO' AND ${shipments.originFranchiseId} = ${franchiseId}`);
-    }
+      if (isWarehouse) {
+        conditions.push(eq(shipments.status, "ENVIADO_A_BODEGA"));
+      } else {
+        conditions.push(sql`${shipments.status} = 'CREADO' AND ${shipments.originFranchiseId} = ${franchiseId}`);
+      }
 
-    const countResult = await db
-      .select({ count: sql<number>`COUNT(*)` })
-      .from(shipments)
-      .where(or(...conditions));
+      const whereClause = warehouseFilter && isWarehouse
+        ? and(or(...conditions), eq(shipments.warehouseLocation, warehouseFilter))
+        : or(...conditions);
 
-    return countResult[0]?.count || 0;
-  }),
+      const countResult = await db
+        .select({ count: sql<number>`COUNT(*)` })
+        .from(shipments)
+        .where(whereClause);
+
+      return countResult[0]?.count || 0;
+    }),
 
   // ─── Get Boleta (printable receipt for package) ────────────────
   getBoleta: publicQuery
