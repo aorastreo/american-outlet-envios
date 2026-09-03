@@ -64,6 +64,8 @@ export default function FranchiseLayout({
   const location = useLocation();
   const { user, logout, isLoading } = useFranchiseAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { selectedWarehouse, setSelectedWarehouse } = useWarehouse();
+  const isWarehouseUser = user?.franchise?.isWarehouse === 1;
 
   const { data: pendingCount } = trpc.shipment.pendingCount.useQuery(
     isWarehouseUser && selectedWarehouse !== "Todas" ? { warehouseLocation: selectedWarehouse } : undefined,
@@ -74,9 +76,6 @@ export default function FranchiseLayout({
   const ganga = isGanga(user?.username);
   const brandName = ganga ? "Ganga Santa Rosa" : "American Outlet";
   const logoUrl = ganga ? "/logo-ganga.jpg" : "/logo.jpg";
-
-  const { selectedWarehouse, setSelectedWarehouse } = useWarehouse();
-  const isWarehouseUser = user?.franchise?.isWarehouse === 1;
 
   return (
     <div className="flex h-screen bg-[#F7F7F7]">
