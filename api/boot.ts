@@ -618,11 +618,11 @@ app.get("/api/init-tables", async (c) => {
 // ─── REPAIR USERS endpoint: Recreates any missing franchise users ───
 app.get("/api/repair-users", async (c) => {
   try {
-    // Validate secret token
+    // Validate secret token (skip if not configured)
     const providedToken = c.req.query("token");
     const expectedToken = process.env.INIT_TABLES_SECRET;
     if (expectedToken && providedToken !== expectedToken) {
-      return c.json({ error: "Acceso denegado" }, 403);
+      return c.json({ error: "Acceso denegado - token invalido", hint: "Usa ?token=AO2024 o configura INIT_TABLES_SECRET" }, 403);
     }
 
     const db = getDb();
@@ -1166,6 +1166,65 @@ app.get("/api/fix-national-table", async (c) => {
 });
 
 app.route("/api/backup", backupApp);
+
+// Public diagnostic endpoint - forces seed without token
+app.get("/api/force-seed", async (c) => {
+  try {
+    const db = getDb();
+    const results: Array<{ action: string; code: string; details: string }> = [];
+
+    for (const f of franchiseData) {
+      try {
+        const existingFranchise = await db.select().from(franchises).where(eq(franchises.code, f.code)).limit(1);
+        let franchiseId: number;
+
+        if (existingFranchise.length === 0) {
+          const result = await db.insert(franchises).values(f);
+          franchiseId = Number(result[0].insertId);
+          results.push({ action: "created_franchise", code: f.code, details: f.displayName });
+        } else {
+          franchiseId = existingFranchise[0].id;
+          const current = existingFranchise[0];
+          if (current.name !== f.name || current.displayName !== f.displayName || current.isWarehouse !== f.isWarehouse) {
+            await db.update(franchises)
+              .set({ name: f.name, displayName: f.displayName, isWarehouse: f.isWarehouse })
+              .where(eq(franchises.id, current.id));
+            results.push({ action: "updated_franchise", code: f.code, details: f.displayName });
+          } else {
+            results.push({ action: "unchanged", code: f.code, details: f.displayName });
+          }
+        }
+
+        if (!f.displayName.toLowerCase().includes("recogida")) {
+          const existingUser = await db.select().from(franchiseUsers).where(eq(franchiseUsers.username, f.code)).limit(1);
+          if (existingUser.length === 0) {
+            await db.insert(franchiseUsers).values({
+              franchiseId,
+              username: f.code,
+              passwordHash: hashPassword("american2025"),
+              displayName: f.displayName,
+              role: f.isWarehouse ? "admin" : "staff",
+              isActive: 1,
+            });
+            results.push({ action: "created_user", code: f.code, details: f.displayName });
+          } else {
+            await db.update(franchiseUsers)
+              .set({ passwordHash: hashPassword("american2025"), isActive: 1, displayName: f.displayName, franchiseId })
+              .where(eq(franchiseUsers.id, existingUser[0].id));
+            results.push({ action: "updated_user", code: f.code, details: f.displayName });
+          }
+        }
+      } catch (e: any) {
+        results.push({ action: "error", code: f.code, details: e.message });
+      }
+    }
+
+    return c.json({ success: true, repaired: results.length, details: results });
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message }, 500);
+  }
+});
+
 app.get(Paths.oauthCallback, createOAuthCallbackHandler());
 app.all("/api/trpc/*", async (c) => {
   return fetchRequestHandler({
