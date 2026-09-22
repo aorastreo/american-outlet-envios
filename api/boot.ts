@@ -173,7 +173,7 @@ async function runSeed() {
     console.log("[seed] Running database seed...");
     const db = getDb();
 
-    // 1. Create ALL franchises (including pickup points as destinations)
+    // 1. Create/Update ALL franchises (including pickup points as destinations)
     for (const f of franchiseData) {
       const existing = await db
         .select()
@@ -184,11 +184,20 @@ async function runSeed() {
         await db.insert(franchises).values(f);
         console.log(`[seed] Created franchise: ${f.displayName}`);
       } else {
-        console.log(`[seed] Franchise exists: ${f.displayName}`);
+        // Update existing franchise if name or displayName changed
+        const current = existing[0];
+        if (current.name !== f.name || current.displayName !== f.displayName || current.isWarehouse !== f.isWarehouse) {
+          await db.update(franchises)
+            .set({ name: f.name, displayName: f.displayName, isWarehouse: f.isWarehouse })
+            .where(eq(franchises.id, current.id));
+          console.log(`[seed] Updated franchise: ${f.displayName}`);
+        } else {
+          console.log(`[seed] Franchise up to date: ${f.displayName}`);
+        }
       }
     }
 
-    // 2. Create login users ONLY for stores (NOT pickup points)
+    // 2. Create/Update login users ONLY for stores (NOT pickup points)
     for (const f of loginFranchiseData) {
       const existingFranchise = await db.select().from(franchises).where(eq(franchises.code, f.code)).limit(1);
       if (existingFranchise.length === 0) continue;
@@ -206,7 +215,15 @@ async function runSeed() {
         });
         console.log(`[seed] Created user: ${f.displayName} (user: ${f.code} / pass: american2025)`);
       } else {
-        console.log(`[seed] User exists: ${f.code}`);
+        // Update user displayName and franchiseId if changed
+        if (existingUser[0].displayName !== f.displayName || existingUser[0].franchiseId !== franchiseId) {
+          await db.update(franchiseUsers)
+            .set({ displayName: f.displayName, franchiseId, isActive: 1 })
+            .where(eq(franchiseUsers.id, existingUser[0].id));
+          console.log(`[seed] Updated user: ${f.displayName}`);
+        } else {
+          console.log(`[seed] User up to date: ${f.code}`);
+        }
       }
     }
 
@@ -267,38 +284,37 @@ app.post("/api/auth/login", async (c) => {
 
     const db = getDb();
 
-    // ─── AUTO-SEED: Ensure all franchises exist, but only create login users for real stores ───
+    // ─── AUTO-SEED: Ensure all franchises exist and are up to date ───
     console.log("[login] Running auto-seed...");
 
-    // 1. Ensure ALL franchises exist (including pickup points as destinations)
+    // 1. Ensure ALL franchises exist AND are updated (including pickup points as destinations)
     for (const f of franchiseData) {
       try {
         const existingFranchise = await db.select().from(franchises).where(eq(franchises.code, f.code)).limit(1);
         if (existingFranchise.length === 0) {
           await db.insert(franchises).values(f);
           console.log(`[login][seed] Created franchise: ${f.displayName}`);
+        } else {
+          const current = existingFranchise[0];
+          if (current.name !== f.name || current.displayName !== f.displayName || current.isWarehouse !== f.isWarehouse) {
+            await db.update(franchises)
+              .set({ name: f.name, displayName: f.displayName, isWarehouse: f.isWarehouse })
+              .where(eq(franchises.id, current.id));
+            console.log(`[login][seed] Updated franchise: ${f.displayName}`);
+          }
         }
       } catch (e: any) {
-        console.error(`[login][seed] ERROR creating franchise ${f.code}:`, e.message);
+        console.error(`[login][seed] ERROR creating/updating franchise ${f.code}:`, e.message);
       }
     }
 
-    // 2. Ensure login users exist ONLY for stores (NOT pickup points)
+    // 2. Ensure login users exist AND are updated (ONLY for stores, NOT pickup points)
     for (const f of loginFranchiseData) {
       try {
-        // 1. Ensure franchise exists
         const existingFranchise = await db.select().from(franchises).where(eq(franchises.code, f.code)).limit(1);
-        let franchiseId: number;
+        if (existingFranchise.length === 0) continue;
+        const franchiseId = existingFranchise[0].id;
 
-        if (existingFranchise.length === 0) {
-          const result = await db.insert(franchises).values(f);
-          franchiseId = Number(result[0].insertId);
-          console.log(`[login][seed] Created franchise: ${f.displayName} (id=${franchiseId})`);
-        } else {
-          franchiseId = existingFranchise[0].id;
-        }
-
-        // 2. Ensure user exists for this franchise
         const existingUser = await db.select().from(franchiseUsers).where(eq(franchiseUsers.username, f.code)).limit(1);
         if (existingUser.length === 0) {
           await db.insert(franchiseUsers).values({
@@ -310,13 +326,20 @@ app.post("/api/auth/login", async (c) => {
             isActive: 1,
           });
           console.log(`[login][seed] Created user: ${f.code} (franchiseId=${franchiseId})`);
+        } else {
+          if (existingUser[0].displayName !== f.displayName || existingUser[0].franchiseId !== franchiseId) {
+            await db.update(franchiseUsers)
+              .set({ displayName: f.displayName, franchiseId, isActive: 1 })
+              .where(eq(franchiseUsers.id, existingUser[0].id));
+            console.log(`[login][seed] Updated user: ${f.code}`);
+          }
         }
       } catch (e: any) {
         console.error(`[login][seed] ERROR for ${f.code}:`, e.message);
       }
     }
 
-    // 3. Ensure driver user exists
+    // 3. Ensure driver user exists (linked to Bodega Pavon)
     try {
       const bodegaFranchise = await db.select().from(franchises).where(eq(franchises.code, "bodega")).limit(1);
       if (bodegaFranchise.length > 0) {
@@ -605,8 +628,8 @@ app.get("/api/repair-users", async (c) => {
     const db = getDb();
     const results: Array<{ action: string; code: string; details: string }> = [];
 
-    // Repair login users (only for stores, NOT pickup points)
-    for (const f of loginFranchiseData) {
+    // Repair/Update ALL franchises and login users (only for stores, NOT pickup points)
+    for (const f of franchiseData) {
       try {
         const existingFranchise = await db.select().from(franchises).where(eq(franchises.code, f.code)).limit(1);
         let franchiseId: number;
@@ -617,25 +640,34 @@ app.get("/api/repair-users", async (c) => {
           results.push({ action: "created_franchise", code: f.code, details: f.displayName });
         } else {
           franchiseId = existingFranchise[0].id;
+          const current = existingFranchise[0];
+          if (current.name !== f.name || current.displayName !== f.displayName || current.isWarehouse !== f.isWarehouse) {
+            await db.update(franchises)
+              .set({ name: f.name, displayName: f.displayName, isWarehouse: f.isWarehouse })
+              .where(eq(franchises.id, current.id));
+            results.push({ action: "updated_franchise", code: f.code, details: f.displayName });
+          }
         }
 
-        const existingUser = await db.select().from(franchiseUsers).where(eq(franchiseUsers.username, f.code)).limit(1);
-        if (existingUser.length === 0) {
-          await db.insert(franchiseUsers).values({
-            franchiseId,
-            username: f.code,
-            passwordHash: hashPassword("american2025"),
-            displayName: f.displayName,
-            role: f.isWarehouse ? "admin" : "staff",
-            isActive: 1,
-          });
-          results.push({ action: "created_user", code: f.code, details: f.displayName });
-        } else {
-          // Update password to ensure it's correct
-          await db.update(franchiseUsers)
-            .set({ passwordHash: hashPassword("american2025"), isActive: 1 })
-            .where(eq(franchiseUsers.id, existingUser[0].id));
-          results.push({ action: "updated_password", code: f.code, details: f.displayName });
+        // Only create/update user for non-pickup franchises
+        if (!f.displayName.toLowerCase().includes("recogida")) {
+          const existingUser = await db.select().from(franchiseUsers).where(eq(franchiseUsers.username, f.code)).limit(1);
+          if (existingUser.length === 0) {
+            await db.insert(franchiseUsers).values({
+              franchiseId,
+              username: f.code,
+              passwordHash: hashPassword("american2025"),
+              displayName: f.displayName,
+              role: f.isWarehouse ? "admin" : "staff",
+              isActive: 1,
+            });
+            results.push({ action: "created_user", code: f.code, details: f.displayName });
+          } else {
+            await db.update(franchiseUsers)
+              .set({ passwordHash: hashPassword("american2025"), isActive: 1, displayName: f.displayName, franchiseId })
+              .where(eq(franchiseUsers.id, existingUser[0].id));
+            results.push({ action: "updated_user", code: f.code, details: f.displayName });
+          }
         }
       } catch (e: any) {
         results.push({ action: "error", code: f.code, details: e.message });
