@@ -346,9 +346,20 @@ export const shipmentRouter = createRouter({
       if (current.length === 0) throw new TRPCError({ code: "NOT_FOUND", message: "Envio no encontrado" });
 
       const shipment = current[0];
-      const bodegaResult = await db.select().from(franchises).where(eq(franchises.isWarehouse, 1)).limit(1);
-      const bodegaId = bodegaResult[0]?.id;
-      const originIsWarehouse = shipment.originFranchiseId === bodegaId;
+      // Get both warehouses
+      const allWarehouses = await db.select().from(franchises).where(eq(franchises.isWarehouse, 1));
+      const bodegaPavon = allWarehouses.find(w => w.code === "bodega");
+      const bodegaCedi = allWarehouses.find(w => w.code === "bodega_cedi");
+      const warehouseIds = allWarehouses.map(w => w.id);
+      const originIsWarehouse = warehouseIds.includes(shipment.originFranchiseId);
+
+      // Determine target bodega for this shipment
+      let targetBodegaId: number | null = null;
+      if (shipment.warehouseLocation === "Bodega Cedi" && bodegaCedi) {
+        targetBodegaId = bodegaCedi.id;
+      } else if (bodegaPavon) {
+        targetBodegaId = bodegaPavon.id;
+      }
 
       // Validate transitions
       const validTransitions: Record<string, string[]> = originIsWarehouse
@@ -373,8 +384,8 @@ export const shipmentRouter = createRouter({
       }
 
       let newLocationId = shipment.currentLocationId;
-      if (input.newStatus === "ENVIADO_A_BODEGA") newLocationId = bodegaId || shipment.currentLocationId;
-      else if (input.newStatus === "RECIBIDO_EN_BODEGA") newLocationId = bodegaId || shipment.currentLocationId;
+      if (input.newStatus === "ENVIADO_A_BODEGA") newLocationId = targetBodegaId || shipment.currentLocationId;
+      else if (input.newStatus === "RECIBIDO_EN_BODEGA") newLocationId = targetBodegaId || shipment.currentLocationId;
       else if (input.newStatus === "ENVIADO_A_DESTINO") newLocationId = shipment.destinationFranchiseId;
       else if (input.newStatus === "RECIBIDO_EN_DESTINO") newLocationId = shipment.destinationFranchiseId;
 
@@ -686,10 +697,10 @@ export const shipmentRouter = createRouter({
       const db = getDb();
       const franchiseId = ctx.franchiseUser!.franchiseId;
 
-      // Obtener la bodega
-      const bodegaResult = await db.select().from(franchises).where(eq(franchises.isWarehouse, 1)).limit(1);
-      const bodegaId = bodegaResult[0]?.id;
-      if (!bodegaId) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Bodega no configurada" });
+      // Obtener todas las bodegas
+      const bodegaResult = await db.select().from(franchises).where(eq(franchises.isWarehouse, 1));
+      const bodegaPavon = bodegaResult.find(b => b.code === "bodega");
+      const bodegaCedi = bodegaResult.find(b => b.code === "bodega_cedi");
 
       // Obtener todos los envíos solicitados
       const envios = await db.select().from(shipments).where(inArray(shipments.id, input.ids));
@@ -707,19 +718,34 @@ export const shipmentRouter = createRouter({
         });
       }
 
-      // Actualizar todos los envíos: CREADO → ENVIADO_A_BODEGA
-      await db
-        .update(shipments)
-        .set({ status: "ENVIADO_A_BODEGA", currentLocationId: bodegaId })
-        .where(inArray(shipments.id, input.ids));
-
-      // Registrar en el historial de tracking para cada envío
+      // Update each shipment individually to the correct warehouse
       for (const envio of envios) {
+        const targetBodega = envio.warehouseLocation;
+        let targetBodegaId: number | null = null;
+        let targetBodegaName = "bodega";
+
+        if (targetBodega === "Bodega Cedi" && bodegaCedi) {
+          targetBodegaId = bodegaCedi.id;
+          targetBodegaName = bodegaCedi.name;
+        } else if (bodegaPavon) {
+          targetBodegaId = bodegaPavon.id;
+          targetBodegaName = bodegaPavon.name;
+        }
+
+        if (!targetBodegaId) {
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: `Bodega destino no encontrada para ${envio.trackingNumber}` });
+        }
+
+        await db
+          .update(shipments)
+          .set({ status: "ENVIADO_A_BODEGA", currentLocationId: targetBodegaId })
+          .where(eq(shipments.id, envio.id));
+
         await db.insert(shipmentTracking).values({
           shipmentId: envio.id,
           status: "ENVIADO_A_BODEGA",
-          locationId: bodegaId,
-          notes: `Salida masiva confirmada - ${envios.length} envios en camion hacia bodega`,
+          locationId: targetBodegaId,
+          notes: `Salida confirmada - En camion hacia ${targetBodegaName}`,
           createdBy: ctx.franchiseUser!.id,
         });
       }
