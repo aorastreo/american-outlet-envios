@@ -31,7 +31,8 @@ const franchiseData = [
   { name: "Grecia", displayName: "Recogida - Grecia", code: "grecia", isWarehouse: 0 },
   { name: "San Ramon", displayName: "Recogida - San Ramon", code: "san_ramon", isWarehouse: 0 },
   { name: "Palmares", displayName: "Recogida - Palmares", code: "palmares", isWarehouse: 0 },
-  { name: "Bodega", displayName: "American Outlet Bodega", code: "bodega", isWarehouse: 1 },
+  { name: "Bodega Pavon", displayName: "American Outlet Bodega Pavon", code: "bodega", isWarehouse: 1 },
+  { name: "Bodega Cedi", displayName: "American Outlet Bodega Cedi", code: "bodega_cedi", isWarehouse: 1 },
 ];
 
 // Solo franquicias que tienen login (excluye puntos de recogida)

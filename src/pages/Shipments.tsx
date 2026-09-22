@@ -3,7 +3,6 @@ import { Link, useSearchParams } from "react-router";
 import FranchiseLayout from "@/components/FranchiseLayout";
 import { trpc } from "@/providers/trpc";
 import { useFranchiseAuth } from "@/hooks/useFranchiseAuth";
-import { useWarehouse } from "@/contexts/WarehouseContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -236,15 +235,10 @@ function getStatusConfig(status: string) {
 export default function Shipments() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useFranchiseAuth();
-  const { selectedWarehouse } = useWarehouse();
 
   const isBodega = user?.franchise?.isWarehouse === 1;
-  // For warehouse users, use the context-selected bodega; for stores, default to Pavon
-  const warehouseLocation = isBodega && selectedWarehouse !== "Todas" ? selectedWarehouse : "Bodega Pavón";
 
-  const { data: shipments, isLoading } = trpc.shipment.list.useQuery(
-    isBodega && selectedWarehouse !== "Todas" ? { warehouseLocation: selectedWarehouse } : undefined
-  );
+  const { data: shipments, isLoading } = trpc.shipment.list.useQuery();
   const { data: allFranchises } = trpc.franchise.list.useQuery();
 
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
@@ -739,8 +733,8 @@ export default function Shipments() {
     }
     openConfirmDialog(
       "Confirmar Recepcion en Bodega",
-      `Esta seguro de confirmar la recepcion de ${selectedIds.length} envio(s) en ${warehouseLocation}? Esta accion no se puede deshacer.`,
-      () => recibirBodegaMutation.mutate({ ids: selectedIds, warehouseLocation })
+      `Esta seguro de confirmar la recepcion de ${selectedIds.length} envio(s)? Esta accion no se puede deshacer.`,
+      () => recibirBodegaMutation.mutate({ ids: selectedIds })
     );
   };
 
@@ -759,14 +753,14 @@ export default function Shipments() {
     if (interBodega.needsTransfer) {
       openConfirmDialog(
         "Confirmar Envio a Otra Bodega",
-        `Esta seguro de enviar ${selectedIds.length} envio(s) desde ${warehouseLocation} hacia ${interBodega.targetBodega}? Esta accion no se puede deshacer.`,
-        () => enviarInterBodegaMutation.mutate({ ids: selectedIds, warehouseLocation, targetBodega: interBodega.targetBodega })
+        `Esta seguro de enviar ${selectedIds.length} envio(s) hacia ${interBodega.targetBodega}? Esta accion no se puede deshacer.`,
+        () => enviarInterBodegaMutation.mutate({ ids: selectedIds, targetBodega: interBodega.targetBodega })
       );
     } else {
       openConfirmDialog(
         "Confirmar Envio a Destino",
-        `Esta seguro de confirmar el envio a destino de ${selectedIds.length} envio(s) desde ${warehouseLocation}? Esta accion no se puede deshacer.`,
-        () => enviarDestinoMutation.mutate({ ids: selectedIds, warehouseLocation })
+        `Esta seguro de confirmar el envio a destino de ${selectedIds.length} envio(s)? Esta accion no se puede deshacer.`,
+        () => enviarDestinoMutation.mutate({ ids: selectedIds })
       );
     }
   };
@@ -847,7 +841,7 @@ export default function Shipments() {
         <>
           <div className="flex items-center gap-2 px-3 py-1.5 bg-teal-50 border border-teal-200 rounded-lg">
             <MapPin className="w-3.5 h-3.5 text-teal-600" />
-            <span className="text-sm font-medium text-teal-700">{warehouseLocation}</span>
+            <span className="text-sm font-medium text-teal-700">{user?.franchise?.displayName || "Bodega"}</span>
           </div>
           <Button
             onClick={recibirEnBodega}
@@ -881,7 +875,7 @@ export default function Shipments() {
         <>
           <div className="flex items-center gap-2 px-3 py-1.5 bg-teal-50 border border-teal-200 rounded-lg">
             <MapPin className="w-3.5 h-3.5 text-teal-600" />
-            <span className="text-sm font-medium text-teal-700">{warehouseLocation}</span>
+            <span className="text-sm font-medium text-teal-700">{user?.franchise?.displayName || "Bodega"}</span>
           </div>
           {hasInterBodega ? (
             <Button

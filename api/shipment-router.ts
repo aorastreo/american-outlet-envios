@@ -36,6 +36,47 @@ function randomDigit(): string {
 }
 
 
+// ─── Helper: determine target warehouse based on origin/destination ───
+// Returns which warehouse handles this shipment
+// - "Bodega Pavon" for shipments from/to: Los Chiles, Pavon, Santa Rosa, Ganga
+// - "Bodega Cedi" for shipments from/to: Boca Arenal, Florencia, Fortuna, Ciudad Quesada, Puerto Viejo
+// - Cross-group: starts at origin's warehouse, then transfers to destination's warehouse
+function getTargetBodega(originName?: string | null, destName?: string | null): { firstBodega: string; finalBodega: string; needsInterBodega: boolean } {
+  const MY_STORES = ["los chiles", "pavon", "santa rosa", "ganga"];
+  const VENDOR_STORES = ["boca arenal", "florencia", "fortuna", "ciudad quesada", "puerto viejo"];
+
+  const originLower = (originName || "").toLowerCase();
+  const destLower = (destName || "").toLowerCase();
+
+  const originIsMine = MY_STORES.some(s => originLower.includes(s));
+  const originIsVendor = VENDOR_STORES.some(s => originLower.includes(s));
+  const destIsMine = MY_STORES.some(s => destLower.includes(s));
+  const destIsVendor = VENDOR_STORES.some(s => destLower.includes(s));
+
+  // Same group: single bodega
+  if (originIsMine && destIsMine) {
+    return { firstBodega: "Bodega Pavón", finalBodega: "Bodega Pavón", needsInterBodega: false };
+  }
+  if (originIsVendor && destIsVendor) {
+    return { firstBodega: "Bodega Cedi", finalBodega: "Bodega Cedi", needsInterBodega: false };
+  }
+
+  // Cross-group: inter-bodega transfer needed
+  if (originIsMine && destIsVendor) {
+    return { firstBodega: "Bodega Pavón", finalBodega: "Bodega Cedi", needsInterBodega: true };
+  }
+  if (originIsVendor && destIsMine) {
+    return { firstBodega: "Bodega Cedi", finalBodega: "Bodega Pavón", needsInterBodega: true };
+  }
+
+  // Fallback: try to infer from names
+  if (originLower.includes("bodega") || destLower.includes("bodega")) {
+    return { firstBodega: "Bodega Pavón", finalBodega: "Bodega Pavón", needsInterBodega: false };
+  }
+
+  return { firstBodega: "Bodega Pavón", finalBodega: "Bodega Pavón", needsInterBodega: false };
+}
+
 function randomLetter(): string {
   const letters = "ABCDEFGHJKMNPQRSTUVWXYZ"; // excluye I, L, O para evitar confusiones
   return letters.charAt(Math.floor(Math.random() * letters.length));
@@ -100,19 +141,29 @@ export const shipmentRouter = createRouter({
         throw new TRPCError({ code: "BAD_REQUEST", message: "La tienda de origen y destino no pueden ser la misma" });
       }
 
-      const bodegaResult = await db.select().from(franchises).where(eq(franchises.isWarehouse, 1)).limit(1);
-      const bodegaId = bodegaResult[0]?.id;
+      // Get both warehouses
+      const allWarehouses = await db.select().from(franchises).where(eq(franchises.isWarehouse, 1));
+      const bodegaPavon = allWarehouses.find(w => w.code === "bodega");
+      const bodegaCedi = allWarehouses.find(w => w.code === "bodega_cedi");
 
       const userFranchise = await db.select().from(franchises).where(eq(franchises.id, originId)).limit(1);
       const originIsWarehouse = userFranchise[0]?.isWarehouse === 1;
 
-      if (originIsWarehouse && input.destinationFranchiseId === bodegaId) {
+      if (originIsWarehouse && input.destinationFranchiseId === originId) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "La bodega no puede enviar envios a si misma" });
       }
 
-      if (!bodegaId) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Bodega no configurada" });
-      // Check if this is a pickup route (destination is Grecia=5, SanRamon=6, Palmares=7)
-      const isPickup = [5, 6, 7].includes(input.destinationFranchiseId);
+      // Get destination franchise name for bodega assignment
+      const destFranchise = await db.select().from(franchises).where(eq(franchises.id, input.destinationFranchiseId)).limit(1);
+      const destName = destFranchise[0]?.name || "";
+      const originName = userFranchise[0]?.name || "";
+
+      // Determine target bodega
+      const { firstBodega } = getTargetBodega(originName, destName);
+
+      // Check if this is a pickup route (destination is Grecia, SanRamon, Palmares)
+      const pickupCodes = ["grecia", "san_ramon", "palmares"];
+      const isPickup = pickupCodes.includes(destFranchise[0]?.code?.toLowerCase() || "");
       const initialStatus = originIsWarehouse && isPickup ? "RECIBIDO_EN_BODEGA" : "CREADO";
       const trackingNotes = originIsWarehouse && isPickup ? "Envio creado en bodega - listo para ruta de camion" : "Envio creado";
 
@@ -127,6 +178,7 @@ export const shipmentRouter = createRouter({
         destinationFranchiseId: input.destinationFranchiseId,
         currentLocationId: originId,
         status: initialStatus,
+        warehouseLocation: firstBodega,
         notes: input.notes?.trim() || null,
         createdBy: ctx.franchiseUser!.id,
       });
@@ -146,7 +198,6 @@ export const shipmentRouter = createRouter({
       z.object({
         page: z.number().min(1).default(1),
         limit: z.number().min(1).max(100).default(50),
-        warehouseLocation: z.string().optional(),
       }).optional()
     )
     .query(async ({ ctx, input }) => {
@@ -155,22 +206,30 @@ export const shipmentRouter = createRouter({
       const page = input?.page || 1;
       const pageSize = input?.limit || 50;
       const offset = (page - 1) * pageSize;
-      const warehouseFilter = input?.warehouseLocation;
 
       const userFranchise = await db.select().from(franchises).where(eq(franchises.id, franchiseId)).limit(1);
       const isWarehouse = userFranchise[0]?.isWarehouse === 1;
 
-      const conditions = [
-        eq(shipments.originFranchiseId, franchiseId),
-        eq(shipments.destinationFranchiseId, franchiseId),
-        eq(shipments.currentLocationId, franchiseId),
-      ];
-      if (isWarehouse) conditions.push(eq(shipments.status, "ENVIADO_A_BODEGA"));
-      conditions.push(sql`${shipments.status} = 'ENVIADO_A_DESTINO' AND ${shipments.destinationFranchiseId} = ${franchiseId}`);
+      let whereClause;
 
-      const whereClause = warehouseFilter && isWarehouse
-        ? and(or(...conditions), eq(shipments.warehouseLocation, warehouseFilter))
-        : or(...conditions);
+      if (isWarehouse) {
+        // WAREHOUSE USER: only see shipments assigned to this warehouse
+        const myBodegaName = userFranchise[0]?.name || "";
+        const normalizedName = myBodegaName.toLowerCase().includes("cedi") ? "Bodega Cedi" : "Bodega Pavón";
+
+        whereClause = or(
+          eq(shipments.warehouseLocation, normalizedName),
+          sql`${shipments.warehouseLocation} IS NULL`, // legacy shipments (show in both until updated)
+        );
+      } else {
+        // STORE USER: see shipments related to this store
+        whereClause = or(
+          eq(shipments.originFranchiseId, franchiseId),
+          eq(shipments.destinationFranchiseId, franchiseId),
+          eq(shipments.currentLocationId, franchiseId),
+          sql`${shipments.status} = 'ENVIADO_A_DESTINO' AND ${shipments.destinationFranchiseId} = ${franchiseId}`,
+        );
+      }
 
       const result = await db
         .select({
@@ -441,71 +500,73 @@ export const shipmentRouter = createRouter({
     }),
 
   // ─── Stats ─────────────────────────────────────────────────────
-  stats: franchiseAuthedQuery
-    .input(z.object({ warehouseLocation: z.string().optional() }).optional())
-    .query(async ({ ctx, input }) => {
-      const db = getDb();
-      const franchiseId = ctx.franchiseUser!.franchiseId;
-      const warehouseFilter = input?.warehouseLocation;
-      const userFranchise = await db.select().from(franchises).where(eq(franchises.id, franchiseId)).limit(1);
-      const isWarehouse = userFranchise[0]?.isWarehouse === 1;
+  stats: franchiseAuthedQuery.query(async ({ ctx }) => {
+    const db = getDb();
+    const franchiseId = ctx.franchiseUser!.franchiseId;
+    const userFranchise = await db.select().from(franchises).where(eq(franchises.id, franchiseId)).limit(1);
+    const isWarehouse = userFranchise[0]?.isWarehouse === 1;
 
-      const conditions = [
+    let whereClause;
+    if (isWarehouse) {
+      const myBodegaName = userFranchise[0]?.name || "";
+      const normalizedName = myBodegaName.toLowerCase().includes("cedi") ? "Bodega Cedi" : "Bodega Pavón";
+      whereClause = or(
+        eq(shipments.warehouseLocation, normalizedName),
+        sql`${shipments.warehouseLocation} IS NULL`,
+      );
+    } else {
+      whereClause = or(
         eq(shipments.originFranchiseId, franchiseId),
         eq(shipments.destinationFranchiseId, franchiseId),
         eq(shipments.currentLocationId, franchiseId),
-      ];
-      if (isWarehouse) conditions.push(eq(shipments.status, "ENVIADO_A_BODEGA"));
-      conditions.push(sql`${shipments.status} = 'ENVIADO_A_DESTINO' AND ${shipments.destinationFranchiseId} = ${franchiseId}`);
+        sql`${shipments.status} = 'ENVIADO_A_DESTINO' AND ${shipments.destinationFranchiseId} = ${franchiseId}`,
+      );
+    }
 
-      const whereClause = warehouseFilter && isWarehouse
-        ? and(or(...conditions), eq(shipments.warehouseLocation, warehouseFilter))
-        : or(...conditions);
+    const allShipments = await db.select().from(shipments).where(whereClause);
+    const pending = allShipments.filter((s) => s.status !== "RECIBIDO_EN_DESTINO" && s.status !== "CANCELADO");
 
-      const allShipments = await db.select().from(shipments).where(whereClause);
-      const pending = allShipments.filter((s) => s.status !== "RECIBIDO_EN_DESTINO" && s.status !== "CANCELADO");
-
-      return {
-        total: allShipments.length,
-        pending: pending.length,
-        delivered: allShipments.filter((s) => s.status === "RECIBIDO_EN_DESTINO").length,
-        inTransit: allShipments.filter((s) => s.status === "ENVIADO_A_BODEGA" || s.status === "ENVIADO_A_DESTINO").length,
-        inWarehouse: allShipments.filter((s) => s.status === "RECIBIDO_EN_BODEGA").length,
-        cancelled: allShipments.filter((s) => s.status === "CANCELADO").length,
-      };
-    }),
+    return {
+      total: allShipments.length,
+      pending: pending.length,
+      delivered: allShipments.filter((s) => s.status === "RECIBIDO_EN_DESTINO").length,
+      inTransit: allShipments.filter((s) => s.status === "ENVIADO_A_BODEGA" || s.status === "ENVIADO_A_DESTINO").length,
+      inWarehouse: allShipments.filter((s) => s.status === "RECIBIDO_EN_BODEGA").length,
+      cancelled: allShipments.filter((s) => s.status === "CANCELADO").length,
+    };
+  }),
 
   // ─── Pending count (for sidebar badge) ─────────────────────────
-  pendingCount: franchiseAuthedQuery
-    .input(z.object({ warehouseLocation: z.string().optional() }).optional())
-    .query(async ({ ctx, input }) => {
-      const db = getDb();
-      const franchiseId = ctx.franchiseUser!.franchiseId;
-      const warehouseFilter = input?.warehouseLocation;
-      const userFranchise = await db.select().from(franchises).where(eq(franchises.id, franchiseId)).limit(1);
-      const isWarehouse = userFranchise[0]?.isWarehouse === 1;
+  pendingCount: franchiseAuthedQuery.query(async ({ ctx }) => {
+    const db = getDb();
+    const franchiseId = ctx.franchiseUser!.franchiseId;
+    const userFranchise = await db.select().from(franchises).where(eq(franchises.id, franchiseId)).limit(1);
+    const isWarehouse = userFranchise[0]?.isWarehouse === 1;
 
-      const conditions: any[] = [
-        sql`${shipments.status} = 'ENVIADO_A_DESTINO' AND ${shipments.destinationFranchiseId} = ${franchiseId}`,
-      ];
-
-      if (isWarehouse) {
-        conditions.push(eq(shipments.status, "ENVIADO_A_BODEGA"));
-      } else {
-        conditions.push(sql`${shipments.status} = 'CREADO' AND ${shipments.originFranchiseId} = ${franchiseId}`);
-      }
-
-      const whereClause = warehouseFilter && isWarehouse
-        ? and(or(...conditions), eq(shipments.warehouseLocation, warehouseFilter))
-        : or(...conditions);
-
+    if (isWarehouse) {
+      // Warehouse: count ENVIADO_A_BODEGA assigned to this warehouse
+      const myBodegaName = userFranchise[0]?.name || "";
+      const normalizedName = myBodegaName.toLowerCase().includes("cedi") ? "Bodega Cedi" : "Bodega Pavón";
       const countResult = await db
         .select({ count: sql<number>`COUNT(*)` })
         .from(shipments)
-        .where(whereClause);
-
+        .where(and(
+          eq(shipments.status, "ENVIADO_A_BODEGA"),
+          or(eq(shipments.warehouseLocation, normalizedName), sql`${shipments.warehouseLocation} IS NULL`)
+        ));
       return countResult[0]?.count || 0;
-    }),
+    } else {
+      // Store: count CREADO from this store + ENVIADO_A_DESTINO to this store
+      const countResult = await db
+        .select({ count: sql<number>`COUNT(*)` })
+        .from(shipments)
+        .where(or(
+          sql`${shipments.status} = 'CREADO' AND ${shipments.originFranchiseId} = ${franchiseId}`,
+          sql`${shipments.status} = 'ENVIADO_A_DESTINO' AND ${shipments.destinationFranchiseId} = ${franchiseId}`,
+        ));
+      return countResult[0]?.count || 0;
+    }
+  }),
 
   // ─── Get Boleta (printable receipt for package) ────────────────
   getBoleta: publicQuery
@@ -668,7 +729,7 @@ export const shipmentRouter = createRouter({
 
   // ─── Recibir en Bodega Masiva ─────────────────────────────────
   recibirEnBodegaMasiva: franchiseAuthedQuery
-    .input(z.object({ ids: z.array(z.number()).min(1), warehouseLocation: z.string().optional() }))
+    .input(z.object({ ids: z.array(z.number()).min(1) }))
     .mutation(async ({ input, ctx }) => {
       const db = getDb();
       const franchiseId = ctx.franchiseUser!.franchiseId;
@@ -688,23 +749,21 @@ export const shipmentRouter = createRouter({
         throw new TRPCError({ code: "BAD_REQUEST", message: `${invalidos.length} envio(s) no estan en estado ENVIADO_A_BODEGA y no pueden ser recibidos` });
       }
 
-      const updateSet: any = { status: "RECIBIDO_EN_BODEGA", currentLocationId: franchiseId };
-      if (input.warehouseLocation) {
-        updateSet.warehouseLocation = input.warehouseLocation;
-      }
+      // Determine this warehouse's name for tracking
+      const myBodegaName = userFranchise[0]?.name || "";
+      const normalizedName = myBodegaName.toLowerCase().includes("cedi") ? "Bodega Cedi" : "Bodega Pavón";
 
       await db
         .update(shipments)
-        .set(updateSet)
+        .set({ status: "RECIBIDO_EN_BODEGA", currentLocationId: franchiseId, warehouseLocation: normalizedName })
         .where(inArray(shipments.id, input.ids));
 
       for (const envio of envios) {
-        const locNote = input.warehouseLocation ? ` - ${input.warehouseLocation}` : "";
         await db.insert(shipmentTracking).values({
           shipmentId: envio.id,
           status: "RECIBIDO_EN_BODEGA",
           locationId: franchiseId,
-          notes: `Recibido en bodega${locNote} (${envios.length} envios en lote)`,
+          notes: `Recibido en ${normalizedName} (${envios.length} envios en lote)`,
           createdBy: ctx.franchiseUser!.id,
         });
       }
@@ -714,7 +773,7 @@ export const shipmentRouter = createRouter({
 
   // ─── Enviar a Destino Masiva ──────────────────────────────────
   enviarADestinoMasiva: franchiseAuthedQuery
-    .input(z.object({ ids: z.array(z.number()).min(1), warehouseLocation: z.string().optional() }))
+    .input(z.object({ ids: z.array(z.number()).min(1) }))
     .mutation(async ({ input, ctx }) => {
       const db = getDb();
       const franchiseId = ctx.franchiseUser!.franchiseId;
@@ -734,22 +793,21 @@ export const shipmentRouter = createRouter({
         throw new TRPCError({ code: "BAD_REQUEST", message: `${invalidos.length} envio(s) no estan en estado valido para enviar a destino` });
       }
 
-      const updateSet: any = { status: "ENVIADO_A_DESTINO" };
-      if (input.warehouseLocation) {
-        updateSet.warehouseLocation = input.warehouseLocation;
-      }
+      // Determine this warehouse's name for tracking
+      const myBodegaName = userFranchise[0]?.name || "";
+      const normalizedName = myBodegaName.toLowerCase().includes("cedi") ? "Bodega Cedi" : "Bodega Pavón";
+
       await db
         .update(shipments)
-        .set(updateSet)
+        .set({ status: "ENVIADO_A_DESTINO" })
         .where(inArray(shipments.id, input.ids));
 
       for (const envio of envios) {
-        const locNote = input.warehouseLocation ? ` - Desde: ${input.warehouseLocation}` : "";
         await db.insert(shipmentTracking).values({
           shipmentId: envio.id,
           status: "ENVIADO_A_DESTINO",
           locationId: franchiseId,
-          notes: `Enviado a destino (${envios.length} envios en lote)${locNote}`,
+          notes: `Enviado a destino desde ${normalizedName} (${envios.length} envios en lote)`,
           createdBy: ctx.franchiseUser!.id,
         });
       }
@@ -760,7 +818,7 @@ export const shipmentRouter = createRouter({
   // ─── Enviar a Inter-Bodega Masiva ──────────────────────────────
   // Used when bodega sends packages to another bodega (e.g. Bodega Pavon -> Bodega Cedi)
   enviarAInterBodegaMasiva: franchiseAuthedQuery
-    .input(z.object({ ids: z.array(z.number()).min(1), warehouseLocation: z.string().optional(), targetBodega: z.string().optional() }))
+    .input(z.object({ ids: z.array(z.number()).min(1), targetBodega: z.string() }))
     .mutation(async ({ input, ctx }) => {
       const db = getDb();
       const franchiseId = ctx.franchiseUser!.franchiseId;
@@ -780,25 +838,23 @@ export const shipmentRouter = createRouter({
         throw new TRPCError({ code: "BAD_REQUEST", message: `${invalidos.length} envio(s) no estan en estado valido para enviar a otra bodega` });
       }
 
-      // Inter-bodega: set warehouseLocation to TARGET bodega (not origin)
-      // so it appears in the destination bodega's "Por Recibir" filter
-      const updateSet: any = { status: "ENVIADO_A_BODEGA" };
-      if (input.targetBodega) {
-        updateSet.warehouseLocation = input.targetBodega;
-      }
+      // Determine this warehouse's name for tracking
+      const myBodegaName = userFranchise[0]?.name || "";
+      const myName = myBodegaName.toLowerCase().includes("cedi") ? "Bodega Cedi" : "Bodega Pavón";
+
+      // Inter-bodega: set warehouseLocation to TARGET bodega so it appears
+      // in the destination bodega's "Por Recibir" filter
       await db
         .update(shipments)
-        .set(updateSet)
+        .set({ status: "ENVIADO_A_BODEGA", warehouseLocation: input.targetBodega })
         .where(inArray(shipments.id, input.ids));
 
       for (const envio of envios) {
-        const targetNote = input.targetBodega ? ` hacia ${input.targetBodega}` : "";
-        const locNote = input.warehouseLocation ? ` - Desde: ${input.warehouseLocation}` : "";
         await db.insert(shipmentTracking).values({
           shipmentId: envio.id,
           status: "ENVIADO_A_BODEGA",
           locationId: franchiseId,
-          notes: `Enviado a otra bodega${targetNote} (${envios.length} envios en lote)${locNote}`,
+          notes: `Enviado desde ${myName} hacia ${input.targetBodega} (${envios.length} envios en lote)`,
           createdBy: ctx.franchiseUser!.id,
         });
       }

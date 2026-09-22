@@ -1,7 +1,6 @@
 import { Link, useLocation } from "react-router";
 import { useState } from "react";
 import { useFranchiseAuth } from "@/hooks/useFranchiseAuth";
-import { useWarehouse } from "@/contexts/WarehouseContext";
 import { trpc } from "@/providers/trpc";
 import {
   LayoutDashboard,
@@ -13,7 +12,6 @@ import {
   Truck,
   Search,
   Globe,
-  Warehouse,
 } from "lucide-react";
 
 const isGanga = (username: string | undefined) => username === "ganga_santa_rosa";
@@ -64,13 +62,10 @@ export default function FranchiseLayout({
   const location = useLocation();
   const { user, logout, isLoading } = useFranchiseAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { selectedWarehouse, setSelectedWarehouse } = useWarehouse();
-  const isWarehouseUser = user?.franchise?.isWarehouse === 1;
 
-  const { data: pendingCount } = trpc.shipment.pendingCount.useQuery(
-    isWarehouseUser && selectedWarehouse !== "Todas" ? { warehouseLocation: selectedWarehouse } : undefined,
-    { refetchInterval: 30000 }
-  );
+  const { data: pendingCount } = trpc.shipment.pendingCount.useQuery(undefined, {
+    refetchInterval: 30000,
+  });
 
   const showBadge = pendingCount && pendingCount > 0;
   const ganga = isGanga(user?.username);
@@ -133,40 +128,6 @@ export default function FranchiseLayout({
             )}
           </div>
         </div>
-
-        {/* Bodega Selector (solo para usuarios de bodega) */}
-        {isWarehouseUser && (
-          <div className="px-4 py-3 border-b border-white/10">
-            <div className="flex items-center gap-2 mb-2">
-              <Warehouse className="w-3.5 h-3.5 text-amber-400" />
-              <span className="text-[10px] font-semibold text-white/60 uppercase tracking-wider">
-                Bodega Activa
-              </span>
-            </div>
-            <div className="grid grid-cols-3 gap-1">
-              {(["Bodega Pavón", "Bodega Cedi", "Todas"] as const).map((loc) => (
-                <button
-                  key={loc}
-                  onClick={() => setSelectedWarehouse(loc)}
-                  className={`px-2 py-1.5 rounded-md text-[10px] font-medium transition-all text-center ${
-                    selectedWarehouse === loc
-                      ? loc === "Todas"
-                        ? "bg-white/20 text-white ring-1 ring-white/30"
-                        : "bg-[#C8102E] text-white shadow-sm"
-                      : "bg-white/5 text-white/50 hover:bg-white/10 hover:text-white/80"
-                  }`}
-                >
-                  {loc === "Bodega Pavón" ? "Pavón" : loc === "Bodega Cedi" ? "Cedi" : "Todas"}
-                </button>
-              ))}
-            </div>
-            {selectedWarehouse !== "Todas" && (
-              <p className="mt-1.5 text-[10px] text-amber-400/80 text-center">
-                Mostrando solo: {selectedWarehouse}
-              </p>
-            )}
-          </div>
-        )}
 
         {/* Navigation */}
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto">

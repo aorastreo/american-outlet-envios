@@ -4,15 +4,12 @@ import { BrowserRouter } from 'react-router'
 import './index.css'
 import App from './App'
 import { TRPCProvider } from "@/providers/trpc";
-import { WarehouseProvider } from "@/contexts/WarehouseContext";
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
       <TRPCProvider>
-        <WarehouseProvider>
-          <App />
-        </WarehouseProvider>
+        <App />
       </TRPCProvider>
     </BrowserRouter>
   </StrictMode>,
