@@ -250,9 +250,8 @@ export default function Shipments() {
 
   const isBodega = user?.franchise?.isWarehouse === 1;
 
-  const { data: shipments, isLoading } = activeTab === "ENVIADOS"
-    ? trpc.shipment.listSent.useQuery()
-    : trpc.shipment.list.useQuery();
+  const listQuery = trpc.shipment.list.useQuery();
+  const listSentQuery = trpc.shipment.listSent.useQuery();
   const { data: allFranchises } = trpc.franchise.list.useQuery();
 
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
@@ -372,6 +371,10 @@ export default function Shipments() {
       setActiveTab(fallback as ActiveTabKey);
     }
   }, [isBodega, TABS, activeTab, urlTab, defaultTab]);
+
+  // Select which query data to use based on active tab
+  const shipments = activeTab === "ENVIADOS" ? listSentQuery.data : listQuery.data;
+  const isLoading = activeTab === "ENVIADOS" ? listSentQuery.isLoading : listQuery.isLoading;
 
   // Date filter for "Enviados" tab (stores only) — default to today, recalculated fresh on mount
   const [dateFilter, setDateFilter] = useState<string>(() => format(new Date(), "yyyy-MM-dd"));
