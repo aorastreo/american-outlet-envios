@@ -109,7 +109,7 @@ export default function Login() {
             {franchiseName === "ganga_santa_rosa" ? "Ganga Santa Rosa" : "American Outlet"}
           </h1>
           <p className="text-sm text-[#8A8A8A] mt-1">
-            {franchiseName === "ganga_santa_rosa" ? "Acceso para Tienda" : "Acceso para Franquicias"}
+            {franchiseName === "ganga_santa_rosa" ? "Acceso para Tienda" : "Acceso para Franquicias v2"}
           </p>
         </div>
 
