@@ -60,7 +60,31 @@ function buildShipmentTimeline(
       { status: "RECIBIDO_EN_BODEGA", label: `En ${bodega1}`, desc: "Bodega recibio" },
     ];
   }
+  // Direct from warehouse to destination (or inter-bodega from warehouse)
   if (originIsWarehouse) {
+    // Inter-bodega: bodega origen -> otra bodega -> destino
+    if (hasInterBodega) {
+      const steps = [
+        { status: "CREADO", label: "Creado", desc: "Envio registrado" },
+        { status: "ENVIADO_A_BODEGA", label: `Enviado a ${bodega2}`, desc: "Bodega envia a bodega" },
+        { status: "RECIBIDO_EN_BODEGA", label: `En ${bodega2}`, desc: "Bodega recibio" },
+      ];
+      if (isPickup) {
+        steps.push(
+          { status: "EN_RUTA", label: "En Ruta", desc: "Asignado a camion" },
+          { status: "EN_PARADA", label: "En Parada", desc: "Camion en punto" },
+          { status: "RECIBIDO_EN_DESTINO", label: "Entregado", desc: "Cliente recibio" }
+        );
+      } else {
+        steps.push(
+          { status: "ENVIADO_A_DESTINO", label: "Enviado a Destino", desc: "Bodega envia a tienda" },
+          { status: "RECIBIDO_EN_DESTINO", label: "Entregado", desc: "Tienda recibio" }
+        );
+      }
+      return steps;
+    }
+
+    // Direct from warehouse to destination (same group)
     if (isPickup) {
       return [
         { status: "CREADO", label: "Creado", desc: "Envio registrado" },

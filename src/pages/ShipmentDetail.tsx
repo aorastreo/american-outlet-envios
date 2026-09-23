@@ -75,8 +75,31 @@ function buildShipmentTimeline(
     ];
   }
 
-  // Direct from warehouse to destination
+  // Direct from warehouse to destination (or inter-bodega from warehouse)
   if (originIsWarehouse) {
+    // Inter-bodega: bodega origen -> otra bodega -> destino
+    if (hasInterBodega) {
+      const steps = [
+        { status: "CREADO", label: "Creado", desc: "Envio registrado" },
+        { status: "ENVIADO_A_BODEGA", label: `Enviado a ${bodega2}`, desc: "Bodega envia a bodega" },
+        { status: "RECIBIDO_EN_BODEGA", label: `En ${bodega2}`, desc: "Bodega recibio" },
+      ];
+      if (isPickup) {
+        steps.push(
+          { status: "EN_RUTA", label: "En Ruta", desc: "Asignado a camion" },
+          { status: "EN_PARADA", label: "En Parada", desc: "Camion en punto" },
+          { status: "RECIBIDO_EN_DESTINO", label: "Entregado", desc: "Cliente recibio" }
+        );
+      } else {
+        steps.push(
+          { status: "ENVIADO_A_DESTINO", label: "Enviado a Destino", desc: "Bodega envia a tienda" },
+          { status: "RECIBIDO_EN_DESTINO", label: "Entregado", desc: "Tienda recibio" }
+        );
+      }
+      return steps;
+    }
+
+    // Direct from warehouse to destination (same group)
     if (isPickup) {
       return [
         { status: "CREADO", label: "Creado", desc: "Envio registrado" },
@@ -282,10 +305,7 @@ export default function ShipmentDetail() {
   if (currentStepIndex === -1 && shipment.status === "NO_RECOGIDO") {
     currentStepIndex = timelineSteps.findIndex((s) => s.status === "EN_PARADA");
   }
-  // RECIBIDO_EN_BODEGA para envios directos desde bodega: mapear al paso CREADO
-  if (currentStepIndex === -1 && shipment.status === "RECIBIDO_EN_BODEGA" && originIsWarehouse) {
-    currentStepIndex = timelineSteps.findIndex((s) => s.status === "CREADO");
-  }
+
 
   return (
     <FranchiseLayout>
