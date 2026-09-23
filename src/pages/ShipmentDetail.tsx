@@ -34,48 +34,97 @@ function getStatusConfig(status: string) {
   return configs[status] || { color: "bg-gray-100 text-gray-500", label: status, icon: Package };
 }
 
-// Helper: build timeline with specific warehouse names
-function buildStoreTimeline(whLoc?: string | null) {
-  return [
-    { status: "CREADO", label: "Creado" },
-    { status: "ENVIADO_A_BODEGA", label: "Enviado a Bodega" },
-    { status: "RECIBIDO_EN_BODEGA", label: whLoc ? `En ${whLoc}` : "En Bodega" },
-    { status: "ENVIADO_A_DESTINO", label: "Enviado a Destino" },
-    { status: "RECIBIDO_EN_DESTINO", label: "Entregado" },
-  ];
+// Helper: extract bodega names from tracking history
+function extractBodegaNames(trackingHistory: any[]) {
+  let firstBodega = "";
+  let secondBodega = "";
+  
+  for (const t of trackingHistory) {
+    if (t.status === "RECIBIDO_EN_BODEGA" && !firstBodega && t.notes) {
+      const match = t.notes.match(/Recibido en (Bodega\s+\w+)/i);
+      if (match) firstBodega = match[1];
+    }
+    if (t.status === "ENVIADO_A_BODEGA" && firstBodega && t.notes) {
+      const match = t.notes.match(/hacia\s+(Bodega\s+\w+)/i);
+      if (match && match[1] !== firstBodega) secondBodega = match[1];
+    }
+  }
+  
+  return { firstBodega, secondBodega };
 }
-function buildPickupTimeline(whLoc?: string | null) {
-  return [
-    { status: "CREADO", label: "Creado" },
-    { status: "ENVIADO_A_BODEGA", label: "Enviado a Bodega" },
-    { status: "RECIBIDO_EN_BODEGA", label: whLoc ? `En ${whLoc}` : "En Bodega" },
-    { status: "EN_RUTA", label: "En Ruta" },
-    { status: "EN_PARADA", label: "En Parada" },
-    { status: "RECIBIDO_EN_DESTINO", label: "Entregado" },
+
+// Helper: build a clean timeline with specific bodega names
+function buildShipmentTimeline(
+  isPickup: boolean,
+  originIsWarehouse: boolean,
+  destIsWarehouse: boolean,
+  trackingHistory: any[],
+  whLoc?: string | null
+) {
+  const { firstBodega, secondBodega } = extractBodegaNames(trackingHistory);
+  const bodega1 = firstBodega || whLoc || "Bodega";
+  const bodega2 = secondBodega || whLoc || "Bodega";
+  const hasInterBodega = !!secondBodega;
+
+  // Destination is warehouse (envio a bodega)
+  if (destIsWarehouse) {
+    return [
+      { status: "CREADO", label: "Creado", desc: "Envio registrado" },
+      { status: "ENVIADO_A_BODEGA", label: `Enviado a ${bodega1}`, desc: "Tienda envia a bodega" },
+      { status: "RECIBIDO_EN_BODEGA", label: `En ${bodega1}`, desc: "Bodega recibio" },
+    ];
+  }
+
+  // Direct from warehouse to destination
+  if (originIsWarehouse) {
+    if (isPickup) {
+      return [
+        { status: "CREADO", label: "Creado", desc: "Envio registrado" },
+        { status: "ENVIADO_A_DESTINO", label: "Enviado a Destino", desc: "Bodega envia directo" },
+        { status: "EN_RUTA", label: "En Ruta", desc: "Asignado a camion" },
+        { status: "EN_PARADA", label: "En Parada", desc: "Camion en punto" },
+        { status: "RECIBIDO_EN_DESTINO", label: "Entregado", desc: "Cliente recibio" },
+      ];
+    }
+    return [
+      { status: "CREADO", label: "Creado", desc: "Envio registrado" },
+      { status: "ENVIADO_A_DESTINO", label: "Enviado a Destino", desc: "Bodega envia a tienda" },
+      { status: "RECIBIDO_EN_DESTINO", label: "Entregado", desc: "Tienda recibio" },
+    ];
+  }
+
+  // Normal store-to-store with possible inter-bodega
+  if (isPickup) {
+    const steps = [
+      { status: "CREADO", label: "Creado", desc: "Envio registrado" },
+      { status: "ENVIADO_A_BODEGA", label: `Enviado a ${bodega1}`, desc: "Tienda envia a bodega" },
+      { status: "RECIBIDO_EN_BODEGA", label: `En ${bodega1}`, desc: "Bodega recibio" },
+    ];
+    if (hasInterBodega) {
+      steps.push({ status: "ENVIADO_A_BODEGA", label: `Enviado a ${bodega2}`, desc: "Bodega envia a bodega" });
+    }
+    steps.push(
+      { status: "EN_RUTA", label: "En Ruta", desc: "Asignado a camion" },
+      { status: "EN_PARADA", label: "En Parada", desc: "Camion en punto" },
+      { status: "RECIBIDO_EN_DESTINO", label: "Entregado", desc: "Cliente recibio" }
+    );
+    return steps;
+  }
+
+  // Regular store-to-store
+  const steps = [
+    { status: "CREADO", label: "Creado", desc: "Envio registrado" },
+    { status: "ENVIADO_A_BODEGA", label: `Enviado a ${bodega1}`, desc: "Tienda envia a bodega" },
+    { status: "RECIBIDO_EN_BODEGA", label: `En ${bodega1}`, desc: "Bodega recibio" },
   ];
-}
-function buildDirectPickupTimeline() {
-  return [
-    { status: "CREADO", label: "Creado" },
-    { status: "ENVIADO_A_DESTINO", label: "Enviado a Destino" },
-    { status: "EN_RUTA", label: "En Ruta" },
-    { status: "EN_PARADA", label: "En Parada" },
-    { status: "RECIBIDO_EN_DESTINO", label: "Entregado" },
-  ];
-}
-function buildDirectStoreTimeline() {
-  return [
-    { status: "CREADO", label: "Creado" },
-    { status: "ENVIADO_A_DESTINO", label: "Enviado a Destino" },
-    { status: "RECIBIDO_EN_DESTINO", label: "Entregado" },
-  ];
-}
-function buildToWarehouseTimeline(whLoc?: string | null) {
-  return [
-    { status: "CREADO", label: "Creado" },
-    { status: "ENVIADO_A_BODEGA", label: "Enviado a Bodega" },
-    { status: "RECIBIDO_EN_BODEGA", label: whLoc ? `Recibido en ${whLoc}` : "Recibido en Bodega" },
-  ];
+  if (hasInterBodega) {
+    steps.push({ status: "ENVIADO_A_BODEGA", label: `Enviado a ${bodega2}`, desc: "Bodega envia a bodega" });
+  }
+  steps.push(
+    { status: "ENVIADO_A_DESTINO", label: "Enviado a Destino", desc: "Bodega envia a tienda" },
+    { status: "RECIBIDO_EN_DESTINO", label: "Entregado", desc: "Tienda recibio" }
+  );
+  return steps;
 }
 
 export default function ShipmentDetail() {
@@ -217,45 +266,13 @@ export default function ShipmentDetail() {
   // Detect if destination is a warehouse (bodega) — NOT a route pickup point
   const destIsWarehouse = (shipment.destinationFranchise as any)?.isWarehouse === 1;
 
-  // Detect inter-bodega: already received in warehouse before, now sent again
+  // Build clean timeline with specific bodega names
   const trackingHistory = shipment.tracking || [];
-  const wasReceivedInBodega = trackingHistory.some((t: any) => t.status === "RECIBIDO_EN_BODEGA");
-  const isInterBodegaTransit = wasReceivedInBodega && shipment.status === "ENVIADO_A_BODEGA";
-
-  // Choose correct timeline based on destination type
-  // isPickup already computed above with fallback to name-based detection
   const whLoc = (shipment as any).warehouseLocation;
-  let timelineSteps;
-  if (isPickup) {
-    // Route pickup point (Grecia, Palmares, San Ramon)
-    timelineSteps = originIsWarehouse ? buildDirectPickupTimeline() : buildPickupTimeline(whLoc);
-  } else if (destIsWarehouse) {
-    // Destination is warehouse (bodega) — simplified 3-step timeline
-    timelineSteps = buildToWarehouseTimeline(whLoc);
-  } else {
-    // Normal store-to-store
-    timelineSteps = originIsWarehouse ? buildDirectStoreTimeline() : buildStoreTimeline(whLoc);
-  }
+  const timelineSteps = buildShipmentTimeline(isPickup, originIsWarehouse, destIsWarehouse, trackingHistory, whLoc);
 
-  // For inter-bodega shipments, insert an extra step in the timeline
-  if (wasReceivedInBodega && !destIsWarehouse && !isPickup) {
-    const recibidoIndex = timelineSteps.findIndex((s) => s.status === "RECIBIDO_EN_BODEGA");
-    if (recibidoIndex >= 0) {
-      const interBodegaLabel = whLoc ? `En camino a ${whLoc}` : "En camino a otra bodega";
-      timelineSteps.splice(recibidoIndex + 1, 0, {
-        status: "ENVIADO_A_BODEGA",
-        label: interBodegaLabel,
-      });
-    }
-  }
-
-  // For inter-bodega, find from the end to get the inserted step instead of the first one
-  let currentStepIndex: number;
-  if (isInterBodegaTransit) {
-    currentStepIndex = timelineSteps.length - 1 - [...timelineSteps].reverse().findIndex((s) => s.status === shipment.status);
-  } else {
-    currentStepIndex = timelineSteps.findIndex((s) => s.status === shipment.status);
-  }
+  // Find current step index
+  let currentStepIndex = timelineSteps.findIndex((s) => s.status === shipment.status);
   // NO_RECOGIDO no esta en el timeline regular; mostrar hasta EN_PARADA como completado
   if (currentStepIndex === -1 && shipment.status === "NO_RECOGIDO") {
     currentStepIndex = timelineSteps.findIndex((s) => s.status === "EN_PARADA");
@@ -435,7 +452,8 @@ export default function ShipmentDetail() {
                         } ${isCurrent ? "ring-4 ring-[#C8102E]/20" : ""}`}>
                           {step.status === "RECIBIDO_EN_DESTINO" ? <CheckCircle className="w-5 h-5" /> : step.status === "RECIBIDO_EN_BODEGA" ? <ClipboardCheck className="w-5 h-5" /> : step.status === "ENVIADO_A_DESTINO" ? <Truck className="w-5 h-5" /> : step.status === "ENVIADO_A_BODEGA" ? <Send className="w-5 h-5" /> : step.status === "EN_RUTA" ? <Truck className="w-5 h-5" /> : step.status === "EN_PARADA" ? <MapPin className="w-5 h-5" /> : <Package className="w-5 h-5" />}
                         </div>
-                        <span className={`text-xs mt-2 text-center font-medium ${isCompleted ? "text-[#1A1A1A]" : "text-[#A3A3A3]"}`}>{step.label}</span>
+                        <span className={`text-xs mt-2 text-center font-medium leading-tight ${isCompleted ? "text-[#1A1A1A]" : "text-[#A3A3A3]"}`}>{step.label}</span>
+                        {step.desc && <span className={`text-[10px] text-center mt-0.5 leading-tight ${isCompleted ? "text-[#8A8A8A]" : "text-[#A3A3A3]"}`}>{step.desc}</span>}
                       </div>
                     );
                   })}
