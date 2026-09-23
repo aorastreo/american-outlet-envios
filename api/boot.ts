@@ -8,7 +8,7 @@ import { createOAuthCallbackHandler } from "./kimi/auth";
 import { Paths } from "@contracts/constants";
 import { getDb } from "./queries/connection";
 import { franchises, franchiseUsers, shipments, shipmentTracking, routeShipments, routeStops, deliveryRoutes } from "@db/schema";
-import { inArray, notInArray, eq } from "drizzle-orm";
+import { inArray, notInArray, eq, sql } from "drizzle-orm";
 import { createHash } from "crypto";
 import mysql from "mysql2/promise";
 
@@ -1170,6 +1170,26 @@ app.route("/api/backup", backupApp);
 // Health check endpoints
 app.get("/api/health", (c) => c.json({ ok: true, timestamp: new Date().toISOString() }));
 app.get("/api/trpc/ping", (c) => c.json({ ok: true, pong: true }));
+
+// Clear all shipments (for testing)
+app.get("/api/clear-shipments", async (c) => {
+  try {
+    const db = getDb();
+    await db.execute(sql`SET FOREIGN_KEY_CHECKS = 0`);
+    await db.execute(sql`TRUNCATE TABLE shipment_items`);
+    await db.execute(sql`TRUNCATE TABLE shipment_tracking`);
+    await db.execute(sql`TRUNCATE TABLE route_shipments`);
+    await db.execute(sql`TRUNCATE TABLE route_stops`);
+    await db.execute(sql`TRUNCATE TABLE delivery_routes`);
+    await db.execute(sql`TRUNCATE TABLE national_shipments`);
+    await db.execute(sql`TRUNCATE TABLE shipments`);
+    await db.execute(sql`SET FOREIGN_KEY_CHECKS = 1`);
+    return c.json({ success: true, message: "Todos los envios han sido eliminados" });
+  } catch (err: any) {
+    console.error("[clear-shipments] ERROR:", err);
+    return c.json({ success: false, error: err.message }, 500);
+  }
+});
 
 // Public diagnostic endpoint - forces seed without token
 app.get("/api/force-seed", async (c) => {
