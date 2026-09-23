@@ -153,8 +153,9 @@ export default function Track() {
   const timelineSteps = shipment
     ? buildShipmentTimeline(isPickup, originIsWarehouse, destIsWarehouse, trackingHistory, whLoc)
     : [];
+  // Buscar desde el final para encontrar el ultimo matching (para steps duplicados)
   const currentStepIndex = shipment
-    ? timelineSteps.findIndex((s) => s.status === shipment.status)
+    ? timelineSteps.length - 1 - [...timelineSteps].reverse().findIndex((s) => s.status === shipment.status)
     : -1;
 
   return (
