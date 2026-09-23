@@ -46,7 +46,8 @@ export default function Login() {
     { value: "ganga_santa_rosa", label: "Ganga Santa Rosa" },
     { value: "bodega_sabana", label: "Bodega Sabana" },
     { value: "chofer", label: "Chofer - Rutas" },
-    { value: "bodega", label: "Bodega" },
+    { value: "bodega", label: "Bodega Pavón" },
+    { value: "bodega_cedi", label: "Bodega Cedi" },
   ];
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -109,7 +110,7 @@ export default function Login() {
             {franchiseName === "ganga_santa_rosa" ? "Ganga Santa Rosa" : "American Outlet"}
           </h1>
           <p className="text-sm text-[#8A8A8A] mt-1">
-            {franchiseName === "ganga_santa_rosa" ? "Acceso para Tienda" : "Acceso para Franquicias v2"}
+            {franchiseName === "ganga_santa_rosa" ? "Acceso para Tienda" : "Acceso para Franquicias"}
           </p>
         </div>
 

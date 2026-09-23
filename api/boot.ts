@@ -1167,8 +1167,9 @@ app.get("/api/fix-national-table", async (c) => {
 
 app.route("/api/backup", backupApp);
 
-// Health check endpoint
+// Health check endpoints
 app.get("/api/health", (c) => c.json({ ok: true, timestamp: new Date().toISOString() }));
+app.get("/api/trpc/ping", (c) => c.json({ ok: true, pong: true }));
 
 // Public diagnostic endpoint - forces seed without token
 app.get("/api/force-seed", async (c) => {
