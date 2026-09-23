@@ -270,6 +270,86 @@ export const shipmentRouter = createRouter({
       }));
     }),
 
+  // ─── List Sent Shipments (envíos que salieron de esta bodega) ──
+  listSent: franchiseAuthedQuery
+    .input(z.object({
+      status: z.string().optional(),
+      origin: z.string().optional(),
+      destination: z.string().optional(),
+      search: z.string().optional(),
+    }).optional())
+    .query(async ({ input, ctx }) => {
+      const db = getDb();
+      const franchiseId = ctx.franchiseUser!.franchiseId;
+      const userFranchise = await db.select().from(franchises).where(eq(franchises.id, franchiseId)).limit(1);
+      const isWarehouse = userFranchise[0]?.isWarehouse === 1;
+
+      // Only warehouse users can see sent shipments
+      if (!isWarehouse) {
+        return [];
+      }
+
+      const myBodegaName = userFranchise[0]?.name || "";
+      const normalizedName = myBodegaName.toLowerCase().includes("cedi") ? "Bodega Cedi" : "Bodega Pavon";
+
+      // Find shipments that were received in this bodega but are no longer here
+      const receivedHere = db
+        .select({ shipmentId: shipmentTracking.shipmentId })
+        .from(shipmentTracking)
+        .where(
+          and(
+            eq(shipmentTracking.status, "RECIBIDO_EN_BODEGA"),
+            sql`${shipmentTracking.notes} LIKE ${'%Recibido en ' + normalizedName + '%'}`
+          )
+        );
+
+      const conditions = [
+        inArray(shipments.id, receivedHere),
+        sql`${shipments.warehouseLocation} != ${normalizedName}`,
+        sql`${shipments.status} != 'CREADO'`,
+      ];
+
+      if (input?.status && input.status !== "all") {
+        conditions.push(eq(shipments.status, input.status));
+      }
+      if (input?.origin && input.origin !== "all") {
+        conditions.push(eq(shipments.originName, input.origin));
+      }
+      if (input?.destination && input.destination !== "all") {
+        conditions.push(eq(shipments.destinationName, input.destination));
+      }
+      if (input?.search) {
+        const searchTerm = `%${input.search}%`;
+        conditions.push(
+          or(
+            sql`${shipments.trackingNumber} LIKE ${searchTerm}`,
+            sql`${shipments.invoiceNumber} LIKE ${searchTerm}`,
+            sql`${shipments.senderName} LIKE ${searchTerm}`,
+            sql`${shipments.originName} LIKE ${searchTerm}`,
+            sql`${shipments.destinationName} LIKE ${searchTerm}`,
+          )
+        );
+      }
+
+      const result = await db
+        .select()
+        .from(shipments)
+        .where(and(...conditions))
+        .orderBy(desc(shipments.updatedAt))
+        .limit(200);
+
+      // Limpia nombres de franquicia
+      const allFranchises = await db.select().from(franchises);
+      const franchiseMap = new Map(allFranchises.map(f => [f.id, { ...f, displayName: cleanFranchiseName(f.displayName) }]));
+
+      return result.map(s => ({
+        ...s,
+        originName: cleanFranchiseName(franchiseMap.get(s.originFranchiseId)?.displayName || s.originName),
+        destinationName: cleanFranchiseName(franchiseMap.get(s.destinationFranchiseId)?.displayName || s.destinationName),
+        currentLocationName: cleanFranchiseName(franchiseMap.get(s.currentLocationId)?.displayName || s.currentLocationName),
+      }));
+    }),
+
   // ─── Get Shipment by ID (with actor names in tracking) ─────────
   getById: franchiseAuthedQuery
     .input(z.object({ id: z.number() }))
