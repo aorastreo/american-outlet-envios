@@ -269,11 +269,15 @@ export default function Shipments() {
   function getFranchiseGroup(name: string | undefined): "mio" | "vendedor" | "route" | "warehouse" | "unknown" {
     if (!name) return "unknown";
     const n = name.toLowerCase();
+    // Bodegas have group ownership too
+    if (n.includes("pavon") && n.includes("bodega")) return "mio"; // Bodega Pavon = grupo mio
+    if (n.includes("cedi") && n.includes("bodega")) return "vendedor"; // Bodega Cedi = grupo vendedor
+    // Stores
     if (n.includes("chiles") || n.includes("pavon") || n.includes("santa rosa") || n.includes("ganga")) return "mio";
     if (n.includes("boca arenal") || n.includes("florencia") || n.includes("fortuna") || n.includes("quesada") || n.includes("puerto viejo")) return "vendedor";
     if (n.includes("cedi")) return "vendedor";
     if (n.includes("grecia") || n.includes("palmares") || n.includes("san ramon")) return "route";
-    if (n.includes("bodega") && !n.includes("cedi")) return "warehouse";
+    if (n.includes("bodega")) return "warehouse";
     return "unknown";
   }
 

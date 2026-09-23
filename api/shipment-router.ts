@@ -48,10 +48,22 @@ function getTargetBodega(originName?: string | null, destName?: string | null): 
   const originLower = (originName || "").toLowerCase();
   const destLower = (destName || "").toLowerCase();
 
-  const originIsMine = MY_STORES.some(s => originLower.includes(s));
-  const originIsVendor = VENDOR_STORES.some(s => originLower.includes(s));
-  const destIsMine = MY_STORES.some(s => destLower.includes(s));
-  const destIsVendor = VENDOR_STORES.some(s => destLower.includes(s));
+  // Bodega origins/destinations
+  const originIsBodegaPavon = originLower.includes("pavon") && originLower.includes("bodega");
+  const originIsBodegaCedi = originLower.includes("cedi") && originLower.includes("bodega");
+  const destIsBodegaPavon = destLower.includes("pavon") && destLower.includes("bodega");
+  const destIsBodegaCedi = destLower.includes("cedi") && destLower.includes("bodega");
+
+  const originIsMineStore = MY_STORES.some(s => originLower.includes(s));
+  const originIsVendorStore = VENDOR_STORES.some(s => originLower.includes(s));
+  const destIsMineStore = MY_STORES.some(s => destLower.includes(s));
+  const destIsVendorStore = VENDOR_STORES.some(s => destLower.includes(s));
+
+  // Determine group (store or bodega)
+  const originIsMine = originIsMineStore || originIsBodegaPavon;
+  const originIsVendor = originIsVendorStore || originIsBodegaCedi;
+  const destIsMine = destIsMineStore || destIsBodegaPavon;
+  const destIsVendor = destIsVendorStore || destIsBodegaCedi;
 
   // Same group: single bodega
   if (originIsMine && destIsMine) {
