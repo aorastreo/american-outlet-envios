@@ -42,7 +42,7 @@ import toast from "react-hot-toast";
 /* ─── tab definitions ─────────────────────────────────────────── */
 
 type StoreTabKey = "POR_ENVIAR" | "ENVIADOS" | "POR_RECIBIR" | "EN_TIENDA" | "COMPLETADOS";
-type WarehouseTabKey = "POR_RECIBIR" | "EN_BODEGA" | "ENTREGA_CLIENTE" | "EN_RUTA" | "ENVIADOS" | "ENTREGADOS";
+type WarehouseTabKey = "POR_RECIBIR" | "EN_BODEGA" | "ENTREGA_CLIENTE" | "EN_RUTA" | "ENTREGADOS";
 type SabanaTabKey = "POR_RECIBIR" | "EN_BODEGA";
 
 interface TabDef<T extends string> {
@@ -173,18 +173,6 @@ const WAREHOUSE_TABS: TabDef<WarehouseTabKey>[] = [
     badgeColor: "bg-blue-700 text-white",
   },
   {
-    key: "ENVIADOS",
-    label: "Enviados",
-    icon: Send,
-    statuses: [],
-    description: "Envios que salieron de esta bodega",
-    color: "text-[#525252]",
-    activeColor: "text-orange-700",
-    activeBg: "bg-orange-50",
-    activeBorder: "border-orange-700",
-    badgeColor: "bg-orange-700 text-white",
-  },
-  {
     key: "ENTREGADOS",
     label: "Entregados",
     icon: CheckCircle,
@@ -250,8 +238,7 @@ export default function Shipments() {
 
   const isBodega = user?.franchise?.isWarehouse === 1;
 
-  const listQuery = trpc.shipment.list.useQuery();
-  const listSentQuery = trpc.shipment.listSent.useQuery();
+  const { data: shipments, isLoading } = trpc.shipment.list.useQuery();
   const { data: allFranchises } = trpc.franchise.list.useQuery();
 
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
@@ -372,10 +359,6 @@ export default function Shipments() {
     }
   }, [isBodega, TABS, activeTab, urlTab, defaultTab]);
 
-  // Select which query data to use based on active tab
-  const shipments = activeTab === "ENVIADOS" ? listSentQuery.data : listQuery.data;
-  const isLoading = activeTab === "ENVIADOS" ? listSentQuery.isLoading : listQuery.isLoading;
-
   // Date filter for "Enviados" tab (stores only) — default to today, recalculated fresh on mount
   const [dateFilter, setDateFilter] = useState<string>(() => format(new Date(), "yyyy-MM-dd"));
   const [dateFilterEnabled, setDateFilterEnabled] = useState<boolean>(true);
@@ -475,8 +458,7 @@ export default function Shipments() {
   const filteredShipments = useMemo(() => {
     return (shipments || []).filter((s) => {
       // Tab filter (statuses)
-      // ENVIADOS tab: listSent already filters on backend, show all results
-      const matchesTab = activeTab === "ENVIADOS" ? true : currentTab.statuses.includes(s.status);
+      const matchesTab = currentTab.statuses.includes(s.status);
 
       // Store-specific filtering by origin/dest
       if (!isBodega && myFranchiseId) {
@@ -545,13 +527,8 @@ export default function Shipments() {
     for (const tab of TABS) {
       counts[tab.key] = 0;
     }
-    // ENVIADOS count: listSent already filters on backend
-    const enviadosTab = TABS.find(t => t.key === "ENVIADOS");
-    if (enviadosTab) counts[enviadosTab.key] = (shipments || []).length;
-
     for (const s of shipments || []) {
       for (const tab of TABS) {
-        if (tab.key === "ENVIADOS") continue;
         if (!tab.statuses.includes(s.status)) continue;
 
         // Store-specific counting with origin/dest logic
