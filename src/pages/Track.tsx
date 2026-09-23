@@ -43,10 +43,17 @@ function extractBodegaNames(trackingHistory: any[]) {
   let firstBodega = "";
   let secondBodega = "";
   for (const t of trackingHistory) {
+    // Detect first bodega from RECIBIDO_EN_BODEGA notes
     if (t.status === "RECIBIDO_EN_BODEGA" && !firstBodega && t.notes) {
       const match = t.notes.match(/Recibido en (Bodega\s+\w+)/i);
       if (match) firstBodega = match[1];
     }
+    // Also detect from ENVIADO_A_BODEGA when it says "desde Bodega X" (warehouse origin)
+    if (t.status === "ENVIADO_A_BODEGA" && !firstBodega && t.notes) {
+      const match = t.notes.match(/desde\s+(Bodega\s+\w+)/i);
+      if (match) firstBodega = match[1];
+    }
+    // Detect second bodega (inter-bodega transfer target)
     if (t.status === "ENVIADO_A_BODEGA" && firstBodega && t.notes) {
       const match = t.notes.match(/hacia\s+(Bodega\s+\w+)/i);
       if (match && match[1] !== firstBodega) secondBodega = match[1];
