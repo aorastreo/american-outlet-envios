@@ -238,7 +238,8 @@ export default function Shipments() {
 
   const isBodega = user?.franchise?.isWarehouse === 1;
 
-  const { data: shipments, isLoading } = trpc.shipment.list.useQuery();
+  const listQuery = trpc.shipment.list.useQuery();
+  const listSentQuery = trpc.shipment.listSent.useQuery();
   const { data: allFranchises } = trpc.franchise.list.useQuery();
 
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
@@ -387,6 +388,19 @@ export default function Shipments() {
     setSearchParams(newParams, { replace: true });
   };
 
+  // Base shipments from list query (always used for tab counts)
+  const baseShipments = listQuery.data;
+  // Inter-bodega shipments in transit (for EN_RUTA tab display only)
+  const interBodegaEnRuta = (listSentQuery.data || []).filter(
+    (s) => s.status === "ENVIADO_A_BODEGA"
+  );
+  // Display shipments: combine for EN_RUTA tab, use base for others
+  const isEnRutaTab = activeTab === "EN_RUTA";
+  const shipments = isEnRutaTab && isBodega
+    ? [...(baseShipments || []), ...interBodegaEnRuta]
+    : baseShipments;
+  const isLoading = listQuery.isLoading || (isEnRutaTab && isBodega ? listSentQuery.isLoading : false);
+
   const utils = trpc.useUtils();
 
   // ─── Mutations ────────────────────────────────────────────────
@@ -527,7 +541,7 @@ export default function Shipments() {
     for (const tab of TABS) {
       counts[tab.key] = 0;
     }
-    for (const s of shipments || []) {
+    for (const s of baseShipments || []) {
       for (const tab of TABS) {
         if (!tab.statuses.includes(s.status)) continue;
 
@@ -568,8 +582,10 @@ export default function Shipments() {
         // No break here — RECIBIDO_EN_DESTINO can count for both EN_TIENDA and COMPLETADOS
       }
     }
+    // Add inter-bodega in-transit count to EN_RUTA
+    counts["EN_RUTA"] = (counts["EN_RUTA"] || 0) + interBodegaEnRuta.length;
     return counts;
-  }, [shipments, TABS, isBodega, myFranchiseId]);
+  }, [baseShipments, interBodegaEnRuta, TABS, isBodega, myFranchiseId]);
 
   const renderShipmentCard = (shipment: (typeof filteredShipments)[0]) => {
     const cfg = getStatusConfig(shipment.status);
