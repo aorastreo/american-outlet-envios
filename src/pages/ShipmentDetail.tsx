@@ -102,6 +102,7 @@ function buildShipmentTimeline(
     ];
     if (hasInterBodega) {
       steps.push({ status: "ENVIADO_A_BODEGA", label: `Enviado a ${bodega2}`, desc: "Bodega envia a bodega" });
+      steps.push({ status: "RECIBIDO_EN_BODEGA", label: `En ${bodega2}`, desc: "Bodega recibio" });
     }
     steps.push(
       { status: "EN_RUTA", label: "En Ruta", desc: "Asignado a camion" },
@@ -119,6 +120,7 @@ function buildShipmentTimeline(
   ];
   if (hasInterBodega) {
     steps.push({ status: "ENVIADO_A_BODEGA", label: `Enviado a ${bodega2}`, desc: "Bodega envia a bodega" });
+    steps.push({ status: "RECIBIDO_EN_BODEGA", label: `En ${bodega2}`, desc: "Bodega recibio" });
   }
   steps.push(
     { status: "ENVIADO_A_DESTINO", label: "Enviado a Destino", desc: "Bodega envia a tienda" },
