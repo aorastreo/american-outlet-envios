@@ -298,10 +298,10 @@ export default function Shipments() {
 
     // Cross-group: Vendedor -> Mio (needs to end at Bodega Pavon)
     if (originGroup === "vendedor" && destGroup === "mio") {
-      if (currentWh === "Bodega Pavón") {
+      if (currentWh === "Bodega Pavon") {
         return { needsTransfer: false, targetBodega: "" }; // Already at correct bodega
       }
-      return { needsTransfer: true, targetBodega: "Bodega Pavón" };
+      return { needsTransfer: true, targetBodega: "Bodega Pavon" };
     }
 
     return { needsTransfer: false, targetBodega: "" };

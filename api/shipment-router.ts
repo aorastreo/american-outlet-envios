@@ -55,7 +55,7 @@ function getTargetBodega(originName?: string | null, destName?: string | null): 
 
   // Same group: single bodega
   if (originIsMine && destIsMine) {
-    return { firstBodega: "Bodega Pavón", finalBodega: "Bodega Pavón", needsInterBodega: false };
+    return { firstBodega: "Bodega Pavon", finalBodega: "Bodega Pavon", needsInterBodega: false };
   }
   if (originIsVendor && destIsVendor) {
     return { firstBodega: "Bodega Cedi", finalBodega: "Bodega Cedi", needsInterBodega: false };
@@ -63,18 +63,18 @@ function getTargetBodega(originName?: string | null, destName?: string | null): 
 
   // Cross-group: inter-bodega transfer needed
   if (originIsMine && destIsVendor) {
-    return { firstBodega: "Bodega Pavón", finalBodega: "Bodega Cedi", needsInterBodega: true };
+    return { firstBodega: "Bodega Pavon", finalBodega: "Bodega Cedi", needsInterBodega: true };
   }
   if (originIsVendor && destIsMine) {
-    return { firstBodega: "Bodega Cedi", finalBodega: "Bodega Pavón", needsInterBodega: true };
+    return { firstBodega: "Bodega Cedi", finalBodega: "Bodega Pavon", needsInterBodega: true };
   }
 
   // Fallback: try to infer from names
   if (originLower.includes("bodega") || destLower.includes("bodega")) {
-    return { firstBodega: "Bodega Pavón", finalBodega: "Bodega Pavón", needsInterBodega: false };
+    return { firstBodega: "Bodega Pavon", finalBodega: "Bodega Pavon", needsInterBodega: false };
   }
 
-  return { firstBodega: "Bodega Pavón", finalBodega: "Bodega Pavón", needsInterBodega: false };
+  return { firstBodega: "Bodega Pavon", finalBodega: "Bodega Pavon", needsInterBodega: false };
 }
 
 function randomLetter(): string {
@@ -215,7 +215,7 @@ export const shipmentRouter = createRouter({
       if (isWarehouse) {
         // WAREHOUSE USER: only see shipments assigned to this warehouse
         const myBodegaName = userFranchise[0]?.name || "";
-        const normalizedName = myBodegaName.toLowerCase().includes("cedi") ? "Bodega Cedi" : "Bodega Pavón";
+        const normalizedName = myBodegaName.toLowerCase().includes("cedi") ? "Bodega Cedi" : "Bodega Pavon";
 
         whereClause = or(
           eq(shipments.warehouseLocation, normalizedName),
@@ -520,7 +520,7 @@ export const shipmentRouter = createRouter({
     let whereClause;
     if (isWarehouse) {
       const myBodegaName = userFranchise[0]?.name || "";
-      const normalizedName = myBodegaName.toLowerCase().includes("cedi") ? "Bodega Cedi" : "Bodega Pavón";
+      const normalizedName = myBodegaName.toLowerCase().includes("cedi") ? "Bodega Cedi" : "Bodega Pavon";
       whereClause = or(
         eq(shipments.warehouseLocation, normalizedName),
         sql`${shipments.warehouseLocation} IS NULL`,
@@ -557,7 +557,7 @@ export const shipmentRouter = createRouter({
     if (isWarehouse) {
       // Warehouse: count ENVIADO_A_BODEGA assigned to this warehouse
       const myBodegaName = userFranchise[0]?.name || "";
-      const normalizedName = myBodegaName.toLowerCase().includes("cedi") ? "Bodega Cedi" : "Bodega Pavón";
+      const normalizedName = myBodegaName.toLowerCase().includes("cedi") ? "Bodega Cedi" : "Bodega Pavon";
       const countResult = await db
         .select({ count: sql<number>`COUNT(*)` })
         .from(shipments)
@@ -777,7 +777,7 @@ export const shipmentRouter = createRouter({
 
       // Determine this warehouse's name for tracking
       const myBodegaName = userFranchise[0]?.name || "";
-      const normalizedName = myBodegaName.toLowerCase().includes("cedi") ? "Bodega Cedi" : "Bodega Pavón";
+      const normalizedName = myBodegaName.toLowerCase().includes("cedi") ? "Bodega Cedi" : "Bodega Pavon";
 
       await db
         .update(shipments)
@@ -821,7 +821,7 @@ export const shipmentRouter = createRouter({
 
       // Determine this warehouse's name for tracking
       const myBodegaName = userFranchise[0]?.name || "";
-      const normalizedName = myBodegaName.toLowerCase().includes("cedi") ? "Bodega Cedi" : "Bodega Pavón";
+      const normalizedName = myBodegaName.toLowerCase().includes("cedi") ? "Bodega Cedi" : "Bodega Pavon";
 
       await db
         .update(shipments)
@@ -866,7 +866,7 @@ export const shipmentRouter = createRouter({
 
       // Determine this warehouse's name for tracking
       const myBodegaName = userFranchise[0]?.name || "";
-      const myName = myBodegaName.toLowerCase().includes("cedi") ? "Bodega Cedi" : "Bodega Pavón";
+      const myName = myBodegaName.toLowerCase().includes("cedi") ? "Bodega Cedi" : "Bodega Pavon";
 
       // Inter-bodega: set warehouseLocation to TARGET bodega so it appears
       // in the destination bodega's "Por Recibir" filter

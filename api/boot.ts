@@ -1171,6 +1171,25 @@ app.route("/api/backup", backupApp);
 app.get("/api/health", (c) => c.json({ ok: true, timestamp: new Date().toISOString() }));
 app.get("/api/trpc/ping", (c) => c.json({ ok: true, pong: true }));
 
+// Fix warehouse locations with accented names
+app.get("/api/fix-wh", async (c) => {
+  try {
+    const db = getDb();
+    const result = await db.execute(sql`
+      UPDATE shipments 
+      SET warehouseLocation = 'Bodega Pavon' 
+      WHERE warehouseLocation = 'Bodega Pavón'
+    `);
+    return c.json({ 
+      success: true, 
+      message: "Warehouse locations normalizados", 
+      affected: (result as any)[0]?.affectedRows || 0 
+    });
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message }, 500);
+  }
+});
+
 // Clear all shipments (for testing)
 app.get("/api/clear-shipments", async (c) => {
   try {
