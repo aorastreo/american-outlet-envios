@@ -1167,61 +1167,84 @@ app.get("/api/fix-national-table", async (c) => {
 
 app.route("/api/backup", backupApp);
 
+// Health check endpoint
+app.get("/api/health", (c) => c.json({ ok: true, timestamp: new Date().toISOString() }));
+
 // Public diagnostic endpoint - forces seed without token
 app.get("/api/force-seed", async (c) => {
   try {
     const db = getDb();
     const results: Array<{ action: string; code: string; details: string }> = [];
 
+    // Step 1: Ensure Bodega Pavon exists and is updated
+    const bodegaPavonData = franchiseData.find(f => f.code === "bodega");
+    if (bodegaPavonData) {
+      const existing = await db.select().from(franchises).where(eq(franchises.code, "bodega")).limit(1);
+      if (existing.length === 0) {
+        const r = await db.insert(franchises).values(bodegaPavonData);
+        results.push({ action: "created", code: "bodega", details: bodegaPavonData.displayName });
+      } else {
+        await db.update(franchises).set({ name: bodegaPavonData.name, displayName: bodegaPavonData.displayName }).where(eq(franchises.id, existing[0].id));
+        results.push({ action: "updated", code: "bodega", details: bodegaPavonData.displayName });
+      }
+    }
+
+    // Step 2: Ensure Bodega Cedi exists
+    const bodegaCediData = franchiseData.find(f => f.code === "bodega_cedi");
+    if (bodegaCediData) {
+      const existing = await db.select().from(franchises).where(eq(franchises.code, "bodega_cedi")).limit(1);
+      let cediId: number;
+      if (existing.length === 0) {
+        const r = await db.insert(franchises).values(bodegaCediData);
+        cediId = Number(r[0].insertId);
+        results.push({ action: "created", code: "bodega_cedi", details: bodegaCediData.displayName });
+      } else {
+        cediId = existing[0].id;
+        await db.update(franchises).set({ name: bodegaCediData.name, displayName: bodegaCediData.displayName }).where(eq(franchises.id, cediId));
+        results.push({ action: "updated", code: "bodega_cedi", details: bodegaCediData.displayName });
+      }
+
+      // Create/update user for Bodega Cedi
+      const existingUser = await db.select().from(franchiseUsers).where(eq(franchiseUsers.username, "bodega_cedi")).limit(1);
+      if (existingUser.length === 0) {
+        await db.insert(franchiseUsers).values({
+          franchiseId: cediId,
+          username: "bodega_cedi",
+          passwordHash: hashPassword("american2025"),
+          displayName: bodegaCediData.displayName,
+          role: "admin",
+          isActive: 1,
+        });
+        results.push({ action: "created_user", code: "bodega_cedi", details: "User created" });
+      } else {
+        await db.update(franchiseUsers)
+          .set({ franchiseId: cediId, passwordHash: hashPassword("american2025"), isActive: 1 })
+          .where(eq(franchiseUsers.id, existingUser[0].id));
+        results.push({ action: "updated_user", code: "bodega_cedi", details: "User updated" });
+      }
+    }
+
+    // Step 3: Update all other franchises
     for (const f of franchiseData) {
+      if (f.code === "bodega" || f.code === "bodega_cedi") continue;
       try {
-        const existingFranchise = await db.select().from(franchises).where(eq(franchises.code, f.code)).limit(1);
-        let franchiseId: number;
-
-        if (existingFranchise.length === 0) {
-          const result = await db.insert(franchises).values(f);
-          franchiseId = Number(result[0].insertId);
-          results.push({ action: "created_franchise", code: f.code, details: f.displayName });
-        } else {
-          franchiseId = existingFranchise[0].id;
-          const current = existingFranchise[0];
-          if (current.name !== f.name || current.displayName !== f.displayName || current.isWarehouse !== f.isWarehouse) {
-            await db.update(franchises)
-              .set({ name: f.name, displayName: f.displayName, isWarehouse: f.isWarehouse })
-              .where(eq(franchises.id, current.id));
-            results.push({ action: "updated_franchise", code: f.code, details: f.displayName });
-          } else {
-            results.push({ action: "unchanged", code: f.code, details: f.displayName });
-          }
-        }
-
-        if (!f.displayName.toLowerCase().includes("recogida")) {
-          const existingUser = await db.select().from(franchiseUsers).where(eq(franchiseUsers.username, f.code)).limit(1);
-          if (existingUser.length === 0) {
-            await db.insert(franchiseUsers).values({
-              franchiseId,
-              username: f.code,
-              passwordHash: hashPassword("american2025"),
-              displayName: f.displayName,
-              role: f.isWarehouse ? "admin" : "staff",
-              isActive: 1,
-            });
-            results.push({ action: "created_user", code: f.code, details: f.displayName });
-          } else {
-            await db.update(franchiseUsers)
-              .set({ passwordHash: hashPassword("american2025"), isActive: 1, displayName: f.displayName, franchiseId })
-              .where(eq(franchiseUsers.id, existingUser[0].id));
-            results.push({ action: "updated_user", code: f.code, details: f.displayName });
-          }
+        const existing = await db.select().from(franchises).where(eq(franchises.code, f.code)).limit(1);
+        if (existing.length === 0) {
+          await db.insert(franchises).values(f);
+          results.push({ action: "created", code: f.code, details: f.displayName });
+        } else if (existing[0].name !== f.name || existing[0].displayName !== f.displayName) {
+          await db.update(franchises).set({ name: f.name, displayName: f.displayName }).where(eq(franchises.id, existing[0].id));
+          results.push({ action: "updated", code: f.code, details: f.displayName });
         }
       } catch (e: any) {
         results.push({ action: "error", code: f.code, details: e.message });
       }
     }
 
-    return c.json({ success: true, repaired: results.length, details: results });
+    return c.json({ success: true, count: results.length, details: results });
   } catch (err: any) {
-    return c.json({ success: false, error: err.message }, 500);
+    console.error("[force-seed] ERROR:", err);
+    return c.json({ success: false, error: err.message, stack: err.stack }, 500);
   }
 });
 
