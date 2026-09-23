@@ -213,23 +213,13 @@ export const shipmentRouter = createRouter({
       let whereClause;
 
       if (isWarehouse) {
-        // WAREHOUSE USER: see shipments assigned to this warehouse
-        // PLUS shipments currently in transit FROM this warehouse (inter-bodega)
+        // WAREHOUSE USER: only see shipments assigned to this warehouse
         const myBodegaName = userFranchise[0]?.name || "";
         const normalizedName = myBodegaName.toLowerCase().includes("cedi") ? "Bodega Cedi" : "Bodega Pavon";
 
         whereClause = or(
           eq(shipments.warehouseLocation, normalizedName),
           sql`${shipments.warehouseLocation} IS NULL`, // legacy shipments
-          // Inter-bodega: shipments in transit FROM this warehouse
-          sql`${shipments.status} = 'ENVIADO_A_BODEGA' AND ${shipments.warehouseLocation} != ${normalizedName} AND EXISTS (
-            SELECT 1 FROM shipment_tracking st
-            WHERE st.shipmentId = ${shipments.id}
-            AND st.status = 'ENVIADO_A_BODEGA'
-            AND st.notes LIKE ${'%' + normalizedName + '%'}
-            ORDER BY st.createdAt DESC
-            LIMIT 1
-          )`,
         );
       } else {
         // STORE USER: see shipments related to this store
