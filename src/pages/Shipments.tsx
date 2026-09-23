@@ -265,10 +265,12 @@ export default function Shipments() {
     return name.replace(/AMERICAN OUTLET\s*/i, "").trim() || name;
   }
 
-  // Helper: classify franchise by group (mio, vendedor, route, warehouse)
-  function getFranchiseGroup(name: string | undefined): "mio" | "vendedor" | "route" | "warehouse" | "unknown" {
+  // Helper: classify franchise by group (mio, vendedor, route, warehouse, sabana)
+  function getFranchiseGroup(name: string | undefined): "mio" | "vendedor" | "route" | "warehouse" | "sabana" | "unknown" {
     if (!name) return "unknown";
     const n = name.toLowerCase();
+    // Sabana is a pickup point associated with the vendor group (Cedi)
+    if (n.includes("sabana")) return "sabana";
     // Bodegas have group ownership too
     if (n.includes("pavon") && n.includes("bodega")) return "mio"; // Bodega Pavon = grupo mio
     if (n.includes("cedi") && n.includes("bodega")) return "vendedor"; // Bodega Cedi = grupo vendedor
@@ -287,6 +289,14 @@ export default function Shipments() {
     const originGroup = getFranchiseGroup(shipment.originName);
     const destGroup = getFranchiseGroup(shipment.destinationName);
     const currentWh = shipment.warehouseLocation as string | undefined;
+
+    // Sabana destination: always goes through Cedi (Sabana is associated with vendor group)
+    if (destGroup === "sabana") {
+      if (currentWh === "Bodega Cedi") {
+        return { needsTransfer: false, targetBodega: "" }; // Already at Cedi, send directly to Sabana
+      }
+      return { needsTransfer: true, targetBodega: "Bodega Cedi" };
+    }
 
     // Same group: direct delivery (e.g., Los Chiles -> Pavon, or Fortuna -> Florencia)
     if (originGroup === destGroup) {
@@ -318,12 +328,12 @@ export default function Shipments() {
     routeCodes.includes(f.code?.toLowerCase() || "") ||
     (f.displayName?.toLowerCase() || "").includes("recogida");
 
-  // Store franchises: exclude warehouses AND route destinations
+  // Store franchises: exclude warehouses AND route destinations (but include Sabana)
   const storeFranchises = (allFranchises || []).filter(
-    (f) => !f.isWarehouse && !isRouteFranchise(f)
+    (f) => (!f.isWarehouse && !isRouteFranchise(f)) || f.code?.toLowerCase() === "bodega_sabana"
   );
 
-  // Sabana is a receiving warehouse only — not a destination/origin for normal shipments
+  // Sabana is a receiving warehouse — available as destination for all stores
   const isSabana = (name: string) => name.toLowerCase().includes("sabana");
 
   // Helper: check if a shipment's destination is a warehouse (uses loaded franchises)
@@ -334,7 +344,7 @@ export default function Shipments() {
 
   // All origin options for warehouse users: stores + warehouses that can create shipments
   const originFranchisesForFilter = isBodega
-    ? (allFranchises || []).filter((f) => !isRouteFranchise(f) && !isSabana(f.displayName || f.name || ""))
+    ? (allFranchises || []).filter((f) => !isRouteFranchise(f))
     : storeFranchises;
 
   // Select tabs based on user type

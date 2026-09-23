@@ -48,6 +48,9 @@ function getTargetBodega(originName?: string | null, destName?: string | null): 
   const originLower = (originName || "").toLowerCase();
   const destLower = (destName || "").toLowerCase();
 
+  // Sabana is a pickup point associated with the vendor group (Cedi)
+  const destIsSabana = destLower.includes("sabana");
+
   // Bodega origins/destinations
   const originIsBodegaPavon = originLower.includes("pavon") && originLower.includes("bodega");
   const originIsBodegaCedi = originLower.includes("cedi") && originLower.includes("bodega");
@@ -56,14 +59,14 @@ function getTargetBodega(originName?: string | null, destName?: string | null): 
 
   const originIsMineStore = MY_STORES.some(s => originLower.includes(s));
   const originIsVendorStore = VENDOR_STORES.some(s => originLower.includes(s));
-  const destIsMineStore = MY_STORES.some(s => destLower.includes(s));
-  const destIsVendorStore = VENDOR_STORES.some(s => destLower.includes(s));
+  const destIsMineStore = MY_STORES.some(s => destLower.includes(s)) && !destIsSabana;
+  const destIsVendorStore = VENDOR_STORES.some(s => destLower.includes(s)) || destIsSabana;
 
   // Determine group (store or bodega)
   const originIsMine = originIsMineStore || originIsBodegaPavon;
   const originIsVendor = originIsVendorStore || originIsBodegaCedi;
   const destIsMine = destIsMineStore || destIsBodegaPavon;
-  const destIsVendor = destIsVendorStore || destIsBodegaCedi;
+  const destIsVendor = destIsVendorStore || destIsBodegaCedi || destIsSabana;
 
   // Same group: single bodega
   if (originIsMine && destIsMine) {
@@ -173,8 +176,8 @@ export const shipmentRouter = createRouter({
       // Determine target bodega
       const { firstBodega } = getTargetBodega(originName, destName);
 
-      // Check if this is a pickup route (destination is Grecia, SanRamon, Palmares)
-      const pickupCodes = ["grecia", "san_ramon", "palmares"];
+      // Check if this is a pickup route (destination is Grecia, SanRamon, Palmares, Sabana)
+      const pickupCodes = ["grecia", "san_ramon", "palmares", "bodega_sabana"];
       const isPickup = pickupCodes.includes(destFranchise[0]?.code?.toLowerCase() || "");
       const initialStatus = originIsWarehouse && isPickup ? "RECIBIDO_EN_BODEGA" : "CREADO";
       const trackingNotes = originIsWarehouse && isPickup ? "Envio creado en bodega - listo para ruta de camion" : "Envio creado";
@@ -401,7 +404,7 @@ export const shipmentRouter = createRouter({
       }));
 
       const destFranchise = franchiseMap.get(shipment[0].destinationFranchiseId);
-      const pickupCodes = ["grecia", "san_ramon", "palmares"];
+      const pickupCodes = ["grecia", "san_ramon", "palmares", "bodega_sabana"];
       const isPickupRoute = pickupCodes.includes(destFranchise?.code?.toLowerCase() || "") ||
                             (destFranchise?.displayName?.toLowerCase() || "").includes("recogida");
 
@@ -582,7 +585,7 @@ export const shipmentRouter = createRouter({
       const franchiseMap = new Map(allFranchises.map(f => [f.id, { ...f, displayName: cleanFranchiseName(f.displayName) }]));
 
       const destFranchise = franchiseMap.get(shipment[0].destinationFranchiseId);
-      const pickupCodes = ["grecia", "san_ramon", "palmares"];
+      const pickupCodes = ["grecia", "san_ramon", "palmares", "bodega_sabana"];
       const isPickupRoute = pickupCodes.includes(destFranchise?.code?.toLowerCase() || "") ||
                             (destFranchise?.displayName?.toLowerCase() || "").includes("recogida");
 
