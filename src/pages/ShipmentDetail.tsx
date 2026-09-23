@@ -421,7 +421,7 @@ export default function ShipmentDetail() {
         {/* Timeline */}
         {!isCancelled && (
           <Card>
-            <CardHeader><CardTitle className="text-base">Progreso del Envio</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-base">Progreso del Envio v3</CardTitle></CardHeader>
             <CardContent>
               <div className="relative">
                 <div className="flex items-center justify-between">
