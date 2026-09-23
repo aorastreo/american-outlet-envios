@@ -217,6 +217,11 @@ export default function ShipmentDetail() {
   // Detect if destination is a warehouse (bodega) — NOT a route pickup point
   const destIsWarehouse = (shipment.destinationFranchise as any)?.isWarehouse === 1;
 
+  // Detect inter-bodega: already received in warehouse before, now sent again
+  const trackingHistory = shipment.tracking || [];
+  const wasReceivedInBodega = trackingHistory.some((t: any) => t.status === "RECIBIDO_EN_BODEGA");
+  const isInterBodegaTransit = wasReceivedInBodega && shipment.status === "ENVIADO_A_BODEGA";
+
   // Choose correct timeline based on destination type
   // isPickup already computed above with fallback to name-based detection
   const whLoc = (shipment as any).warehouseLocation;
@@ -231,7 +236,26 @@ export default function ShipmentDetail() {
     // Normal store-to-store
     timelineSteps = originIsWarehouse ? buildDirectStoreTimeline() : buildStoreTimeline(whLoc);
   }
-  let currentStepIndex = timelineSteps.findIndex((s) => s.status === shipment.status);
+
+  // For inter-bodega shipments, insert an extra step in the timeline
+  if (wasReceivedInBodega && !destIsWarehouse && !isPickup) {
+    const recibidoIndex = timelineSteps.findIndex((s) => s.status === "RECIBIDO_EN_BODEGA");
+    if (recibidoIndex >= 0) {
+      const interBodegaLabel = whLoc ? `En camino a ${whLoc}` : "En camino a otra bodega";
+      timelineSteps.splice(recibidoIndex + 1, 0, {
+        status: "ENVIADO_A_BODEGA",
+        label: interBodegaLabel,
+      });
+    }
+  }
+
+  // For inter-bodega, find from the end to get the inserted step instead of the first one
+  let currentStepIndex: number;
+  if (isInterBodegaTransit) {
+    currentStepIndex = timelineSteps.length - 1 - [...timelineSteps].reverse().findIndex((s) => s.status === shipment.status);
+  } else {
+    currentStepIndex = timelineSteps.findIndex((s) => s.status === shipment.status);
+  }
   // NO_RECOGIDO no esta en el timeline regular; mostrar hasta EN_PARADA como completado
   if (currentStepIndex === -1 && shipment.status === "NO_RECOGIDO") {
     currentStepIndex = timelineSteps.findIndex((s) => s.status === "EN_PARADA");
