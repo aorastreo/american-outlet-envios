@@ -502,7 +502,8 @@ export default function Shipments() {
 
       // Warehouse-specific: EN_BODEGA tab — CREADO only if created FROM warehouse, exclude dest=bodega
       if (isBodega && activeTab === "EN_BODEGA") {
-        if (s.status === "CREADO" && (s.originFranchise as any)?.isWarehouse !== 1) return false;
+        const originFranchise = allFranchises?.find((f) => f.id === s.originFranchiseId);
+        if (s.status === "CREADO" && !originFranchise?.isWarehouse) return false;
         if (isDestWarehouse(s)) return false; // dest=bodega goes to ENTREGA_CLIENTE
       }
       // Warehouse-specific: ENTREGA_CLIENTE tab — only dest=bodega + RECIBIDO_EN_BODEGA
@@ -583,7 +584,8 @@ export default function Shipments() {
             const destName = (s.destinationName || "").toLowerCase();
             if (destName.includes("grecia") || destName.includes("palmares") || destName.includes("san ramon")) continue;
             if (isDestWarehouse(s)) continue; // goes to ENTREGA_CLIENTE
-            if (s.status === "CREADO" && (s.originFranchise as any)?.isWarehouse !== 1) continue;
+            const originFr = allFranchises?.find((f) => f.id === s.originFranchiseId);
+            if (s.status === "CREADO" && !originFr?.isWarehouse) continue;
             counts[tab.key]++;
           } else if (isBodega && tab.key === "ENTREGA_CLIENTE") {
             if (isDestWarehouse(s) && s.status === "RECIBIDO_EN_BODEGA") {
@@ -599,7 +601,7 @@ export default function Shipments() {
     // Add inter-bodega in-transit count to EN_RUTA
     counts["EN_RUTA"] = (counts["EN_RUTA"] || 0) + interBodegaEnRuta.length;
     return counts;
-  }, [baseShipments, interBodegaEnRuta, TABS, isBodega, myFranchiseId]);
+  }, [baseShipments, interBodegaEnRuta, TABS, isBodega, myFranchiseId, allFranchises]);
 
   const renderShipmentCard = (shipment: (typeof filteredShipments)[0]) => {
     const cfg = getStatusConfig(shipment.status);
