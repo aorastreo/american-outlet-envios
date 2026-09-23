@@ -468,11 +468,21 @@ export default function Shipments() {
   // Current tab definition
   const currentTab = TABS.find((t) => t.key === activeTab) ?? TABS[0];
 
+  // IDs of inter-bodega shipments in transit (for EN_RUTA tab filtering)
+  const interBodegaIds = useMemo(
+    () => new Set(interBodegaEnRuta.map((s) => s.id)),
+    [interBodegaEnRuta]
+  );
+
   // Filter shipments by tab + search + origin/dest + date
   const filteredShipments = useMemo(() => {
     return (shipments || []).filter((s) => {
       // Tab filter (statuses)
-      const matchesTab = currentTab.statuses.includes(s.status);
+      // For EN_RUTA in warehouse: also show inter-bodega shipments (ENVIADO_A_BODEGA)
+      const matchesTab =
+        activeTab === "EN_RUTA" && isBodega && interBodegaIds.has(s.id)
+          ? true
+          : currentTab.statuses.includes(s.status);
 
       // Store-specific filtering by origin/dest
       if (!isBodega && myFranchiseId) {
@@ -533,7 +543,7 @@ export default function Shipments() {
 
       return matchesTab && matchesSearch && matchesOrigin && matchesDest && matchesDate && !isRouteShipment;
     });
-  }, [shipments, activeTab, currentTab, searchQuery, originFilter, destFilter, dateFilter, dateFilterEnabled, isBodega, myFranchiseId]);
+  }, [shipments, activeTab, currentTab, searchQuery, originFilter, destFilter, dateFilter, dateFilterEnabled, isBodega, myFranchiseId, interBodegaIds]);
 
   // Count per tab
   const tabCounts = useMemo(() => {
