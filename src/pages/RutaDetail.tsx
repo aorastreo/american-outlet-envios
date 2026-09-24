@@ -71,6 +71,8 @@ export default function RutaDetail() {
 
   // Simplified delivery tracking for driver: just checkboxes
   const [savingShipmentId, setSavingShipmentId] = useState<number | null>(null);
+  // Optimistic status overrides for instant UI feedback
+  const [optimisticStatuses, setOptimisticStatuses] = useState<Record<number, string>>({});
 
   // Confirmation dialog for route start
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -493,12 +495,17 @@ export default function RutaDetail() {
                 const isSaving = savingShipmentId === shipment.id;
 
                 // Auto-save handler — reads real status from server, saves immediately
+                // Use optimistic status for instant UI feedback
+                const visualStatus = optimisticStatuses[shipment.id] ?? shipment.status;
+
                 const handleToggle = async (type: "ENTREGADO" | "NO_RECOGIDO") => {
-                  const currentlyChecked = shipment.status === type;
+                  const currentlyChecked = visualStatus === type;
 
                   // If already checked, revert to ASIGNADO (undo)
                   const newStatus = currentlyChecked ? "ASIGNADO" : type;
 
+                  // Optimistic update: show instant feedback
+                  setOptimisticStatuses(prev => ({ ...prev, [shipment.id]: newStatus }));
                   setSavingShipmentId(shipment.id);
                   try {
                     await updateShipmentMutation.mutateAsync({ routeShipmentId: shipment.id, status: newStatus });
@@ -515,15 +522,27 @@ export default function RutaDetail() {
                     if (shipment.shipment?.trackingNumber) {
                       utils.shipment.track.invalidate({ trackingNumber: shipment.shipment.trackingNumber });
                     }
+                    // Clear optimistic status after successful server sync
+                    setOptimisticStatuses(prev => {
+                      const next = { ...prev };
+                      delete next[shipment.id];
+                      return next;
+                    });
                   } catch (err) {
                     toast.error("Error al guardar. Intente de nuevo.");
+                    // Revert optimistic update on error
+                    setOptimisticStatuses(prev => {
+                      const next = { ...prev };
+                      delete next[shipment.id];
+                      return next;
+                    });
                   } finally {
                     setSavingShipmentId(null);
                   }
                 };
 
                 return (
-                  <Card key={shipment.id} className={`border-l-4 ${shipment.status === "ENTREGADO" ? 'border-l-green-500' : shipment.status === "NO_RECOGIDO" ? 'border-l-red-500' : 'border-l-amber-400'}`}>
+                  <Card key={shipment.id} className={`border-l-4 ${visualStatus === "ENTREGADO" ? 'border-l-green-500' : visualStatus === "NO_RECOGIDO" ? 'border-l-red-500' : 'border-l-amber-400'}`}>
                     <CardContent className="p-4">
                       <div className="flex items-start gap-4">
                         <div className="flex-1 min-w-0">
@@ -593,12 +612,12 @@ export default function RutaDetail() {
                               <input
                                 type="checkbox"
                                 className="w-5 h-5 accent-green-600"
-                                checked={shipment.status === "ENTREGADO"}
+                                checked={visualStatus === "ENTREGADO"}
                                 onChange={() => handleToggle("ENTREGADO")}
                               />
                             )}
                             <span className="text-sm text-green-700 font-medium">
-                              {shipment.status === "ENTREGADO" ? "✓ Entregado (tocar para deshacer)" : "Entregado"}
+                              {visualStatus === "ENTREGADO" ? "✓ Entregado (tocar para deshacer)" : "Entregado"}
                             </span>
                           </label>
                           <label className={`flex items-center gap-2 ${isSaving ? 'opacity-50 pointer-events-none' : 'cursor-pointer'}`}>
@@ -608,12 +627,12 @@ export default function RutaDetail() {
                               <input
                                 type="checkbox"
                                 className="w-5 h-5 accent-red-600"
-                                checked={shipment.status === "NO_RECOGIDO"}
+                                checked={visualStatus === "NO_RECOGIDO"}
                                 onChange={() => handleToggle("NO_RECOGIDO")}
                               />
                             )}
                             <span className="text-sm text-red-700 font-medium">
-                              {shipment.status === "NO_RECOGIDO" ? "✓ No Recogido (tocar para deshacer)" : "No Recogido"}
+                              {visualStatus === "NO_RECOGIDO" ? "✓ No Recogido (tocar para deshacer)" : "No Recogido"}
                             </span>
                           </label>
                         </div>
