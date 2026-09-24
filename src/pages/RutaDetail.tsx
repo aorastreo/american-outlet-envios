@@ -10,7 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   Truck, MapPin, Phone, Package, CheckCircle, XCircle, Play, ArrowLeft,
   ChevronRight, AlertCircle, Clock, User, Calendar, ArrowUpRight, MessageCircle,
-  AlertTriangle, Search, ClipboardList, ArrowUp, ArrowDown,
+  AlertTriangle, Search, ClipboardList, ArrowUp, ArrowDown, List,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import {
@@ -526,11 +526,12 @@ export default function RutaDetail() {
                     <CardContent className="p-4">
                       <div className="flex items-start gap-4">
                         <div className="flex-1 min-w-0">
+                          {/* Tracking & Destination */}
                           <div className="flex items-center gap-2 mb-1">
                             <Package className="w-4 h-4 text-[#525252]" />
                             <span className="font-medium text-sm">{shipment.shipment?.trackingNumber || "-"}</span>
                           </div>
-                          <p className="text-sm text-[#525252]">
+                          <p className="text-sm text-[#525252] font-semibold">
                             {shipment.shipment?.senderName || "-"}
                           </p>
                           <p className="text-xs text-[#737373]">
@@ -541,8 +542,49 @@ export default function RutaDetail() {
                               Factura: {shipment.shipment.invoiceNumber}
                             </p>
                           )}
+
+                          {/* Phone with call/WhatsApp buttons */}
+                          {shipment.shipment?.senderPhone && (
+                            <div className="flex items-center gap-2 mt-2">
+                              <Phone className="w-3.5 h-3.5 text-[#C8102E]" />
+                              <span className="text-sm font-medium text-[#1A1A1A]">{shipment.shipment.senderPhone}</span>
+                              <a
+                                href={`tel:${shipment.shipment.senderPhone.replace(/\D/g, "")}`}
+                                className="inline-flex items-center gap-1 text-[10px] bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100 px-2 py-0.5 rounded transition-colors"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <Phone className="w-3 h-3" />Llamar
+                              </a>
+                              <a
+                                href={`https://wa.me/506${shipment.shipment.senderPhone.replace(/\D/g, "")}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-[10px] bg-[#25D366]/10 border border-[#25D366]/30 text-[#25D366] hover:bg-[#25D366] hover:text-white px-2 py-0.5 rounded transition-colors"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <MessageCircle className="w-3 h-3" />WhatsApp
+                              </a>
+                            </div>
+                          )}
+
+                          {/* Items */}
+                          {shipment.shipment?.items && shipment.shipment.items.length > 0 && (
+                            <div className="mt-2 bg-[#F7F7F7] rounded-lg p-2">
+                              <p className="text-[10px] text-[#8A8A8A] uppercase font-semibold mb-1 flex items-center gap-1">
+                                <List className="w-3 h-3" />Articulos
+                              </p>
+                              <div className="space-y-0.5">
+                                {shipment.shipment.items.map((item: any, idx: number) => (
+                                  <div key={idx} className="flex items-center justify-between text-xs">
+                                    <span className="text-[#1A1A1A]">{item.description}</span>
+                                    <span className="text-[#8A8A8A] font-medium">x{item.quantity}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
-                        <div className="flex flex-col gap-2">
+                        <div className="flex flex-col gap-2 shrink-0">
                           <label className="flex items-center gap-2 cursor-pointer">
                             <input
                               type="checkbox"
