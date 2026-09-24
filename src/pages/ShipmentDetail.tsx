@@ -151,11 +151,10 @@ function buildShipmentTimeline(
   // replace the final delivery step
   const hasNoRecogido = trackingHistory.some((t: any) => t.status === "NO_RECOGIDO") ||
     currentShipmentStatus === "NO_RECOGIDO";
-  if (hasNoRecogido) {
+  if (hasNoRecogido && steps.length > 0) {
     const lastIdx = steps.length - 1;
-    if (steps[lastIdx]?.status === "RECIBIDO_EN_DESTINO") {
-      steps[lastIdx] = { status: "NO_RECOGIDO", label: "No Recogido", desc: "Cliente no se presento a recoger el paquete" };
-    }
+    // Always replace the last step with NO_RECOGIDO when applicable
+    steps[lastIdx] = { status: "NO_RECOGIDO", label: "No Recogido", desc: "Cliente no se presento a recoger el paquete" };
   }
 
   return steps;
@@ -492,7 +491,7 @@ export default function ShipmentDetail() {
                     );
                   })}
                 </div>
-                <div className="absolute top-5 left-0 right-0 h-0.5 bg-[#F0F0F0] -z-0 mx-8">
+                <div className="absolute top-5 left-6 right-6 h-0.5 bg-[#F0F0F0] -z-0">
                   <div className="h-full bg-[#C8102E]" style={{ width: timelineSteps.length > 1 ? (currentStepIndex / (timelineSteps.length - 1)) * 100 : 0 }} />
                 </div>
               </div>
