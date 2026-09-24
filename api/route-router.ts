@@ -345,6 +345,13 @@ export const routeRouter = createRouter({
         const rsData = await db.select().from(routeShipments).where(eq(routeShipments.id, input.routeShipmentId)).limit(1);
         
         if (rsData.length > 0) {
+          const shipmentStatus = input.status === "ENTREGADO" ? "ENTREGADO" : "NO_RECOGIDO";
+          // Update main shipment status
+          await db.update(shipments)
+            .set({ status: shipmentStatus, updatedAt: new Date() })
+            .where(eq(shipments.id, rsData[0].shipmentId));
+          console.log("[updateShipmentStatus] shipments.status updated to:", shipmentStatus);
+          
           // Insert tracking history for BOTH statuses
           await db.insert(shipmentTracking).values({
             shipmentId: rsData[0].shipmentId,
