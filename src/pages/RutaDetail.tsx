@@ -70,8 +70,6 @@ export default function RutaDetail() {
   const [searchFilter, setSearchFilter] = useState("");
 
   // Simplified delivery tracking for driver: just checkboxes
-  const [selectedDelivered, setSelectedDelivered] = useState<Set<number>>(new Set());
-  const [selectedNoPickup, setSelectedNoPickup] = useState<Set<number>>(new Set());
   const [savingShipmentId, setSavingShipmentId] = useState<number | null>(null);
 
   // Confirmation dialog for route start
@@ -137,34 +135,7 @@ export default function RutaDetail() {
     },
   });
 
-  // Simplified delivery: save all checked deliveries at once
-  const handleSaveDeliveries = async () => {
-    const promises: Promise<any>[] = [];
 
-    // Mark all selected as ENTREGADO
-    for (const routeShipmentId of selectedDelivered) {
-      promises.push(updateShipmentMutation.mutateAsync({ routeShipmentId, status: "ENTREGADO" }));
-    }
-    // Mark all selected as NO_RECOGIDO
-    for (const routeShipmentId of selectedNoPickup) {
-      promises.push(updateShipmentMutation.mutateAsync({ routeShipmentId, status: "NO_RECOGIDO" }));
-    }
-
-    if (promises.length === 0) {
-      toast.error("No hay envios seleccionados");
-      return;
-    }
-
-    try {
-      await Promise.all(promises);
-      toast.success(`${promises.length} envio(s) actualizado(s)`);
-      setSelectedDelivered(new Set());
-      setSelectedNoPickup(new Set());
-      utils.route.getById.invalidate({ id: routeId });
-    } catch (err) {
-      toast.error("Error al guardar algunos envios");
-    }
-  };
 
   const moveShipmentMutation = trpc.route.moveShipment.useMutation({
     onSuccess: () => {
@@ -520,40 +491,23 @@ export default function RutaDetail() {
               ?.flatMap((stop: any) => stop.shipments || [])
               ?.filter((s: any) => s.status === "ASIGNADO" || s.status === "EN_RUTA" || s.status === "EN_PARADA")
               .map((shipment: any) => {
-                const isDelivered = selectedDelivered.has(shipment.id);
-                const isNoPickup = selectedNoPickup.has(shipment.id);
                 const isSaving = savingShipmentId === shipment.id;
 
-                // Auto-save handler
+                // Auto-save handler — reads real status from server, saves immediately
                 const handleToggle = async (type: "ENTREGADO" | "NO_RECOGIDO") => {
-                  const currentlyChecked = type === "ENTREGADO" ? isDelivered : isNoPickup;
-                  const otherSet = type === "ENTREGADO" ? selectedNoPickup : selectedDelivered;
-                  const setThis = type === "ENTREGADO" ? setSelectedDelivered : setSelectedNoPickup;
-                  const setOther = type === "ENTREGADO" ? setSelectedNoPickup : setSelectedDelivered;
+                  const currentlyChecked = shipment.status === type;
 
-                  if (currentlyChecked) {
-                    // Unchecking — just update local state, no save needed
-                    const newSet = new Set(type === "ENTREGADO" ? selectedDelivered : selectedNoPickup);
-                    newSet.delete(shipment.id);
-                    setThis(newSet);
-                    return;
-                  }
+                  // If already checked, revert to ASIGNADO (undo)
+                  const newStatus = currentlyChecked ? "ASIGNADO" : type;
 
-                  // Checking — save immediately
                   setSavingShipmentId(shipment.id);
                   try {
-                    await updateShipmentMutation.mutateAsync({ routeShipmentId: shipment.id, status: type });
-                    toast.success(`${shipment.shipment?.trackingNumber || "Envio"} marcado como ${type === "ENTREGADO" ? "entregado" : "no recogido"}`);
-
-                    // Update local state
-                    const newSet = new Set(type === "ENTREGADO" ? selectedDelivered : selectedNoPickup);
-                    newSet.add(shipment.id);
-                    setThis(newSet);
-                    const newOther = new Set(otherSet);
-                    newOther.delete(shipment.id);
-                    setOther(newOther);
-
-                    // Refresh route data
+                    await updateShipmentMutation.mutateAsync({ routeShipmentId: shipment.id, status: newStatus });
+                    if (newStatus === "ASIGNADO") {
+                      toast.info(`${shipment.shipment?.trackingNumber || "Envio"} revertido a pendiente`);
+                    } else {
+                      toast.success(`${shipment.shipment?.trackingNumber || "Envio"} marcado como ${newStatus === "ENTREGADO" ? "entregado" : "no recogido"}`);
+                    }
                     utils.route.getById.invalidate({ id: routeId });
                   } catch (err) {
                     toast.error("Error al guardar. Intente de nuevo.");
@@ -563,7 +517,7 @@ export default function RutaDetail() {
                 };
 
                 return (
-                  <Card key={shipment.id} className={`border-l-4 ${isDelivered ? 'border-l-green-500' : isNoPickup ? 'border-l-red-500' : 'border-l-amber-400'}`}>
+                  <Card key={shipment.id} className={`border-l-4 ${shipment.status === "ENTREGADO" ? 'border-l-green-500' : shipment.status === "NO_RECOGIDO" ? 'border-l-red-500' : 'border-l-amber-400'}`}>
                     <CardContent className="p-4">
                       <div className="flex items-start gap-4">
                         <div className="flex-1 min-w-0">
@@ -627,24 +581,26 @@ export default function RutaDetail() {
                         </div>
                         <div className="flex flex-col gap-2 shrink-0">
                           <label className={`flex items-center gap-2 ${isSaving ? 'opacity-50 pointer-events-none' : 'cursor-pointer'}`}>
-                            {isSaving && <div className="w-5 h-5 border-2 border-green-600 border-t-transparent rounded-full animate-spin" />}
-                            {!isSaving && (
+                            {isSaving ? (
+                              <div className="w-5 h-5 border-2 border-green-600 border-t-transparent rounded-full animate-spin" />
+                            ) : (
                               <input
                                 type="checkbox"
                                 className="w-5 h-5 accent-green-600"
-                                checked={isDelivered}
+                                checked={shipment.status === "ENTREGADO"}
                                 onChange={() => handleToggle("ENTREGADO")}
                               />
                             )}
                             <span className="text-sm text-green-700 font-medium">Entregado</span>
                           </label>
                           <label className={`flex items-center gap-2 ${isSaving ? 'opacity-50 pointer-events-none' : 'cursor-pointer'}`}>
-                            {isSaving && <div className="w-5 h-5 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />}
-                            {!isSaving && (
+                            {isSaving ? (
+                              <div className="w-5 h-5 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
+                            ) : (
                               <input
                                 type="checkbox"
                                 className="w-5 h-5 accent-red-600"
-                                checked={isNoPickup}
+                                checked={shipment.status === "NO_RECOGIDO"}
                                 onChange={() => handleToggle("NO_RECOGIDO")}
                               />
                             )}
