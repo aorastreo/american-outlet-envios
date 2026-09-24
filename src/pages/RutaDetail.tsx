@@ -489,160 +489,154 @@ export default function RutaDetail() {
               </CardContent>
             </Card>
 
-            {route.stops
-              ?.flatMap((stop: any) => stop.shipments || [])
-              .map((shipment: any) => {
-                const isSaving = savingShipmentId === shipment.id;
+            {route.stops?.map((stop: any, stopIdx: number) => {
+              const stopShipments = stop.shipments || [];
+              if (stopShipments.length === 0) return null;
 
-                // Auto-save handler — reads real status from server, saves immediately
-                // Use optimistic status for instant UI feedback
-                const visualStatus = optimisticStatuses[shipment.id] ?? shipment.status;
+              const deliveredCount = stopShipments.filter((s: any) => (optimisticStatuses[s.id] ?? s.status) === "ENTREGADO").length;
+              const noPickupCount = stopShipments.filter((s: any) => (optimisticStatuses[s.id] ?? s.status) === "NO_RECOGIDO").length;
+              const pendingCount = stopShipments.length - deliveredCount - noPickupCount;
 
-                const handleToggle = async (type: "ENTREGADO" | "NO_RECOGIDO") => {
-                  const currentlyChecked = visualStatus === type;
-
-                  // If already checked, revert to ASIGNADO (undo)
-                  const newStatus = currentlyChecked ? "ASIGNADO" : type;
-
-                  // Optimistic update: show instant feedback
-                  setOptimisticStatuses(prev => ({ ...prev, [shipment.id]: newStatus }));
-                  setSavingShipmentId(shipment.id);
-                  try {
-                    await updateShipmentMutation.mutateAsync({ routeShipmentId: shipment.id, status: newStatus });
-                    if (newStatus === "ASIGNADO") {
-                      toast.info(`${shipment.shipment?.trackingNumber || "Envio"} revertido a pendiente`);
-                    } else {
-                      toast.success(`${shipment.shipment?.trackingNumber || "Envio"} marcado como ${newStatus === "ENTREGADO" ? "entregado" : "no recogido"}`);
-                    }
-                    utils.route.getById.invalidate({ id: routeId });
-                    // Invalidate and refetch shipment queries so tracking/detail pages refresh immediately
-                    if (shipment.shipmentId) {
-                      utils.shipment.getById.invalidate({ id: shipment.shipmentId });
-                    }
-                    if (shipment.shipment?.trackingNumber) {
-                      utils.shipment.track.invalidate({ trackingNumber: shipment.shipment.trackingNumber });
-                      // Force immediate refetch if any component is subscribed
-                      utils.shipment.track.refetch({ trackingNumber: shipment.shipment.trackingNumber }).catch(() => {});
-                    }
-                    // Clear optimistic status after successful server sync
-                    setOptimisticStatuses(prev => {
-                      const next = { ...prev };
-                      delete next[shipment.id];
-                      return next;
-                    });
-                  } catch (err) {
-                    toast.error("Error al guardar. Intente de nuevo.");
-                    // Revert optimistic update on error
-                    setOptimisticStatuses(prev => {
-                      const next = { ...prev };
-                      delete next[shipment.id];
-                      return next;
-                    });
-                  } finally {
-                    setSavingShipmentId(null);
-                  }
-                };
-
-                return (
-                  <Card key={shipment.id} className={`border-l-4 ${visualStatus === "ENTREGADO" ? 'border-l-green-500' : visualStatus === "NO_RECOGIDO" ? 'border-l-red-500' : 'border-l-amber-400'}`}>
-                    <CardContent className="p-4">
-                      <div className="flex items-start gap-4">
-                        <div className="flex-1 min-w-0">
-                          {/* Tracking & Destination */}
-                          <div className="flex items-center gap-2 mb-1">
-                            <Package className="w-4 h-4 text-[#525252]" />
-                            <span className="font-medium text-sm">{shipment.shipment?.trackingNumber || "-"}</span>
-                          </div>
-                          <p className="text-sm text-[#525252] font-semibold">
-                            {shipment.shipment?.senderName || "-"}
-                          </p>
-                          <p className="text-xs text-[#737373]">
-                            Para: {shipment.shipment?.destinationName || "-"}
-                          </p>
-                          {shipment.shipment?.invoiceNumber && (
-                            <p className="text-xs text-[#737373]">
-                              Factura: {shipment.shipment.invoiceNumber}
-                            </p>
-                          )}
-
-                          {/* Phone with call/WhatsApp buttons */}
-                          {shipment.shipment?.senderPhone && (
-                            <div className="flex items-center gap-2 mt-2">
-                              <Phone className="w-3.5 h-3.5 text-[#C8102E]" />
-                              <span className="text-sm font-medium text-[#1A1A1A]">{shipment.shipment.senderPhone}</span>
-                              <a
-                                href={`tel:${shipment.shipment.senderPhone.replace(/\D/g, "")}`}
-                                className="inline-flex items-center gap-1 text-[10px] bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100 px-2 py-0.5 rounded transition-colors"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <Phone className="w-3 h-3" />Llamar
-                              </a>
-                              <a
-                                href={`https://wa.me/506${shipment.shipment.senderPhone.replace(/\D/g, "")}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 text-[10px] bg-[#25D366]/10 border border-[#25D366]/30 text-[#25D366] hover:bg-[#25D366] hover:text-white px-2 py-0.5 rounded transition-colors"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <MessageCircle className="w-3 h-3" />WhatsApp
-                              </a>
-                            </div>
-                          )}
-
-                          {/* Items */}
-                          {shipment.shipment?.items && shipment.shipment.items.length > 0 && (
-                            <div className="mt-2 bg-[#F7F7F7] rounded-lg p-2">
-                              <p className="text-[10px] text-[#8A8A8A] uppercase font-semibold mb-1 flex items-center gap-1">
-                                <List className="w-3 h-3" />Articulos
-                              </p>
-                              <div className="space-y-0.5">
-                                {shipment.shipment.items.map((item: any, idx: number) => (
-                                  <div key={idx} className="flex items-center justify-between text-xs">
-                                    <span className="text-[#1A1A1A]">{item.description}</span>
-                                    <span className="text-[#8A8A8A] font-medium">x{item.quantity}</span>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex flex-col gap-2 shrink-0">
-                          <label className={`flex items-center gap-2 ${isSaving ? 'opacity-50 pointer-events-none' : 'cursor-pointer'}`}>
-                            {isSaving ? (
-                              <div className="w-5 h-5 border-2 border-green-600 border-t-transparent rounded-full animate-spin" />
-                            ) : (
-                              <input
-                                type="checkbox"
-                                className="w-5 h-5 accent-green-600"
-                                checked={visualStatus === "ENTREGADO"}
-                                onChange={() => handleToggle("ENTREGADO")}
-                              />
-                            )}
-                            <span className="text-sm text-green-700 font-medium">
-                              {visualStatus === "ENTREGADO" ? "✓ Entregado (tocar para deshacer)" : "Entregado"}
-                            </span>
-                          </label>
-                          <label className={`flex items-center gap-2 ${isSaving ? 'opacity-50 pointer-events-none' : 'cursor-pointer'}`}>
-                            {isSaving ? (
-                              <div className="w-5 h-5 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
-                            ) : (
-                              <input
-                                type="checkbox"
-                                className="w-5 h-5 accent-red-600"
-                                checked={visualStatus === "NO_RECOGIDO"}
-                                onChange={() => handleToggle("NO_RECOGIDO")}
-                              />
-                            )}
-                            <span className="text-sm text-red-700 font-medium">
-                              {visualStatus === "NO_RECOGIDO" ? "✓ No Recogido (tocar para deshacer)" : "No Recogido"}
-                            </span>
-                          </label>
+              return (
+                <div key={stop.id} className="space-y-3">
+                  {/* Stop Header */}
+                  <div className="flex items-center justify-between bg-white rounded-lg border border-gray-200 px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                        pendingCount === 0 ? "bg-[#1B6B3E] text-white" : "bg-[#C8102E] text-white"
+                      }`}>
+                        {stopIdx + 1}
+                      </div>
+                      <div>
+                        <h3 className="text-base font-semibold text-[#1A1A1A]">{stop.cityName}</h3>
+                        <div className="flex items-center gap-2 text-xs">
+                          <span className="text-[#8A8A8A]">{stopShipments.length} envio{stopShipments.length !== 1 ? "s" : ""}</span>
+                          {deliveredCount > 0 && <span className="text-emerald-600 font-medium">{deliveredCount} entregado{deliveredCount !== 1 ? "s" : ""}</span>}
+                          {noPickupCount > 0 && <span className="text-red-600 font-medium">{noPickupCount} no recogido{noPickupCount !== 1 ? "s" : ""}</span>}
+                          {pendingCount > 0 && <span className="text-amber-600 font-medium">{pendingCount} pendiente{pendingCount !== 1 ? "s" : ""}</span>}
                         </div>
                       </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
+                    </div>
+                    {pendingCount === 0 && (
+                      <CheckCircle className="w-5 h-5 text-emerald-500" />
+                    )}
+                  </div>
+
+                  {/* Shipments for this stop */}
+                  <div className="space-y-3 pl-4">
+                    {stopShipments.map((shipment: any) => {
+                      const isSaving = savingShipmentId === shipment.id;
+                      const visualStatus = optimisticStatuses[shipment.id] ?? shipment.status;
+
+                      const handleToggle = async (type: "ENTREGADO" | "NO_RECOGIDO") => {
+                        const currentlyChecked = visualStatus === type;
+                        const newStatus = currentlyChecked ? "ASIGNADO" : type;
+
+                        setOptimisticStatuses(prev => ({ ...prev, [shipment.id]: newStatus }));
+                        setSavingShipmentId(shipment.id);
+                        try {
+                          await updateShipmentMutation.mutateAsync({ routeShipmentId: shipment.id, status: newStatus });
+                          if (newStatus === "ASIGNADO") {
+                            toast.info(`${shipment.shipment?.trackingNumber || "Envio"} revertido a pendiente`);
+                          } else {
+                            toast.success(`${shipment.shipment?.trackingNumber || "Envio"} marcado como ${newStatus === "ENTREGADO" ? "entregado" : "no recogido"}`);
+                          }
+                          utils.route.getById.invalidate({ id: routeId });
+                          if (shipment.shipmentId) {
+                            utils.shipment.getById.invalidate({ id: shipment.shipmentId });
+                          }
+                          if (shipment.shipment?.trackingNumber) {
+                            utils.shipment.track.invalidate({ trackingNumber: shipment.shipment.trackingNumber });
+                            utils.shipment.track.refetch({ trackingNumber: shipment.shipment.trackingNumber }).catch(() => {});
+                          }
+                          setOptimisticStatuses(prev => {
+                            const next = { ...prev };
+                            delete next[shipment.id];
+                            return next;
+                          });
+                        } catch (err) {
+                          toast.error("Error al guardar. Intente de nuevo.");
+                          setOptimisticStatuses(prev => {
+                            const next = { ...prev };
+                            delete next[shipment.id];
+                            return next;
+                          });
+                        } finally {
+                          setSavingShipmentId(null);
+                        }
+                      };
+
+                      return (
+                        <Card key={shipment.id} className={`border-l-4 ${visualStatus === "ENTREGADO" ? 'border-l-green-500' : visualStatus === "NO_RECOGIDO" ? 'border-l-red-500' : 'border-l-amber-400'}`}>
+                          <CardContent className="p-4">
+                            <div className="flex items-start gap-4">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <Package className="w-4 h-4 text-[#525252]" />
+                                  <span className="font-medium text-sm">{shipment.shipment?.trackingNumber || "-"}</span>
+                                </div>
+                                <p className="text-sm text-[#525252] font-semibold">{shipment.shipment?.senderName || "-"}</p>
+                                <p className="text-xs text-[#737373]">Para: {shipment.shipment?.destinationName || "-"}</p>
+                                {shipment.shipment?.invoiceNumber && (
+                                  <p className="text-xs text-[#737373]">Factura: {shipment.shipment.invoiceNumber}</p>
+                                )}
+
+                                {shipment.shipment?.senderPhone && (
+                                  <div className="flex items-center gap-2 mt-2">
+                                    <Phone className="w-3.5 h-3.5 text-[#C8102E]" />
+                                    <span className="text-sm font-medium text-[#1A1A1A]">{shipment.shipment.senderPhone}</span>
+                                    <a href={`tel:${shipment.shipment.senderPhone.replace(/\D/g, "")}`} className="inline-flex items-center gap-1 text-[10px] bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100 px-2 py-0.5 rounded transition-colors" onClick={(e) => e.stopPropagation()}>
+                                      <Phone className="w-3 h-3" />Llamar
+                                    </a>
+                                    <a href={`https://wa.me/506${shipment.shipment.senderPhone.replace(/\D/g, "")}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[10px] bg-[#25D366]/10 border border-[#25D366]/30 text-[#25D366] hover:bg-[#25D366] hover:text-white px-2 py-0.5 rounded transition-colors" onClick={(e) => e.stopPropagation()}>
+                                      <MessageCircle className="w-3 h-3" />WhatsApp
+                                    </a>
+                                  </div>
+                                )}
+
+                                {shipment.shipment?.items && shipment.shipment.items.length > 0 && (
+                                  <div className="mt-2 bg-[#F7F7F7] rounded-lg p-2">
+                                    <p className="text-[10px] text-[#8A8A8A] uppercase font-semibold mb-1 flex items-center gap-1">
+                                      <List className="w-3 h-3" />Articulos
+                                    </p>
+                                    <div className="space-y-0.5">
+                                      {shipment.shipment.items.map((item: any, idx: number) => (
+                                        <div key={idx} className="flex items-center justify-between text-xs">
+                                          <span className="text-[#1A1A1A]">{item.description}</span>
+                                          <span className="text-[#8A8A8A] font-medium">x{item.quantity}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex flex-col gap-2 shrink-0">
+                                <label className={`flex items-center gap-2 ${isSaving ? 'opacity-50 pointer-events-none' : 'cursor-pointer'}`}>
+                                  {isSaving ? (
+                                    <div className="w-5 h-5 border-2 border-green-600 border-t-transparent rounded-full animate-spin" />
+                                  ) : (
+                                    <input type="checkbox" className="w-5 h-5 accent-green-600" checked={visualStatus === "ENTREGADO"} onChange={() => handleToggle("ENTREGADO")} />
+                                  )}
+                                  <span className="text-sm text-green-700 font-medium">{visualStatus === "ENTREGADO" ? "✓ Entregado (tocar para deshacer)" : "Entregado"}</span>
+                                </label>
+                                <label className={`flex items-center gap-2 ${isSaving ? 'opacity-50 pointer-events-none' : 'cursor-pointer'}`}>
+                                  {isSaving ? (
+                                    <div className="w-5 h-5 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
+                                  ) : (
+                                    <input type="checkbox" className="w-5 h-5 accent-red-600" checked={visualStatus === "NO_RECOGIDO"} onChange={() => handleToggle("NO_RECOGIDO")} />
+                                  )}
+                                  <span className="text-sm text-red-700 font-medium">{visualStatus === "NO_RECOGIDO" ? "✓ No Recogido (tocar para deshacer)" : "No Recogido"}</span>
+                                </label>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
 
