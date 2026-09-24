@@ -53,7 +53,8 @@ function buildShipmentTimeline(
   originIsWarehouse: boolean,
   destIsWarehouse: boolean,
   trackingHistory: any[],
-  whLoc?: string | null
+  whLoc?: string | null,
+  currentShipmentStatus?: string | null
 ) {
   const { firstBodega, secondBodega } = extractBodegaNames(trackingHistory);
   const bodega1 = firstBodega || whLoc || "Bodega";
@@ -133,8 +134,10 @@ function buildShipmentTimeline(
     );
   }
 
-  // If tracking history contains NO_RECOGIDO, replace the final delivery step
-  const hasNoRecogido = trackingHistory.some((t: any) => t.status === "NO_RECOGIDO");
+  // If tracking history contains NO_RECOGIDO or shipment status is NO_RECOGIDO,
+  // replace the final delivery step
+  const hasNoRecogido = trackingHistory.some((t: any) => t.status === "NO_RECOGIDO") ||
+    currentShipmentStatus === "NO_RECOGIDO";
   if (hasNoRecogido) {
     const lastIdx = steps.length - 1;
     if (steps[lastIdx]?.status === "RECIBIDO_EN_DESTINO") {
@@ -201,7 +204,7 @@ export default function Home() {
   const whLoc = (shipment as any)?.warehouseLocation;
   const timelineSteps = useMemo(() => {
     return shipment
-      ? buildShipmentTimeline(isPickup, originIsWarehouse, destIsWarehouse, trackingHistory, whLoc)
+      ? buildShipmentTimeline(isPickup, originIsWarehouse, destIsWarehouse, trackingHistory, whLoc, (shipment as any)?.status)
       : [];
   }, [isPickup, originIsWarehouse, destIsWarehouse, trackingHistory, whLoc, shipment]);
 
