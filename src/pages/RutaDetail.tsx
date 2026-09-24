@@ -590,7 +590,9 @@ export default function RutaDetail() {
                                 onChange={() => handleToggle("ENTREGADO")}
                               />
                             )}
-                            <span className="text-sm text-green-700 font-medium">Entregado</span>
+                            <span className="text-sm text-green-700 font-medium">
+                              {shipment.status === "ENTREGADO" ? "✓ Entregado (tocar para deshacer)" : "Entregado"}
+                            </span>
                           </label>
                           <label className={`flex items-center gap-2 ${isSaving ? 'opacity-50 pointer-events-none' : 'cursor-pointer'}`}>
                             {isSaving ? (
@@ -603,7 +605,9 @@ export default function RutaDetail() {
                                 onChange={() => handleToggle("NO_RECOGIDO")}
                               />
                             )}
-                            <span className="text-sm text-red-700 font-medium">No Recogido</span>
+                            <span className="text-sm text-red-700 font-medium">
+                              {shipment.status === "NO_RECOGIDO" ? "✓ No Recogido (tocar para deshacer)" : "No Recogido"}
+                            </span>
                           </label>
                         </div>
                       </div>
