@@ -19,7 +19,6 @@ import {
   RotateCcw,
   ClipboardCheck,
   X,
-  ClipboardList,
   Printer,
 } from "lucide-react";
 
@@ -346,13 +345,6 @@ export default function WarrantiesPage() {
                     </div>
                     <div className="shrink-0 flex flex-col gap-2">
                       <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => navigate(`/garantias/${warranty.id}`)}
-                        >
-                          <ClipboardList className="w-3.5 h-3.5 mr-1" /> Bitacora
-                        </Button>
                         <Button
                           variant="outline"
                           size="sm"
