@@ -143,10 +143,12 @@ export default function Rutas() {
     if (!routeShipments) return [];
     const routeOnly = routeShipments.filter(isRouteDestination);
     if (activeTab === "EN_BODEGA") {
+      // Route shipments must be in Bodega Cedi to be added to a route
+      // (Routes are managed by Cedi. Envios from my stores go: store -> Pavon -> Cedi -> route)
       return routeOnly.filter(
         (s) =>
-          s.status === "RECIBIDO_EN_BODEGA" ||
-          (s.status === "CREADO" && s.originFranchise?.isWarehouse === 1)
+          (s.status === "RECIBIDO_EN_BODEGA" && s.warehouseLocation === "Bodega Cedi") ||
+          (s.status === "CREADO" && s.originFranchise?.isWarehouse === 1 && s.warehouseLocation === "Bodega Cedi")
       );
     }
     if (activeTab === "EN_RUTA") {
@@ -181,8 +183,8 @@ export default function Rutas() {
       EN_BODEGA:
         routeOnly.filter(
           (s) =>
-            s.status === "RECIBIDO_EN_BODEGA" ||
-            (s.status === "CREADO" && s.originFranchise?.isWarehouse === 1)
+            (s.status === "RECIBIDO_EN_BODEGA" && s.warehouseLocation === "Bodega Cedi") ||
+            (s.status === "CREADO" && s.originFranchise?.isWarehouse === 1 && s.warehouseLocation === "Bodega Cedi")
         ).length,
       EN_RUTA: routeOnly.filter((s) => s.status === "EN_RUTA" || s.status === "EN_PARADA").length,
       NO_RECOGIDOS: routeOnly.filter((s) => {
