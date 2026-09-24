@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { TRPCError } from "@trpc/trpc";
+import { TRPCError } from "@trpc/server";
 import { eq, or, and, desc, sql, inArray } from "drizzle-orm";
 import {
   warranties,
