@@ -167,7 +167,7 @@ export default function WarrantiesPage() {
             <CardTitle className="text-lg">Nueva Garantia</CardTitle>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleCreate} className="space-y-4">
+            <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-medium text-[#525252]">Numero de Factura *</label>
@@ -175,7 +175,6 @@ export default function WarrantiesPage() {
                     value={form.invoiceNumber}
                     onChange={(e) => setForm({ ...form, invoiceNumber: e.target.value })}
                     placeholder="Ej: #9098"
-                    required
                   />
                 </div>
                 <div>
@@ -184,7 +183,6 @@ export default function WarrantiesPage() {
                     value={form.senderPhone}
                     onChange={(e) => setForm({ ...form, senderPhone: e.target.value })}
                     placeholder="Ej: 89254497"
-                    required
                   />
                 </div>
               </div>
@@ -194,7 +192,6 @@ export default function WarrantiesPage() {
                   value={form.senderName}
                   onChange={(e) => setForm({ ...form, senderName: e.target.value })}
                   placeholder="Nombre completo"
-                  required
                 />
               </div>
               <div>
@@ -203,7 +200,6 @@ export default function WarrantiesPage() {
                   value={form.productDescription}
                   onChange={(e) => setForm({ ...form, productDescription: e.target.value })}
                   placeholder="Ej: Silla ergonomica"
-                  required
                 />
               </div>
               <div>
@@ -212,7 +208,6 @@ export default function WarrantiesPage() {
                   value={form.defectDescription}
                   onChange={(e) => setForm({ ...form, defectDescription: e.target.value })}
                   placeholder="Describa el problema del producto"
-                  required
                 />
               </div>
               <div>
@@ -224,19 +219,24 @@ export default function WarrantiesPage() {
                 />
               </div>
               <div className="flex gap-3">
-                <Button 
-                  type="button" 
-                  className="bg-[#C8102E] hover:bg-[#A50D25] text-white" 
+                <button 
+                  className="bg-[#C8102E] hover:bg-[#A50D25] text-white px-4 py-2 rounded-md font-medium disabled:opacity-50" 
                   disabled={createMutation.isPending}
-                  onClick={handleCreate}
+                  onClick={() => {
+                    console.log("[Warranties] Button clicked");
+                    handleCreate({ preventDefault: () => {} } as any);
+                  }}
                 >
                   {createMutation.isPending ? "Guardando..." : "Crear Garantia"}
-                </Button>
-                <Button type="button" variant="outline" onClick={() => setShowForm(false)}>
+                </button>
+                <button 
+                  className="border border-gray-300 px-4 py-2 rounded-md font-medium hover:bg-gray-50" 
+                  onClick={() => setShowForm(false)}
+                >
                   Cancelar
-                </Button>
+                </button>
               </div>
-            </form>
+            </div>
           </CardContent>
         </Card>
       )}
