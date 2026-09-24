@@ -179,24 +179,18 @@ export default function BitacoraGarantia() {
                 <p className="text-[10px] font-black text-[#1A1A1A] uppercase tracking-wider mb-4">Entregue Conforme</p>
                 <div className="border-b-2 border-[#1A1A1A] pt-8 mb-2"></div>
                 <p className="text-[10px] text-[#737373] font-semibold">Nombre Completo</p>
-                <p className="text-[9px] text-[#A3A3A3] mt-3">Fecha y Hora</p>
-                <p className="text-[9px] text-[#A3A3A3]">_____________________</p>
               </div>
               {/* RECIBIO CONFORME */}
               <div className="text-center">
                 <p className="text-[10px] font-black text-[#1A1A1A] uppercase tracking-wider mb-4">Recibio Conforme</p>
                 <div className="border-b-2 border-[#1A1A1A] pt-8 mb-2"></div>
                 <p className="text-[10px] text-[#737373] font-semibold">Nombre Completo</p>
-                <p className="text-[9px] text-[#A3A3A3] mt-3">Fecha y Hora</p>
-                <p className="text-[9px] text-[#A3A3A3]">_____________________</p>
               </div>
               {/* INFORMACION DEL CHOFER */}
               <div className="text-center">
                 <p className="text-[10px] font-black text-[#1A1A1A] uppercase tracking-wider mb-4">Informacion del Chofer</p>
                 <div className="border-b-2 border-[#1A1A1A] pt-8 mb-2"></div>
                 <p className="text-[10px] text-[#737373] font-semibold">Nombre Completo</p>
-                <p className="text-[9px] text-[#A3A3A3] mt-3">Fecha y Hora</p>
-                <p className="text-[9px] text-[#A3A3A3]">_____________________</p>
               </div>
             </div>
           </div>
