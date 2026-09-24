@@ -515,7 +515,8 @@ export default function RutaDetail() {
               </CardContent>
             </Card>
 
-            {route.shipments
+            {route.stops
+              ?.flatMap((stop: any) => stop.shipments || [])
               ?.filter((s: any) => s.status === "ASIGNADO" || s.status === "EN_RUTA" || s.status === "EN_PARADA")
               .map((shipment: any) => {
                 const isDelivered = selectedDelivered.has(shipment.id);
