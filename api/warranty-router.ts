@@ -8,6 +8,14 @@ import {
 } from "@db/schema";
 import { franchiseAuthedQuery, publicQuery } from "./middleware";
 import { getDb } from "./queries/connection";
+import { initWarrantyTables } from "./warranty-init";
+
+let tablesInitialized = false;
+async function ensureTables() {
+  if (!tablesInitialized) {
+    tablesInitialized = await initWarrantyTables();
+  }
+}
 
 function generateWarrantyTrackingNumber(): string {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
@@ -32,13 +40,15 @@ export const warrantyRouter = {
       })
     )
     .mutation(async ({ input, ctx }) => {
-      const db = getDb();
-      const franchiseId = ctx.franchiseUser!.franchiseId;
-      const userId = ctx.franchiseUser!.id;
+      try {
+        await ensureTables();
+        const db = getDb();
+        const franchiseId = ctx.franchiseUser!.franchiseId;
+        const userId = ctx.franchiseUser!.id;
 
-      const trackingNumber = generateWarrantyTrackingNumber();
+        const trackingNumber = generateWarrantyTrackingNumber();
 
-      const result = await db.insert(warranties).values({
+        const result = await db.insert(warranties).values({
         trackingNumber,
         invoiceNumber: input.invoiceNumber,
         senderName: input.senderName,
@@ -62,11 +72,19 @@ export const warrantyRouter = {
         createdBy: userId,
       });
 
-      return { success: true, trackingNumber, id: warrantyId };
+        return { success: true, trackingNumber, id: warrantyId };
+      } catch (error: any) {
+        console.error("[warranty.create] ERROR:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: error.message || "Error al crear la garantia",
+        });
+      }
     }),
 
   // ─── List Warranties (filtered by franchise/warehouse) ─────────
   list: franchiseAuthedQuery.query(async ({ ctx }) => {
+    await ensureTables();
     const db = getDb();
     const franchiseId = ctx.franchiseUser!.franchiseId;
 
@@ -133,6 +151,7 @@ export const warrantyRouter = {
       })
     )
     .mutation(async ({ input, ctx }) => {
+      await ensureTables();
       const db = getDb();
       const userId = ctx.franchiseUser!.id;
       const franchiseId = ctx.franchiseUser!.franchiseId;
@@ -171,6 +190,7 @@ export const warrantyRouter = {
   getById: franchiseAuthedQuery
     .input(z.object({ id: z.number() }))
     .query(async ({ input }) => {
+      await ensureTables();
       const db = getDb();
       const result = await db
         .select()
@@ -203,6 +223,7 @@ export const warrantyRouter = {
   track: publicQuery
     .input(z.object({ trackingNumber: z.string().min(1) }))
     .query(async ({ input }) => {
+      await ensureTables();
       const db = getDb();
       const result = await db
         .select()
@@ -233,6 +254,7 @@ export const warrantyRouter = {
 
   // ─── Stats ─────────────────────────────────────────────────────
   stats: franchiseAuthedQuery.query(async ({ ctx }) => {
+    await ensureTables();
     const db = getDb();
     const franchiseId = ctx.franchiseUser!.franchiseId;
 
