@@ -15,6 +15,7 @@ import NationalShipments from "./pages/NationalShipments";
 import CreateNationalShipment from "./pages/CreateNationalShipment";
 import BoletaNacional from "./pages/BoletaNacional";
 import BitacoraNacional from "./pages/BitacoraNacional";
+import Warranties from "./pages/Warranties";
 import NotFound from "./pages/NotFound";
 
 export default function App() {
@@ -35,6 +36,7 @@ export default function App() {
       <Route path="/envios-nacionales" element={<NationalShipments />} />
       <Route path="/boleta-nacional/:id" element={<BoletaNacional />} />
       <Route path="/bitacora-nacional" element={<BitacoraNacional />} />
+      <Route path="/garantias" element={<Warranties />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );

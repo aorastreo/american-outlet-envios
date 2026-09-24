@@ -12,6 +12,7 @@ import {
   Truck,
   Search,
   Globe,
+  ShieldCheck,
 } from "lucide-react";
 
 const isGanga = (username: string | undefined) => username === "ganga_santa_rosa";
@@ -29,6 +30,7 @@ const storeNavItems = [
   { path: "/envios", label: "Mis Envios", icon: Package },
   { path: "/enviar", label: "Crear Envio", icon: Plus },
   { path: "/envios-nacionales", label: "Envios Nacionales", icon: Globe },
+  { path: "/garantias", label: "Garantias", icon: ShieldCheck },
   { path: "/rastrear", label: "Rastrear", icon: Search },
 ];
 
@@ -39,6 +41,7 @@ const warehouseNavItems = [
   { path: "/enviar", label: "Crear Envio", icon: Plus },
   { path: "/envios-nacionales", label: "Envios Nacionales", icon: Globe },
   { path: "/rutas", label: "Rutas", icon: Truck },
+  { path: "/garantias", label: "Garantias", icon: ShieldCheck },
   { path: "/rastrear", label: "Rastrear", icon: Search },
 ];
 

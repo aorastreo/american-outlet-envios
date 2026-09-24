@@ -169,11 +169,21 @@ function buildShipmentTimeline(
 export default function Track() {
   const [trackingNumber, setTrackingNumber] = useState("");
   const [searchedTracking, setSearchedTracking] = useState("");
+  const isWarrantySearch = searchedTracking.startsWith("G");
 
-  const { data: shipment, isLoading, isError } = trpc.shipment.track.useQuery(
+  const { data: shipment, isLoading: shipmentLoading, isError: shipmentError } = trpc.shipment.track.useQuery(
     { trackingNumber: searchedTracking },
-    { enabled: searchedTracking.length > 0, retry: false }
+    { enabled: searchedTracking.length > 0 && !isWarrantySearch, retry: false }
   );
+
+  const { data: warranty, isLoading: warrantyLoading, isError: warrantyError } = trpc.warranty.track.useQuery(
+    { trackingNumber: searchedTracking },
+    { enabled: searchedTracking.length > 0 && isWarrantySearch, retry: false }
+  );
+
+  const isLoading = shipmentLoading || warrantyLoading;
+  const isError = shipmentError || warrantyError;
+  const hasResult = !!shipment || !!warranty;
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -208,8 +218,8 @@ export default function Track() {
     <FranchiseLayout>
       <div className="max-w-4xl mx-auto space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-[#1A1A1A]">Rastrear Envio</h1>
-          <p className="text-[#8A8A8A] mt-1">Ingrese el numero de rastreo para ver el estado del envio</p>
+          <h1 className="text-2xl font-bold text-[#1A1A1A]">Rastrear</h1>
+          <p className="text-[#8A8A8A] mt-1">Ingrese el numero de rastreo para ver el estado del envio o garantia</p>
         </div>
 
         <Card>
@@ -235,7 +245,7 @@ export default function Track() {
           <Card className="border-red-200">
             <CardContent className="p-8 text-center">
               <AlertTriangle className="w-12 h-12 text-red-400 mx-auto mb-3" />
-              <p className="text-[#404040] font-medium">No se encontro ningun envio con ese numero de rastreo</p>
+              <p className="text-[#404040] font-medium">No se encontro ningun envio o garantia con ese numero</p>
               <p className="text-sm text-[#8A8A8A] mt-1">Verifique el numero e intente nuevamente</p>
             </CardContent>
           </Card>
@@ -348,6 +358,63 @@ export default function Track() {
                       return (
                         <div key={track.id} className="relative">
                           <div className={`absolute -left-4 w-3 h-3 rounded-full border-2 ${index === 0 ? "bg-[#C8102E] border-blue-600" : "bg-white border-[#D4D4D4]"}`} />
+                          <div className="ml-4">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {cfg && <Badge variant="secondary" className={cfg.color}><cfg.icon className="w-3 h-3 mr-1" />{cfg.label}</Badge>}
+                              <span className="text-xs text-[#A3A3A3]">{track.createdAt ? format(new Date(track.createdAt), "dd/MM/yyyy HH:mm", { locale: es }) : "-"}</span>
+                            </div>
+                            {track.notes && <p className="text-sm text-[#525252] mt-1">{track.notes}</p>}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Warranty Result */}
+        {warranty && (
+          <div className="space-y-6">
+            <div className="bg-[#C8102E] text-white rounded-xl p-6 text-center">
+              <p className="text-blue-100 text-sm mb-1">Numero de Garantia</p>
+              <p className="text-3xl font-bold font-mono tracking-wider">{warranty.trackingNumber}</p>
+            </div>
+
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <p className="text-sm text-[#737373]">Factura: {warranty.invoiceNumber}</p>
+                    <p className="text-lg font-semibold text-[#1A1A1A]">{warranty.senderName}</p>
+                    <p className="text-sm text-[#525252]">{warranty.senderPhone}</p>
+                  </div>
+                  <Badge className={statusConfig[warranty.status]?.color || "bg-gray-100"}>
+                    {statusConfig[warranty.status]?.label || warranty.status}
+                  </Badge>
+                </div>
+                <div className="space-y-2">
+                  <p className="text-sm"><span className="font-medium">Producto:</span> {warranty.productDescription}</p>
+                  <p className="text-sm"><span className="font-medium">Defecto:</span> {warranty.defectDescription}</p>
+                  {warranty.notes && <p className="text-sm text-[#737373]">Notas: {warranty.notes}</p>}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Warranty Timeline */}
+            <Card>
+              <CardContent className="p-6">
+                <h3 className="font-semibold text-[#1A1A1A] mb-4">Progreso de la Garantia</h3>
+                <div className="relative pl-6">
+                  <div className="absolute left-2 top-0 bottom-0 w-0.5 bg-[#F0F0F0]" />
+                  <div className="space-y-6">
+                    {warranty.tracking?.map((track: any, index: number) => {
+                      const cfg = getStatusConfig(track.status);
+                      return (
+                        <div key={track.id} className="relative">
+                          <div className={`absolute -left-4 w-3 h-3 rounded-full border-2 ${index === 0 ? "bg-[#C8102E] border-[#C8102E]" : "bg-white border-[#D4D4D4]"}`} />
                           <div className="ml-4">
                             <div className="flex items-center gap-2 flex-wrap">
                               {cfg && <Badge variant="secondary" className={cfg.color}><cfg.icon className="w-3 h-3 mr-1" />{cfg.label}</Badge>}

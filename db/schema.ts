@@ -198,3 +198,50 @@ export const nationalShipments = mysqlTable("national_shipments", {
 
 export type NationalShipment = typeof nationalShipments.$inferSelect;
 export type InsertNationalShipment = typeof nationalShipments.$inferInsert;
+
+// ─── Warranties (Garantías) ────────────────────────────────────
+export const warranties = mysqlTable("warranties", {
+  id: serial("id").primaryKey(),
+  trackingNumber: varchar("trackingNumber", { length: 50 }).notNull().unique(),
+  invoiceNumber: varchar("invoiceNumber", { length: 50 }).notNull(),
+  senderName: varchar("senderName", { length: 255 }).notNull(),
+  senderPhone: varchar("senderPhone", { length: 50 }).notNull(),
+  productDescription: varchar("productDescription", { length: 255 }).notNull(),
+  defectDescription: text("defectDescription").notNull(),
+  originFranchiseId: bigint("originFranchiseId", { mode: "number", unsigned: true }).notNull(),
+  currentLocationId: bigint("currentLocationId", { mode: "number", unsigned: true }).notNull(),
+  status: mysqlEnum("status", [
+    "CREADA",
+    "ENVIADO_A_CEDI",
+    "RECIBIDO_EN_CEDI",
+    "EN_REPARACION",
+    "REPARADO",
+    "ENVIADO_A_TIENDA",
+    "RECIBIDO_EN_TIENDA",
+    "ENTREGADO_AL_CLIENTE",
+  ]).default("CREADA").notNull(),
+  notes: text("notes"),
+  createdBy: bigint("createdBy", { mode: "number", unsigned: true }).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt")
+    .defaultNow()
+    .notNull()
+    .$onUpdate(() => new Date()),
+});
+
+export type Warranty = typeof warranties.$inferSelect;
+export type InsertWarranty = typeof warranties.$inferInsert;
+
+// Warranty tracking history
+export const warrantyTracking = mysqlTable("warranty_tracking", {
+  id: serial("id").primaryKey(),
+  warrantyId: bigint("warrantyId", { mode: "number", unsigned: true }).notNull(),
+  status: varchar("status", { length: 50 }).notNull(),
+  locationId: bigint("locationId", { mode: "number", unsigned: true }).notNull(),
+  notes: text("notes"),
+  createdBy: bigint("createdBy", { mode: "number", unsigned: true }).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type WarrantyTracking = typeof warrantyTracking.$inferSelect;
+export type InsertWarrantyTracking = typeof warrantyTracking.$inferInsert;
