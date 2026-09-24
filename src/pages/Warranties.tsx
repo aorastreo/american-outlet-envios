@@ -23,6 +23,7 @@ import {
   AlertTriangle,
   Square,
   CheckSquare,
+  ClipboardList,
 } from "lucide-react";
 
 const statusConfig: Record<string, { label: string; color: string; icon: any }> = {
