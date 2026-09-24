@@ -554,12 +554,15 @@ export default function Shipments() {
         }
       }
 
-      // Hide route shipments (Grecia, Palmares, San Ramon) from "En Bodega" tab — they are managed in the Routes page. Sabana is NOT a route, it receives at warehouse like a normal store.
+      // Hide route shipments (Grecia, Palmares, San Ramon) from "En Bodega" tab
+      // ONLY if they are already in Bodega Cedi (managed in Routes page).
+      // If they are in Bodega Pavon, they MUST show in En Bodega to be sent to Cedi.
       let isRouteShipment = false;
       if (isBodega && activeTab === "EN_BODEGA") {
         const destName = (s.destinationName || "").toLowerCase();
-        if (destName.includes("grecia") || destName.includes("palmares") || destName.includes("san ramon")) {
-          isRouteShipment = true;
+        const isRouteDest = destName.includes("grecia") || destName.includes("palmares") || destName.includes("san ramon");
+        if (isRouteDest && s.warehouseLocation === "Bodega Cedi") {
+          isRouteShipment = true; // In Cedi, route shipments go to Routes page
         }
       }
 
@@ -603,7 +606,9 @@ export default function Shipments() {
             counts[tab.key]++;
           } else if (isBodega && tab.key === "EN_BODEGA") {
             const destName = (s.destinationName || "").toLowerCase();
-            if (destName.includes("grecia") || destName.includes("palmares") || destName.includes("san ramon")) continue;
+            const isRouteDest = destName.includes("grecia") || destName.includes("palmares") || destName.includes("san ramon");
+            // Route shipments in Cedi go to Routes page, hide from EN_BODEGA count
+            if (isRouteDest && s.warehouseLocation === "Bodega Cedi") continue;
             if (isDestWarehouse(s)) continue; // goes to ENTREGA_CLIENTE
             const originFr = allFranchises?.find((f) => f.id === s.originFranchiseId);
             if (s.status === "CREADO" && !originFr?.isWarehouse) continue;
