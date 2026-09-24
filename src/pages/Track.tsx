@@ -150,9 +150,12 @@ function buildShipmentTimeline(
     );
   }
 
-  // If tracking history contains NO_RECOGIDO or shipment status is NO_RECOGIDO,
+  // If the LAST tracking entry is NO_RECOGIDO, or shipment status is NO_RECOGIDO,
   // replace the final delivery step
-  const hasNoRecogido = trackingHistory.some((t: any) => t.status === "NO_RECOGIDO") ||
+  const lastTrackingEntry = trackingHistory.length > 0
+    ? trackingHistory[trackingHistory.length - 1]
+    : null;
+  const hasNoRecogido = lastTrackingEntry?.status === "NO_RECOGIDO" ||
     currentShipmentStatus === "NO_RECOGIDO";
   if (hasNoRecogido && steps.length > 0) {
     const lastIdx = steps.length - 1;
