@@ -45,7 +45,27 @@ export const routeRouter = createRouter({
       if (input?.status) {
         query = query.where(eq(deliveryRoutes.status, input.status)) as any;
       }
-      return await query;
+      const routes = await query;
+
+      // Get shipment counts for each route
+      const routeIds = routes.map(r => r.id);
+      let shipmentCounts: Record<number, { total: number; entregados: number; noRecogidos: number }> = {};
+      if (routeIds.length > 0) {
+        const allRouteShipments = await db.select().from(routeShipments).where(inArray(routeShipments.routeId, routeIds));
+        for (const rs of allRouteShipments) {
+          if (!shipmentCounts[rs.routeId]) {
+            shipmentCounts[rs.routeId] = { total: 0, entregados: 0, noRecogidos: 0 };
+          }
+          shipmentCounts[rs.routeId].total++;
+          if (rs.status === "ENTREGADO") shipmentCounts[rs.routeId].entregados++;
+          if (rs.status === "NO_RECOGIDO") shipmentCounts[rs.routeId].noRecogidos++;
+        }
+      }
+
+      return routes.map(r => ({
+        ...r,
+        summary: shipmentCounts[r.id] || { total: 0, entregados: 0, noRecogidos: 0 },
+      }));
     }),
 
   // ─── Get Route with Stops and Shipments ────────────────────────

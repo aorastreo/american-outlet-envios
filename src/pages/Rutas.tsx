@@ -458,25 +458,47 @@ export default function Rutas() {
             )}
             {routes.filter(r => r.status === "EN_RUTA" || r.status === "PLANIFICADA").map((route) => {
               const rcfg = getStatusConfig(route.status);
+              const total = (route.summary as any)?.total || 0;
+              const entregados = (route.summary as any)?.entregados || 0;
               return (
-                <Link to={`/rutas/${route.id}`} key={route.id}>
-                  <Card className="hover:shadow-md transition-shadow cursor-pointer border-[#F0F0F0] hover:border-[#C8102E]/20">
-                    <CardContent className="p-3 flex items-center gap-3">
-                      <div className="w-8 h-8 bg-[#FFF5F5] rounded-lg flex items-center justify-center">
-                        <Truck className="w-4 h-4 text-[#C8102E]" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-semibold text-[#1A1A1A]">{route.name}</span>
-                          <Badge variant="secondary" className={rcfg.color}>
-                            <rcfg.icon className="w-3 h-3 mr-1" />{rcfg.label}
-                          </Badge>
+                <div key={route.id}>
+                  <Link to={`/rutas/${route.id}`}>
+                    <Card className="hover:shadow-md transition-shadow cursor-pointer border-[#F0F0F0] hover:border-[#C8102E]/20">
+                      <CardContent className="p-3 flex items-center gap-3">
+                        <div className="w-8 h-8 bg-[#FFF5F5] rounded-lg flex items-center justify-center">
+                          <Truck className="w-4 h-4 text-[#C8102E]" />
                         </div>
-                      </div>
-                      <ChevronRight className="w-5 h-5 text-[#D4D4D4]" />
-                    </CardContent>
-                  </Card>
-                </Link>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-semibold text-[#1A1A1A]">{route.name}</span>
+                            <Badge variant="secondary" className={rcfg.color}>
+                              <rcfg.icon className="w-3 h-3 mr-1" />{rcfg.label}
+                            </Badge>
+                          </div>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-xs text-[#8A8A8A]">
+                              {total > 0 ? `${total} envío${total !== 1 ? 's' : ''} asignado${total !== 1 ? 's' : ''}` : "Sin envíos asignados"}
+                            </span>
+                            {entregados > 0 && (
+                              <span className="text-xs text-emerald-600">{entregados} entregado{entregados !== 1 ? 's' : ''}</span>
+                            )}
+                          </div>
+                        </div>
+                        <ChevronRight className="w-5 h-5 text-[#D4D4D4]" />
+                      </CardContent>
+                    </Card>
+                  </Link>
+                  {route.status === "PLANIFICADA" && (
+                    <div className="px-3 pb-2 -mt-1">
+                      <Link to={`/rutas/${route.id}`}>
+                        <Button size="sm" variant="outline" className="w-full text-xs border-[#B8860B]/30 text-[#B8860B] hover:bg-amber-50">
+                          <Package className="w-3 h-3 mr-1" />
+                          {total === 0 ? "Asignar envíos a esta ruta" : "Agregar más envíos"}
+                        </Button>
+                      </Link>
+                    </div>
+                  )}
+                </div>
               );
             })}
 
