@@ -260,17 +260,6 @@ export const routeRouter = createRouter({
             });
             await db.update(shipments).set({ status: "NO_RECOGIDO" }).where(eq(shipments.id, rs.shipmentId));
           }
-          if (rs.status === "NO_RECOGIDO") {
-            await db.update(routeShipments).set({ status: "DEVUELTO_A_BODEGA" }).where(eq(routeShipments.id, rs.id));
-            await db.insert(shipmentTracking).values({
-              shipmentId: rs.shipmentId,
-              status: "RECIBIDO_EN_BODEGA",
-              locationId: 0,
-              notes: "No recogido - devuelto a bodega para siguiente ruta",
-              createdBy: ctx.franchiseUser!.id,
-            });
-            await db.update(shipments).set({ status: "RECIBIDO_EN_BODEGA" }).where(eq(shipments.id, rs.shipmentId));
-          }
         }
       }
 
