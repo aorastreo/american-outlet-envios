@@ -177,10 +177,14 @@ export const shipmentRouter = createRouter({
       const { firstBodega } = getTargetBodega(originName, destName);
 
       // Check if this is a pickup route (destination is Grecia, SanRamon, Palmares, Sabana)
-      const pickupCodes = ["grecia", "san_ramon", "palmares", "bodega_sabana"];
+      // Pickup routes are truck destinations (Grecia, Palmares, San Ramon)
+      // Sabana is a receiving warehouse, NOT a truck route
+      const pickupCodes = ["grecia", "san_ramon", "palmares"];
       const isPickup = pickupCodes.includes(destFranchise[0]?.code?.toLowerCase() || "");
-      const initialStatus = originIsWarehouse && isPickup ? "RECIBIDO_EN_BODEGA" : "CREADO";
-      const trackingNotes = originIsWarehouse && isPickup ? "Envio creado en bodega - listo para ruta de camion" : "Envio creado";
+      // Sabana is treated as a warehouse destination (not a pickup route)
+      const isSabana = destFranchise[0]?.code?.toLowerCase() === "bodega_sabana";
+      const initialStatus = (originIsWarehouse && isPickup) || (originIsWarehouse && isSabana) ? "RECIBIDO_EN_BODEGA" : "CREADO";
+      const trackingNotes = (originIsWarehouse && isPickup) || (originIsWarehouse && isSabana) ? "Envio creado en bodega - listo para envio" : "Envio creado";
 
       const trackingNumber = await generateTrackingNumber();
 
@@ -404,9 +408,11 @@ export const shipmentRouter = createRouter({
       }));
 
       const destFranchise = franchiseMap.get(shipment[0].destinationFranchiseId);
-      const pickupCodes = ["grecia", "san_ramon", "palmares", "bodega_sabana"];
+      // Pickup routes are truck destinations (Grecia, Palmares, San Ramon)
+      // Sabana is a receiving warehouse, NOT a truck route
+      const pickupCodes = ["grecia", "san_ramon", "palmares"];
       const isPickupRoute = pickupCodes.includes(destFranchise?.code?.toLowerCase() || "") ||
-                            (destFranchise?.displayName?.toLowerCase() || "").includes("recogida");
+                            ((destFranchise?.displayName?.toLowerCase() || "").includes("recogida") && !destFranchise?.code?.toLowerCase()?.includes("sabana"));
 
       return {
         ...shipment[0],
@@ -585,9 +591,11 @@ export const shipmentRouter = createRouter({
       const franchiseMap = new Map(allFranchises.map(f => [f.id, { ...f, displayName: cleanFranchiseName(f.displayName) }]));
 
       const destFranchise = franchiseMap.get(shipment[0].destinationFranchiseId);
-      const pickupCodes = ["grecia", "san_ramon", "palmares", "bodega_sabana"];
+      // Pickup routes are truck destinations (Grecia, Palmares, San Ramon)
+      // Sabana is a receiving warehouse, NOT a truck route
+      const pickupCodes = ["grecia", "san_ramon", "palmares"];
       const isPickupRoute = pickupCodes.includes(destFranchise?.code?.toLowerCase() || "") ||
-                            (destFranchise?.displayName?.toLowerCase() || "").includes("recogida");
+                            ((destFranchise?.displayName?.toLowerCase() || "").includes("recogida") && !destFranchise?.code?.toLowerCase()?.includes("sabana"));
 
       const destFranchiseData = franchiseMap.get(shipment[0].destinationFranchiseId);
       console.log("[track] destFranchise:", destFranchiseData?.displayName, "isWarehouse:", destFranchiseData?.isWarehouse, "destId:", shipment[0].destinationFranchiseId);
