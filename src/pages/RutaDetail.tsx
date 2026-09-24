@@ -515,12 +515,14 @@ export default function RutaDetail() {
                       toast.success(`${shipment.shipment?.trackingNumber || "Envio"} marcado como ${newStatus === "ENTREGADO" ? "entregado" : "no recogido"}`);
                     }
                     utils.route.getById.invalidate({ id: routeId });
-                    // Invalidate shipment queries so tracking/detail pages refresh
+                    // Invalidate and refetch shipment queries so tracking/detail pages refresh immediately
                     if (shipment.shipmentId) {
                       utils.shipment.getById.invalidate({ id: shipment.shipmentId });
                     }
                     if (shipment.shipment?.trackingNumber) {
                       utils.shipment.track.invalidate({ trackingNumber: shipment.shipment.trackingNumber });
+                      // Force immediate refetch if any component is subscribed
+                      utils.shipment.track.refetch({ trackingNumber: shipment.shipment.trackingNumber }).catch(() => {});
                     }
                     // Clear optimistic status after successful server sync
                     setOptimisticStatuses(prev => {

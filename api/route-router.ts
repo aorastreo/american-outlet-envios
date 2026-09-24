@@ -316,45 +316,47 @@ export const routeRouter = createRouter({
   updateShipmentStatus: franchiseAuthedQuery
     .input(z.object({
       routeShipmentId: z.number(),
-      status: z.enum(["ENTREGADO", "NO_RECOGIDO"]),
+      status: z.enum(["ENTREGADO", "NO_RECOGIDO", "ASIGNADO"]),
       notes: z.string().optional(),
     }))
     .mutation(async ({ input, ctx }) => {
       try {
         const db = getDb();
         console.log("[updateShipmentStatus] routeShipmentId:", input.routeShipmentId, "status:", input.status);
-        
-        // Verify routeShipment exists
+
         const existing = await db.select().from(routeShipments).where(eq(routeShipments.id, input.routeShipmentId)).limit(1);
-        console.log("[updateShipmentStatus] existing:", existing);
-        
         if (existing.length === 0) {
           throw new TRPCError({ code: "NOT_FOUND", message: "Route shipment not found" });
         }
 
-        const updateData: Record<string, any> = {
+        // 1. Update route_shipments status
+        const routeUpdate: Record<string, any> = {
           status: input.status,
-          deliveredAt: new Date(),
+          deliveredAt: input.status === "ASIGNADO" ? null : new Date(),
         };
-        if (input.notes) updateData.notes = input.notes;
+        if (input.notes) routeUpdate.notes = input.notes;
+        await db.update(routeShipments).set(routeUpdate).where(eq(routeShipments.id, input.routeShipmentId));
 
-        await db.update(routeShipments).set(updateData).where(eq(routeShipments.id, input.routeShipmentId));
-        console.log("[updateShipmentStatus] routeShipments updated");
-
-        // Get shipmentId for tracking
+        // 2. Get shipmentId
         const rsData = await db.select().from(routeShipments).where(eq(routeShipments.id, input.routeShipmentId)).limit(1);
-        
-        if (rsData.length > 0) {
-          const shipmentStatus = input.status === "ENTREGADO" ? "ENTREGADO" : "NO_RECOGIDO";
-          // Update main shipment status
-          await db.update(shipments)
-            .set({ status: shipmentStatus, updatedAt: new Date() })
-            .where(eq(shipments.id, rsData[0].shipmentId));
-          console.log("[updateShipmentStatus] shipments.status updated to:", shipmentStatus);
-          
-          // Insert tracking history for BOTH statuses
+        if (rsData.length === 0) return { success: true, status: input.status };
+
+        const shipmentId = rsData[0].shipmentId;
+
+        // 3. Map route status to shipments.status (valid enum values)
+        const shipmentStatus = input.status === "ENTREGADO" ? "RECIBIDO_EN_DESTINO"
+          : input.status === "NO_RECOGIDO" ? "NO_RECOGIDO"
+          : "EN_PARADA"; // ASIGNADO -> back to EN_PARADA
+
+        await db.update(shipments)
+          .set({ status: shipmentStatus, updatedAt: new Date() })
+          .where(eq(shipments.id, shipmentId));
+        console.log("[updateShipmentStatus] shipments.status updated to:", shipmentStatus);
+
+        // 4. Insert tracking history (only for ENTREGADO/NO_RECOGIDO, not for revert)
+        if (input.status !== "ASIGNADO") {
           await db.insert(shipmentTracking).values({
-            shipmentId: rsData[0].shipmentId,
+            shipmentId,
             status: input.status === "ENTREGADO" ? "RECIBIDO_EN_DESTINO" : "NO_RECOGIDO",
             locationId: 0,
             notes: input.status === "ENTREGADO"
@@ -363,14 +365,6 @@ export const routeRouter = createRouter({
             createdBy: ctx.franchiseUser!.id,
           });
           console.log("[updateShipmentStatus] tracking inserted:", input.status);
-        }
-        
-        // Update main shipment status
-        if (rsData.length > 0) {
-          await db.update(shipments)
-            .set({ status: input.status === "ENTREGADO" ? "RECIBIDO_EN_DESTINO" : "NO_RECOGIDO" })
-            .where(eq(shipments.id, rsData[0].shipmentId));
-          console.log("[updateShipmentStatus] shipments updated");
         }
 
         return { success: true, status: input.status };
