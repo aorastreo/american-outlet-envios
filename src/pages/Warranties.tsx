@@ -59,6 +59,9 @@ export default function WarrantiesPage() {
   const isWarehouse = user?.franchise?.isWarehouse === 1;
   const isCedi = user?.franchise?.name?.toLowerCase().includes("cedi");
 
+  const { data: warranties, isLoading } = trpc.warranty.list.useQuery();
+  const { data: stats } = trpc.warranty.stats.useQuery();
+
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
 
   const toggleSelect = (id: number) => {
@@ -75,9 +78,6 @@ export default function WarrantiesPage() {
       setSelectedIds(warranties.map((w: any) => w.id));
     }
   };
-
-  const { data: warranties, isLoading } = trpc.warranty.list.useQuery();
-  const { data: stats } = trpc.warranty.stats.useQuery();
   const createMutation = trpc.warranty.create.useMutation({
     onSuccess: () => {
       toast.success("Garantia creada exitosamente");
