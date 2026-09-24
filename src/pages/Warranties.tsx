@@ -93,6 +93,7 @@ export default function WarrantiesPage() {
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
+    console.log("[Warranties] handleCreate called", form);
     if (!form.invoiceNumber || !form.senderName || !form.senderPhone || !form.productDescription || !form.defectDescription) {
       toast.error("Complete todos los campos requeridos");
       return;
@@ -223,7 +224,12 @@ export default function WarrantiesPage() {
                 />
               </div>
               <div className="flex gap-3">
-                <Button type="submit" className="bg-[#C8102E] hover:bg-[#A50D25] text-white" disabled={createMutation.isPending}>
+                <Button 
+                  type="button" 
+                  className="bg-[#C8102E] hover:bg-[#A50D25] text-white" 
+                  disabled={createMutation.isPending}
+                  onClick={handleCreate}
+                >
                   {createMutation.isPending ? "Guardando..." : "Crear Garantia"}
                 </Button>
                 <Button type="button" variant="outline" onClick={() => setShowForm(false)}>
