@@ -69,6 +69,10 @@ export default function RutaDetail() {
   const [availableSelectedIds, setAvailableSelectedIds] = useState<number[]>([]);
   const [searchFilter, setSearchFilter] = useState("");
 
+  // Simplified delivery tracking for driver: just checkboxes
+  const [selectedDelivered, setSelectedDelivered] = useState<Set<number>>(new Set());
+  const [selectedNoPickup, setSelectedNoPickup] = useState<Set<number>>(new Set());
+
   // Confirmation dialog for route start
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean;
@@ -131,6 +135,35 @@ export default function RutaDetail() {
       toast.error(`Error: ${err.message}`);
     },
   });
+
+  // Simplified delivery: save all checked deliveries at once
+  const handleSaveDeliveries = async () => {
+    const promises: Promise<any>[] = [];
+
+    // Mark all selected as ENTREGADO
+    for (const routeShipmentId of selectedDelivered) {
+      promises.push(updateShipmentMutation.mutateAsync({ routeShipmentId, status: "ENTREGADO" }));
+    }
+    // Mark all selected as NO_RECOGIDO
+    for (const routeShipmentId of selectedNoPickup) {
+      promises.push(updateShipmentMutation.mutateAsync({ routeShipmentId, status: "NO_RECOGIDO" }));
+    }
+
+    if (promises.length === 0) {
+      toast.error("No hay envios seleccionados");
+      return;
+    }
+
+    try {
+      await Promise.all(promises);
+      toast.success(`${promises.length} envio(s) actualizado(s)`);
+      setSelectedDelivered(new Set());
+      setSelectedNoPickup(new Set());
+      utils.route.getById.invalidate({ id: routeId });
+    } catch (err) {
+      toast.error("Error al guardar algunos envios");
+    }
+  };
 
   const moveShipmentMutation = trpc.route.moveShipment.useMutation({
     onSuccess: () => {
@@ -468,8 +501,111 @@ export default function RutaDetail() {
           </div>
         )}
 
-        {/* Shipments grouped by city — each city is a section */}
-        {route.stops.map((stop: any, idx: number) => {
+        {/* Simplified delivery view for driver when route is EN_RUTA */}
+        {route.status === "EN_RUTA" && (
+          <div className="space-y-4">
+            <Card className="border-amber-200 bg-amber-50">
+              <CardContent className="p-4">
+                <h3 className="text-lg font-semibold text-amber-900 mb-2">
+                  Lista de Entregas
+                </h3>
+                <p className="text-sm text-amber-700">
+                  Marque los envíos entregados o no recogidos. Guarde los cambios al final.
+                </p>
+              </CardContent>
+            </Card>
+
+            {route.shipments
+              ?.filter((s: any) => s.status === "ASIGNADO" || s.status === "EN_RUTA" || s.status === "EN_PARADA")
+              .map((shipment: any) => {
+                const isDelivered = selectedDelivered.has(shipment.id);
+                const isNoPickup = selectedNoPickup.has(shipment.id);
+                return (
+                  <Card key={shipment.id} className={`border-l-4 ${isDelivered ? 'border-l-green-500' : isNoPickup ? 'border-l-red-500' : 'border-l-amber-400'}`}>
+                    <CardContent className="p-4">
+                      <div className="flex items-start gap-4">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <Package className="w-4 h-4 text-[#525252]" />
+                            <span className="font-medium text-sm">{shipment.shipment?.trackingNumber || "-"}</span>
+                          </div>
+                          <p className="text-sm text-[#525252]">
+                            {shipment.shipment?.senderName || "-"}
+                          </p>
+                          <p className="text-xs text-[#737373]">
+                            Para: {shipment.shipment?.destinationName || "-"}
+                          </p>
+                          {shipment.shipment?.invoiceNumber && (
+                            <p className="text-xs text-[#737373]">
+                              Factura: {shipment.shipment.invoiceNumber}
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex flex-col gap-2">
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              className="w-5 h-5 accent-green-600"
+                              checked={isDelivered}
+                              onChange={() => {
+                                const newSet = new Set(selectedDelivered);
+                                const newNoPickup = new Set(selectedNoPickup);
+                                if (isDelivered) {
+                                  newSet.delete(shipment.id);
+                                } else {
+                                  newSet.add(shipment.id);
+                                  newNoPickup.delete(shipment.id);
+                                }
+                                setSelectedDelivered(newSet);
+                                setSelectedNoPickup(newNoPickup);
+                              }}
+                            />
+                            <span className="text-sm text-green-700 font-medium">Entregado</span>
+                          </label>
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              className="w-5 h-5 accent-red-600"
+                              checked={isNoPickup}
+                              onChange={() => {
+                                const newSet = new Set(selectedNoPickup);
+                                const newDelivered = new Set(selectedDelivered);
+                                if (isNoPickup) {
+                                  newSet.delete(shipment.id);
+                                } else {
+                                  newSet.add(shipment.id);
+                                  newDelivered.delete(shipment.id);
+                                }
+                                setSelectedNoPickup(newSet);
+                                setSelectedDelivered(newDelivered);
+                              }}
+                            />
+                            <span className="text-sm text-red-700 font-medium">No Recogido</span>
+                          </label>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+
+            {(selectedDelivered.size > 0 || selectedNoPickup.size > 0) && (
+              <div className="flex justify-end">
+                <Button
+                  className="bg-[#C8102E] hover:bg-[#9B0B22] text-white"
+                  onClick={handleSaveDeliveries}
+                  disabled={updateShipmentMutation.isPending}
+                >
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  Guardar Entregas ({selectedDelivered.size + selectedNoPickup.size})
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Shipments grouped by city — each city is a section (for planning view) */}
+        {route.status !== "EN_RUTA" && route.stops.map((stop: any, idx: number) => {
           const stopCfg = stopStatusConfig[stop.status];
           const isCurrent = route.status === "EN_RUTA" && stop.status === "PENDIENTE" &&
             (idx === 0 || route.stops[idx - 1].status === "COMPLETADO");

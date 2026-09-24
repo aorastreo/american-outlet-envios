@@ -266,11 +266,13 @@ export default function Shipments() {
   }
 
   // Helper: classify franchise by group (mio, vendedor, route, warehouse, sabana)
+  // Note: route pickups (Grecia, Palmares, San Ramon) and Sabana are associated with the vendor group (Cedi)
   function getFranchiseGroup(name: string | undefined): "mio" | "vendedor" | "route" | "warehouse" | "sabana" | "unknown" {
     if (!name) return "unknown";
     const n = name.toLowerCase();
-    // Sabana is a pickup point associated with the vendor group (Cedi)
+    // Route pickups and Sabana are associated with the vendor group (Cedi)
     if (n.includes("sabana")) return "sabana";
+    if (n.includes("grecia") || n.includes("palmares") || n.includes("san ramon")) return "route";
     // Bodegas have group ownership too
     if (n.includes("pavon") && n.includes("bodega")) return "mio"; // Bodega Pavon = grupo mio
     if (n.includes("cedi") && n.includes("bodega")) return "vendedor"; // Bodega Cedi = grupo vendedor
@@ -278,7 +280,6 @@ export default function Shipments() {
     if (n.includes("chiles") || n.includes("pavon") || n.includes("santa rosa") || n.includes("ganga")) return "mio";
     if (n.includes("boca arenal") || n.includes("florencia") || n.includes("fortuna") || n.includes("quesada") || n.includes("puerto viejo")) return "vendedor";
     if (n.includes("cedi")) return "vendedor";
-    if (n.includes("grecia") || n.includes("palmares") || n.includes("san ramon")) return "route";
     if (n.includes("bodega")) return "warehouse";
     return "unknown";
   }
@@ -290,10 +291,10 @@ export default function Shipments() {
     const destGroup = getFranchiseGroup(shipment.destinationName);
     const currentWh = shipment.warehouseLocation as string | undefined;
 
-    // Sabana destination: always goes through Cedi (Sabana is associated with vendor group)
-    if (destGroup === "sabana") {
+    // Sabana or Route destinations: always goes through Cedi (associated with vendor group)
+    if (destGroup === "sabana" || destGroup === "route") {
       if (currentWh === "Bodega Cedi") {
-        return { needsTransfer: false, targetBodega: "" }; // Already at Cedi, send directly to Sabana
+        return { needsTransfer: false, targetBodega: "" }; // Already at Cedi, send directly to destination
       }
       return { needsTransfer: true, targetBodega: "Bodega Cedi" };
     }

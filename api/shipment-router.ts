@@ -48,8 +48,9 @@ function getTargetBodega(originName?: string | null, destName?: string | null): 
   const originLower = (originName || "").toLowerCase();
   const destLower = (destName || "").toLowerCase();
 
-  // Sabana is a pickup point associated with the vendor group (Cedi)
+  // Sabana and route pickups (Grecia, Palmares, San Ramon) are associated with the vendor group (Cedi)
   const destIsSabana = destLower.includes("sabana");
+  const destIsRoute = ["grecia", "palmares", "san ramon"].some(city => destLower.includes(city));
 
   // Bodega origins/destinations
   const originIsBodegaPavon = originLower.includes("pavon") && originLower.includes("bodega");
@@ -59,14 +60,14 @@ function getTargetBodega(originName?: string | null, destName?: string | null): 
 
   const originIsMineStore = MY_STORES.some(s => originLower.includes(s));
   const originIsVendorStore = VENDOR_STORES.some(s => originLower.includes(s));
-  const destIsMineStore = MY_STORES.some(s => destLower.includes(s)) && !destIsSabana;
-  const destIsVendorStore = VENDOR_STORES.some(s => destLower.includes(s)) || destIsSabana;
+  const destIsMineStore = MY_STORES.some(s => destLower.includes(s)) && !destIsSabana && !destIsRoute;
+  const destIsVendorStore = VENDOR_STORES.some(s => destLower.includes(s)) || destIsSabana || destIsRoute;
 
   // Determine group (store or bodega)
   const originIsMine = originIsMineStore || originIsBodegaPavon;
   const originIsVendor = originIsVendorStore || originIsBodegaCedi;
   const destIsMine = destIsMineStore || destIsBodegaPavon;
-  const destIsVendor = destIsVendorStore || destIsBodegaCedi || destIsSabana;
+  const destIsVendor = destIsVendorStore || destIsBodegaCedi || destIsSabana || destIsRoute;
 
   // Same group: single bodega
   if (originIsMine && destIsMine) {
