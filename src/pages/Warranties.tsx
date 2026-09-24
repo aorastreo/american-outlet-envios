@@ -21,6 +21,8 @@ import {
   X,
   Printer,
   AlertTriangle,
+  Square,
+  CheckSquare,
 } from "lucide-react";
 
 const statusConfig: Record<string, { label: string; color: string; icon: any }> = {
@@ -64,18 +66,19 @@ export default function WarrantiesPage() {
 
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
 
-  const toggleSelect = (id: number) => {
+  const toggleSelect = (id: any) => {
+    const numericId = Number(id);
     setSelectedIds((prev) =>
-      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
+      prev.includes(numericId) ? prev.filter((i) => i !== numericId) : [...prev, numericId]
     );
   };
 
   const selectAll = () => {
-    if (!warranties) return;
+    if (!warranties || !Array.isArray(warranties)) return;
     if (selectedIds.length === warranties.length) {
       setSelectedIds([]);
     } else {
-      setSelectedIds(warranties.map((w: any) => w.id));
+      setSelectedIds(warranties.map((w: any) => Number(w.id)));
     }
   };
   const createMutation = trpc.warranty.create.useMutation({
@@ -296,13 +299,15 @@ export default function WarrantiesPage() {
         <div className="space-y-3">
           {/* Select all */}
           {warranties.length > 0 && (
-            <div className="flex items-center gap-2 px-1">
-              <input
-                type="checkbox"
-                checked={selectedIds.length === warranties.length && warranties.length > 0}
-                onChange={selectAll}
-                className="w-4 h-4 rounded border-gray-300 text-[#C8102E] focus:ring-[#C8102E]"
-              />
+            <div
+              className="flex items-center gap-2 px-1 cursor-pointer select-none"
+              onClick={selectAll}
+            >
+              {selectedIds.length === warranties.length && warranties.length > 0 ? (
+                <CheckSquare className="w-4 h-4 text-[#C8102E]" />
+              ) : (
+                <Square className="w-4 h-4 text-[#C8102E]" />
+              )}
               <span className="text-sm text-[#525252]">
                 {selectedIds.length === warranties.length ? "Deseleccionar todas" : "Seleccionar todas"} ({selectedIds.length}/{warranties.length})
               </span>
@@ -319,12 +324,16 @@ export default function WarrantiesPage() {
                   <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
-                        <input
-                          type="checkbox"
-                          checked={selectedIds.includes(warranty.id)}
-                          onChange={() => toggleSelect(warranty.id)}
-                          className="w-4 h-4 rounded border-gray-300 text-[#C8102E] focus:ring-[#C8102E]"
-                        />
+                        <div
+                          className="cursor-pointer select-none"
+                          onClick={(e) => { e.stopPropagation(); toggleSelect(warranty.id); }}
+                        >
+                          {selectedIds.includes(Number(warranty.id)) ? (
+                            <CheckSquare className="w-4 h-4 text-[#C8102E]" />
+                          ) : (
+                            <Square className="w-4 h-4 text-[#C8102E]" />
+                          )}
+                        </div>
                         <ShieldCheck className="w-4 h-4 text-[#C8102E]" />
                         <span className="font-bold text-[#1A1A1A]">{warranty.trackingNumber}</span>
                         <Badge className={config.color}>
