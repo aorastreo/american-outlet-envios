@@ -53,6 +53,23 @@ export default function WarrantiesPage() {
   const isWarehouse = user?.franchise?.isWarehouse === 1;
   const isCedi = user?.franchise?.name?.toLowerCase().includes("cedi");
 
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+
+  const toggleSelect = (id: number) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
+    );
+  };
+
+  const selectAll = () => {
+    if (!warranties) return;
+    if (selectedIds.length === warranties.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(warranties.map((w: any) => w.id));
+    }
+  };
+
   const { data: warranties, isLoading } = trpc.warranty.list.useQuery();
   const { data: stats } = trpc.warranty.stats.useQuery();
   const createMutation = trpc.warranty.create.useMutation({
@@ -131,15 +148,26 @@ export default function WarrantiesPage() {
             </p>
           </div>
         </div>
-        {!isWarehouse && (
-          <Button
-            onClick={() => setShowForm(!showForm)}
-            className="bg-[#C8102E] hover:bg-[#A50D25] text-white"
-          >
-            {showForm ? <X className="w-4 h-4 mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
-            {showForm ? "Cancelar" : "Nueva Garantia"}
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {selectedIds.length > 0 && (
+            <Button
+              variant="outline"
+              onClick={() => navigate(`/bitacora-garantia?ids=${selectedIds.join(",")}`)}
+            >
+              <ClipboardList className="w-4 h-4 mr-2" />
+              Bitacora ({selectedIds.length})
+            </Button>
+          )}
+          {!isWarehouse && (
+            <Button
+              onClick={() => setShowForm(!showForm)}
+              className="bg-[#C8102E] hover:bg-[#A50D25] text-white"
+            >
+              {showForm ? <X className="w-4 h-4 mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
+              {showForm ? "Cancelar" : "Nueva Garantia"}
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Stats */}
@@ -260,6 +288,20 @@ export default function WarrantiesPage() {
         </div>
       ) : (
         <div className="space-y-3">
+          {/* Select all */}
+          {warranties.length > 0 && (
+            <div className="flex items-center gap-2 px-1">
+              <input
+                type="checkbox"
+                checked={selectedIds.length === warranties.length && warranties.length > 0}
+                onChange={selectAll}
+                className="w-4 h-4 rounded border-gray-300 text-[#C8102E] focus:ring-[#C8102E]"
+              />
+              <span className="text-sm text-[#525252]">
+                {selectedIds.length === warranties.length ? "Deseleccionar todas" : "Seleccionar todas"} ({selectedIds.length}/{warranties.length})
+              </span>
+            </div>
+          )}
           {warranties?.map((warranty: any) => {
             const config = statusConfig[warranty.status] || statusConfig.CREADA;
             const Icon = config.icon;
@@ -271,6 +313,12 @@ export default function WarrantiesPage() {
                   <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.includes(warranty.id)}
+                          onChange={() => toggleSelect(warranty.id)}
+                          className="w-4 h-4 rounded border-gray-300 text-[#C8102E] focus:ring-[#C8102E]"
+                        />
                         <ShieldCheck className="w-4 h-4 text-[#C8102E]" />
                         <span className="font-bold text-[#1A1A1A]">{warranty.trackingNumber}</span>
                         <Badge className={config.color}>

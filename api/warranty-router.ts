@@ -307,5 +307,47 @@ export const warrantyRouter = {
 
     return counts;
   }),
+
+  // ─── Get Bitacora (multiple warranties by IDs) ─────────────────
+  getBitacora: franchiseAuthedQuery
+    .input(z.object({ ids: z.array(z.number()) }))
+    .query(async ({ input, ctx }) => {
+      await ensureTables();
+      const db = getDb();
+      const franchiseId = ctx.franchiseUser!.franchiseId;
+
+      if (input.ids.length === 0) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "No se proporcionaron IDs" });
+      }
+
+      const result = await db
+        .select()
+        .from(warranties)
+        .where(
+          and(
+            inArray(warranties.id, input.ids),
+            or(
+              eq(warranties.originFranchiseId, franchiseId),
+              eq(warranties.currentLocationId, franchiseId)
+            )
+          )
+        )
+        .orderBy(desc(warranties.createdAt));
+
+      const allFranchises = await db.select().from(franchises);
+      const franchiseMap = new Map(allFranchises.map((f) => [f.id, f]));
+
+      const warrantiesWithFranchises = result.map((w) => ({
+        ...w,
+        originFranchise: franchiseMap.get(w.originFranchiseId),
+        currentLocation: franchiseMap.get(w.currentLocationId),
+      }));
+
+      return {
+        warranties: warrantiesWithFranchises,
+        generatedAt: new Date().toISOString(),
+        franchiseName: ctx.franchiseUser!.franchise?.name || "Tienda",
+      };
+    }),
 };
 

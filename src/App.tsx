@@ -18,6 +18,7 @@ import BitacoraNacional from "./pages/BitacoraNacional";
 import Warranties from "./pages/Warranties";
 import WarrantyDetail from "./pages/WarrantyDetail";
 import BoletaGarantia from "./pages/BoletaGarantia";
+import BitacoraGarantia from "./pages/BitacoraGarantia";
 import NotFound from "./pages/NotFound";
 
 export default function App() {
@@ -41,6 +42,7 @@ export default function App() {
       <Route path="/garantias" element={<Warranties />} />
       <Route path="/garantias/:id" element={<WarrantyDetail />} />
       <Route path="/boleta-garantia/:id" element={<BoletaGarantia />} />
+      <Route path="/bitacora-garantia" element={<BitacoraGarantia />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
