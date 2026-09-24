@@ -198,8 +198,10 @@ export default function Track() {
     ? buildShipmentTimeline(isPickup, originIsWarehouse, destIsWarehouse, trackingHistory, whLoc, shipment.status)
     : [];
   // Buscar desde el final para encontrar el ultimo matching (para steps duplicados)
+  // Mapear status finales del envio a status del timeline
+  const mappedStatus = shipment?.status === "ENTREGADO" ? "RECIBIDO_EN_DESTINO" : shipment?.status;
   const currentStepIndex = shipment
-    ? timelineSteps.length - 1 - [...timelineSteps].reverse().findIndex((s) => s.status === shipment.status)
+    ? timelineSteps.length - 1 - [...timelineSteps].reverse().findIndex((s) => s.status === mappedStatus)
     : -1;
 
   return (

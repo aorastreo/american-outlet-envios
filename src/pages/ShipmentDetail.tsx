@@ -309,13 +309,10 @@ export default function ShipmentDetail() {
 
   // Find current step index
   // Buscar desde el final para encontrar el ultimo matching (para steps duplicados como ENVIADO_A_BODEGA)
-  const reversedIndex = [...timelineSteps].reverse().findIndex((s) => s.status === shipment.status);
+  // Mapear ENTREGADO a RECIBIDO_EN_DESTINO para encontrar el step correcto
+  const searchStatus = shipment.status === "ENTREGADO" ? "RECIBIDO_EN_DESTINO" : shipment.status;
+  const reversedIndex = [...timelineSteps].reverse().findIndex((s) => s.status === searchStatus);
   let currentStepIndex = reversedIndex >= 0 ? timelineSteps.length - 1 - reversedIndex : -1;
-
-  // NO_RECOGIDO no esta en el timeline regular; mostrar hasta EN_PARADA como completado
-  if (currentStepIndex === -1 && shipment.status === "NO_RECOGIDO") {
-    currentStepIndex = timelineSteps.findIndex((s) => s.status === "EN_PARADA");
-  }
 
 
   return (

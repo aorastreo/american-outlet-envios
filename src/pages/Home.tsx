@@ -211,8 +211,10 @@ export default function Home() {
   }, [isPickup, originIsWarehouse, destIsWarehouse, trackingHistory, whLoc, shipment]);
 
   // Buscar desde el final para encontrar el ultimo matching (para steps duplicados)
+  // Mapear ENTREGADO a RECIBIDO_EN_DESTINO para encontrar el step correcto
+  const mappedHomeStatus = (shipment as any)?.status === "ENTREGADO" ? "RECIBIDO_EN_DESTINO" : (shipment as any)?.status;
   const currentStepIndex = shipment
-    ? timelineSteps.length - 1 - [...timelineSteps].reverse().findIndex((s) => s.status === shipment.status)
+    ? timelineSteps.length - 1 - [...timelineSteps].reverse().findIndex((s) => s.status === mappedHomeStatus)
     : -1;
 
   return (
