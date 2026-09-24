@@ -149,13 +149,9 @@ export default function CreateShipment() {
     navigate("/envios");
   };
 
-  // Sabana is a receiving warehouse only — not a destination for normal shipments
-  const isSabana = (name: string) => name.toLowerCase().includes("sabana");
-
-  // Filter: exclude own store and Sabana (receiving warehouse only)
+  // Filter: exclude own store (can send to any other destination including Sabana)
   const availableFranchises = (franchises || []).filter((f) => {
     if (f.id === user?.franchiseId) return false; // No tienda propia
-    if (isSabana(f.displayName || f.name || "")) return false; // No bodega Sabana
     return true;
   });
 
