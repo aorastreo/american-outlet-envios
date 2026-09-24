@@ -181,8 +181,8 @@ export default function Track() {
     { enabled: searchedTracking.length > 0 && isWarrantySearch, retry: false }
   );
 
-  const isLoading = shipmentLoading || warrantyLoading;
-  const isError = shipmentError || warrantyError;
+  const isLoading = isWarrantySearch ? warrantyLoading : shipmentLoading;
+  const isError = isWarrantySearch ? warrantyError : shipmentError;
   const hasResult = !!shipment || !!warranty;
 
   const handleSearch = (e: React.FormEvent) => {
