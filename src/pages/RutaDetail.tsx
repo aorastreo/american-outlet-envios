@@ -489,7 +489,6 @@ export default function RutaDetail() {
 
             {route.stops
               ?.flatMap((stop: any) => stop.shipments || [])
-              ?.filter((s: any) => s.status === "ASIGNADO" || s.status === "EN_RUTA" || s.status === "EN_PARADA")
               .map((shipment: any) => {
                 const isSaving = savingShipmentId === shipment.id;
 
