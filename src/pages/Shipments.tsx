@@ -128,7 +128,7 @@ const WAREHOUSE_TABS: TabDef<WarehouseTabKey>[] = [
     key: "POR_RECIBIR",
     label: "Por Recibir",
     icon: Download,
-    statuses: ["ENVIADO_A_BODEGA"],
+    statuses: ["ENVIADO_A_BODEGA", "CREADO"],
     description: "Envios de tiendas pendientes de recepcion",
     color: "text-[#525252]",
     activeColor: "text-[#B8860B]",
@@ -494,10 +494,16 @@ export default function Shipments() {
     return (shipments || []).filter((s) => {
       // Tab filter (statuses)
       // For EN_RUTA in warehouse: also show inter-bodega shipments (ENVIADO_A_BODEGA)
-      const matchesTab =
+      let matchesTab =
         activeTab === "EN_RUTA" && isBodega && interBodegaIds.has(s.id)
           ? true
           : currentTab.statuses.includes(s.status);
+
+      // Warehouse POR_RECIBIR: exclude CREADO shipments that originate from warehouse
+      if (matchesTab && isBodega && activeTab === "POR_RECIBIR" && s.status === "CREADO") {
+        const originFr = allFranchises?.find((f) => f.id === s.originFranchiseId);
+        if (originFr?.isWarehouse) matchesTab = false;
+      }
 
       // Store-specific filtering by origin/dest
       if (!isBodega && myFranchiseId) {
@@ -590,8 +596,12 @@ export default function Shipments() {
             counts[tab.key]++;
           }
         } else {
-          // Warehouse: EN_BODEGA — exclude routes, exclude dest=bodega, CREADO only from warehouse
-          if (isBodega && tab.key === "EN_BODEGA") {
+          // Warehouse: POR_RECIBIR — CREADO only from stores (not from warehouse)
+          if (isBodega && tab.key === "POR_RECIBIR" && s.status === "CREADO") {
+            const originFr = allFranchises?.find((f) => f.id === s.originFranchiseId);
+            if (originFr?.isWarehouse) continue; // CREADO from warehouse goes to EN_BODEGA
+            counts[tab.key]++;
+          } else if (isBodega && tab.key === "EN_BODEGA") {
             const destName = (s.destinationName || "").toLowerCase();
             if (destName.includes("grecia") || destName.includes("palmares") || destName.includes("san ramon")) continue;
             if (isDestWarehouse(s)) continue; // goes to ENTREGA_CLIENTE
