@@ -166,23 +166,37 @@ export default function BitacoraGarantia() {
           </table>
         </div>
 
-        {/* === FIRMA GENERAL === */}
+        {/* === FIRMAS === */}
         <div className="border-[3px] border-[#C8102E] rounded-lg overflow-hidden mb-4">
           <div className="bg-[#F7F7F7] border-b-[3px] border-[#C8102E] px-4 py-2.5 flex items-center gap-2">
             <FileText className="w-4 h-4 text-[#404040]" />
             <p className="text-xs font-black text-[#1A1A1A] uppercase tracking-wider">Confirmacion de Garantias</p>
           </div>
           <div className="px-4 py-6">
-            <div className="grid grid-cols-2 gap-8">
-              <div>
+            <div className="grid grid-cols-3 gap-6">
+              {/* ENTREGUE CONFORME */}
+              <div className="text-center">
+                <p className="text-[10px] font-black text-[#1A1A1A] uppercase tracking-wider mb-4">Entregue Conforme</p>
                 <div className="border-b-2 border-[#1A1A1A] pt-8 mb-2"></div>
-                <p className="text-xs text-center text-[#737373]">Firma Responsable</p>
-                <p className="text-[10px] text-center text-[#A3A3A3] mt-0.5">Nombre: _________________________</p>
+                <p className="text-[10px] text-[#737373] font-semibold">Nombre Completo</p>
+                <p className="text-[9px] text-[#A3A3A3] mt-3">Fecha y Hora</p>
+                <p className="text-[9px] text-[#A3A3A3]">_____________________</p>
               </div>
-              <div>
+              {/* RECIBIO CONFORME */}
+              <div className="text-center">
+                <p className="text-[10px] font-black text-[#1A1A1A] uppercase tracking-wider mb-4">Recibio Conforme</p>
                 <div className="border-b-2 border-[#1A1A1A] pt-8 mb-2"></div>
-                <p className="text-xs text-center text-[#737373]">Firma CEDI / Tecnico</p>
-                <p className="text-[10px] text-center text-[#A3A3A3] mt-0.5">Nombre: _________________________</p>
+                <p className="text-[10px] text-[#737373] font-semibold">Nombre Completo</p>
+                <p className="text-[9px] text-[#A3A3A3] mt-3">Fecha y Hora</p>
+                <p className="text-[9px] text-[#A3A3A3]">_____________________</p>
+              </div>
+              {/* INFORMACION DEL CHOFER */}
+              <div className="text-center">
+                <p className="text-[10px] font-black text-[#1A1A1A] uppercase tracking-wider mb-4">Informacion del Chofer</p>
+                <div className="border-b-2 border-[#1A1A1A] pt-8 mb-2"></div>
+                <p className="text-[10px] text-[#737373] font-semibold">Nombre Completo</p>
+                <p className="text-[9px] text-[#A3A3A3] mt-3">Fecha y Hora</p>
+                <p className="text-[9px] text-[#A3A3A3]">_____________________</p>
               </div>
             </div>
           </div>
