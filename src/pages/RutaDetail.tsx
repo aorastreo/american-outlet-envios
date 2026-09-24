@@ -508,6 +508,13 @@ export default function RutaDetail() {
                       toast.success(`${shipment.shipment?.trackingNumber || "Envio"} marcado como ${newStatus === "ENTREGADO" ? "entregado" : "no recogido"}`);
                     }
                     utils.route.getById.invalidate({ id: routeId });
+                    // Invalidate shipment queries so tracking/detail pages refresh
+                    if (shipment.shipmentId) {
+                      utils.shipment.getById.invalidate({ id: shipment.shipmentId });
+                    }
+                    if (shipment.shipment?.trackingNumber) {
+                      utils.shipment.track.invalidate({ trackingNumber: shipment.shipment.trackingNumber });
+                    }
                   } catch (err) {
                     toast.error("Error al guardar. Intente de nuevo.");
                   } finally {
