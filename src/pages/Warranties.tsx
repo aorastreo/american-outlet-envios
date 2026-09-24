@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router";
 import { useFranchiseAuth } from "@/hooks/useFranchiseAuth";
 import { trpc } from "@/providers/trpc";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,6 +19,8 @@ import {
   RotateCcw,
   ClipboardCheck,
   X,
+  ClipboardList,
+  Printer,
 } from "lucide-react";
 
 const statusConfig: Record<string, { label: string; color: string; icon: any }> = {
@@ -45,6 +48,7 @@ const cediActions: Record<string, { next: string; label: string; color: string }
 
 export default function WarrantiesPage() {
   const { user } = useFranchiseAuth();
+  const navigate = useNavigate();
   const utils = trpc.useUtils();
   const isWarehouse = user?.franchise?.isWarehouse === 1;
   const isCedi = user?.franchise?.name?.toLowerCase().includes("cedi");
@@ -114,13 +118,18 @@ export default function WarrantiesPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-[#1A1A1A]">Garantias</h1>
-          <p className="text-sm text-[#737373]">
-            {isWarehouse && isCedi
-              ? "Garantias recibidas para reparacion"
-              : "Garantias de productos defectuosos"}
-          </p>
+        <div className="flex items-center gap-3">
+          <Button variant="outline" size="sm" onClick={() => navigate("/dashboard")}>
+            <ArrowLeft className="w-4 h-4 mr-1" /> Regresar
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold text-[#1A1A1A]">Garantias</h1>
+            <p className="text-sm text-[#737373]">
+              {isWarehouse && isCedi
+                ? "Garantias recibidas para reparacion"
+                : "Garantias de productos defectuosos"}
+            </p>
+          </div>
         </div>
         {!isWarehouse && (
           <Button
@@ -287,17 +296,34 @@ export default function WarrantiesPage() {
                         <span>{new Date(warranty.createdAt).toLocaleDateString("es-CR")}</span>
                       </div>
                     </div>
-                    {action && (
-                      <div className="shrink-0">
+                    <div className="shrink-0 flex flex-col gap-2">
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => navigate(`/garantias/${warranty.id}`)}
+                        >
+                          <ClipboardList className="w-3.5 h-3.5 mr-1" /> Bitacora
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => navigate(`/boleta-garantia/${warranty.id}`)}
+                        >
+                          <Printer className="w-3.5 h-3.5 mr-1" /> Boleta
+                        </Button>
+                      </div>
+                      {action && (
                         <Button
                           onClick={() => handleStatusUpdate(warranty.id, action.next)}
                           className={`${action.color} text-white`}
                           disabled={updateMutation.isPending}
+                          size="sm"
                         >
                           {action.label}
                         </Button>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
                 </CardContent>
               </Card>
