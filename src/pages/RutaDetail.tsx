@@ -72,6 +72,7 @@ export default function RutaDetail() {
   // Simplified delivery tracking for driver: just checkboxes
   const [selectedDelivered, setSelectedDelivered] = useState<Set<number>>(new Set());
   const [selectedNoPickup, setSelectedNoPickup] = useState<Set<number>>(new Set());
+  const [savingShipmentId, setSavingShipmentId] = useState<number | null>(null);
 
   // Confirmation dialog for route start
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -510,7 +511,7 @@ export default function RutaDetail() {
                   Lista de Entregas
                 </h3>
                 <p className="text-sm text-amber-700">
-                  Marque los envíos entregados o no recogidos. Guarde los cambios al final.
+                  Toque para marcar como entregado o no recogido. Se guarda automaticamente.
                 </p>
               </CardContent>
             </Card>
@@ -521,6 +522,46 @@ export default function RutaDetail() {
               .map((shipment: any) => {
                 const isDelivered = selectedDelivered.has(shipment.id);
                 const isNoPickup = selectedNoPickup.has(shipment.id);
+                const isSaving = savingShipmentId === shipment.id;
+
+                // Auto-save handler
+                const handleToggle = async (type: "ENTREGADO" | "NO_RECOGIDO") => {
+                  const currentlyChecked = type === "ENTREGADO" ? isDelivered : isNoPickup;
+                  const otherSet = type === "ENTREGADO" ? selectedNoPickup : selectedDelivered;
+                  const setThis = type === "ENTREGADO" ? setSelectedDelivered : setSelectedNoPickup;
+                  const setOther = type === "ENTREGADO" ? setSelectedNoPickup : setSelectedDelivered;
+
+                  if (currentlyChecked) {
+                    // Unchecking — just update local state, no save needed
+                    const newSet = new Set(type === "ENTREGADO" ? selectedDelivered : selectedNoPickup);
+                    newSet.delete(shipment.id);
+                    setThis(newSet);
+                    return;
+                  }
+
+                  // Checking — save immediately
+                  setSavingShipmentId(shipment.id);
+                  try {
+                    await updateShipmentMutation.mutateAsync({ routeShipmentId: shipment.id, status: type });
+                    toast.success(`${shipment.shipment?.trackingNumber || "Envio"} marcado como ${type === "ENTREGADO" ? "entregado" : "no recogido"}`);
+
+                    // Update local state
+                    const newSet = new Set(type === "ENTREGADO" ? selectedDelivered : selectedNoPickup);
+                    newSet.add(shipment.id);
+                    setThis(newSet);
+                    const newOther = new Set(otherSet);
+                    newOther.delete(shipment.id);
+                    setOther(newOther);
+
+                    // Refresh route data
+                    utils.route.getById.invalidate({ id: routeId });
+                  } catch (err) {
+                    toast.error("Error al guardar. Intente de nuevo.");
+                  } finally {
+                    setSavingShipmentId(null);
+                  }
+                };
+
                 return (
                   <Card key={shipment.id} className={`border-l-4 ${isDelivered ? 'border-l-green-500' : isNoPickup ? 'border-l-red-500' : 'border-l-amber-400'}`}>
                     <CardContent className="p-4">
@@ -585,44 +626,28 @@ export default function RutaDetail() {
                           )}
                         </div>
                         <div className="flex flex-col gap-2 shrink-0">
-                          <label className="flex items-center gap-2 cursor-pointer">
-                            <input
-                              type="checkbox"
-                              className="w-5 h-5 accent-green-600"
-                              checked={isDelivered}
-                              onChange={() => {
-                                const newSet = new Set(selectedDelivered);
-                                const newNoPickup = new Set(selectedNoPickup);
-                                if (isDelivered) {
-                                  newSet.delete(shipment.id);
-                                } else {
-                                  newSet.add(shipment.id);
-                                  newNoPickup.delete(shipment.id);
-                                }
-                                setSelectedDelivered(newSet);
-                                setSelectedNoPickup(newNoPickup);
-                              }}
-                            />
+                          <label className={`flex items-center gap-2 ${isSaving ? 'opacity-50 pointer-events-none' : 'cursor-pointer'}`}>
+                            {isSaving && <div className="w-5 h-5 border-2 border-green-600 border-t-transparent rounded-full animate-spin" />}
+                            {!isSaving && (
+                              <input
+                                type="checkbox"
+                                className="w-5 h-5 accent-green-600"
+                                checked={isDelivered}
+                                onChange={() => handleToggle("ENTREGADO")}
+                              />
+                            )}
                             <span className="text-sm text-green-700 font-medium">Entregado</span>
                           </label>
-                          <label className="flex items-center gap-2 cursor-pointer">
-                            <input
-                              type="checkbox"
-                              className="w-5 h-5 accent-red-600"
-                              checked={isNoPickup}
-                              onChange={() => {
-                                const newSet = new Set(selectedNoPickup);
-                                const newDelivered = new Set(selectedDelivered);
-                                if (isNoPickup) {
-                                  newSet.delete(shipment.id);
-                                } else {
-                                  newSet.add(shipment.id);
-                                  newDelivered.delete(shipment.id);
-                                }
-                                setSelectedNoPickup(newSet);
-                                setSelectedDelivered(newDelivered);
-                              }}
-                            />
+                          <label className={`flex items-center gap-2 ${isSaving ? 'opacity-50 pointer-events-none' : 'cursor-pointer'}`}>
+                            {isSaving && <div className="w-5 h-5 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />}
+                            {!isSaving && (
+                              <input
+                                type="checkbox"
+                                className="w-5 h-5 accent-red-600"
+                                checked={isNoPickup}
+                                onChange={() => handleToggle("NO_RECOGIDO")}
+                              />
+                            )}
                             <span className="text-sm text-red-700 font-medium">No Recogido</span>
                           </label>
                         </div>
@@ -631,19 +656,6 @@ export default function RutaDetail() {
                   </Card>
                 );
               })}
-
-            {(selectedDelivered.size > 0 || selectedNoPickup.size > 0) && (
-              <div className="flex justify-end">
-                <Button
-                  className="bg-[#C8102E] hover:bg-[#9B0B22] text-white"
-                  onClick={handleSaveDeliveries}
-                  disabled={updateShipmentMutation.isPending}
-                >
-                  <CheckCircle className="w-4 h-4 mr-2" />
-                  Guardar Entregas ({selectedDelivered.size + selectedNoPickup.size})
-                </Button>
-              </div>
-            )}
           </div>
         )}
 
