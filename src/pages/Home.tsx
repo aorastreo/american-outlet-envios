@@ -650,6 +650,7 @@ export default function Home() {
                     {warranty.status === "RECIBIDO_EN_CEDI" && "Recibido en CEDI"}
                     {warranty.status === "EN_REPARACION" && "En Reparacion"}
                     {warranty.status === "REPARADO" && "Reparado"}
+                    {warranty.status === "NO_REPARABLE" && "No Reparable"}
                     {warranty.status === "ENVIADO_A_TIENDA" && "Enviado a Tienda"}
                     {warranty.status === "RECIBIDO_EN_TIENDA" && "Recibido en Tienda"}
                     {warranty.status === "ENTREGADO_AL_CLIENTE" && "Entregado al Cliente"}
@@ -680,6 +681,7 @@ export default function Home() {
                               {track.status === "RECIBIDO_EN_CEDI" && "Recibido en CEDI"}
                               {track.status === "EN_REPARACION" && "En Reparacion"}
                               {track.status === "REPARADO" && "Reparado"}
+                              {track.status === "NO_REPARABLE" && "No Reparable"}
                               {track.status === "ENVIADO_A_TIENDA" && "Enviado a Tienda"}
                               {track.status === "RECIBIDO_EN_TIENDA" && "Recibido en Tienda"}
                               {track.status === "ENTREGADO_AL_CLIENTE" && "Entregado al Cliente"}

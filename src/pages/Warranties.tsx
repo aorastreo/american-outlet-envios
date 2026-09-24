@@ -20,6 +20,7 @@ import {
   ClipboardCheck,
   X,
   Printer,
+  AlertTriangle,
 } from "lucide-react";
 
 const statusConfig: Record<string, { label: string; color: string; icon: any }> = {
@@ -28,21 +29,27 @@ const statusConfig: Record<string, { label: string; color: string; icon: any }> 
   RECIBIDO_EN_CEDI: { label: "Recibido en CEDI", color: "bg-purple-50 text-purple-700", icon: ClipboardCheck },
   EN_REPARACION: { label: "En Reparacion", color: "bg-amber-50 text-amber-700", icon: Wrench },
   REPARADO: { label: "Reparado", color: "bg-emerald-50 text-emerald-700", icon: CheckCircle },
+  NO_REPARABLE: { label: "No Reparable", color: "bg-red-50 text-red-700", icon: AlertTriangle },
   ENVIADO_A_TIENDA: { label: "Enviado a Tienda", color: "bg-blue-50 text-blue-700", icon: ArrowLeft },
   RECIBIDO_EN_TIENDA: { label: "Recibido en Tienda", color: "bg-purple-50 text-purple-700", icon: ClipboardCheck },
   ENTREGADO_AL_CLIENTE: { label: "Entregado al Cliente", color: "bg-green-50 text-green-700", icon: CheckCircle },
 };
 
-const storeActions: Record<string, { next: string; label: string; color: string }> = {
-  CREADA: { next: "ENVIADO_A_CEDI", label: "Enviar a CEDI", color: "bg-blue-600 hover:bg-blue-700" },
-  RECIBIDO_EN_TIENDA: { next: "ENTREGADO_AL_CLIENTE", label: "Entregar al Cliente", color: "bg-green-600 hover:bg-green-700" },
+const storeActions: Record<string, { next: string; label: string; color: string }[]> = {
+  CREADA: [{ next: "ENVIADO_A_CEDI", label: "Enviar a CEDI", color: "bg-blue-600 hover:bg-blue-700" }],
+  ENVIADO_A_TIENDA: [{ next: "RECIBIDO_EN_TIENDA", label: "Recibir en Tienda", color: "bg-purple-600 hover:bg-purple-700" }],
+  RECIBIDO_EN_TIENDA: [{ next: "ENTREGADO_AL_CLIENTE", label: "Entregar al Cliente", color: "bg-green-600 hover:bg-green-700" }],
 };
 
-const cediActions: Record<string, { next: string; label: string; color: string }> = {
-  ENVIADO_A_CEDI: { next: "RECIBIDO_EN_CEDI", label: "Recibir en CEDI", color: "bg-purple-600 hover:bg-purple-700" },
-  RECIBIDO_EN_CEDI: { next: "EN_REPARACION", label: "Iniciar Reparacion", color: "bg-amber-600 hover:bg-amber-700" },
-  EN_REPARACION: { next: "REPARADO", label: "Marcar Reparado", color: "bg-emerald-600 hover:bg-emerald-700" },
-  REPARADO: { next: "ENVIADO_A_TIENDA", label: "Enviar a Tienda", color: "bg-blue-600 hover:bg-blue-700" },
+const cediActions: Record<string, { next: string; label: string; color: string }[]> = {
+  ENVIADO_A_CEDI: [{ next: "RECIBIDO_EN_CEDI", label: "Recibir en CEDI", color: "bg-purple-600 hover:bg-purple-700" }],
+  RECIBIDO_EN_CEDI: [{ next: "EN_REPARACION", label: "Iniciar Reparacion", color: "bg-amber-600 hover:bg-amber-700" }],
+  EN_REPARACION: [
+    { next: "REPARADO", label: "Marcar Reparado", color: "bg-emerald-600 hover:bg-emerald-700" },
+    { next: "NO_REPARABLE", label: "No Reparable", color: "bg-red-600 hover:bg-red-700" },
+  ],
+  REPARADO: [{ next: "ENVIADO_A_TIENDA", label: "Enviar a Tienda", color: "bg-blue-600 hover:bg-blue-700" }],
+  NO_REPARABLE: [{ next: "ENVIADO_A_TIENDA", label: "Devolver a Tienda", color: "bg-blue-600 hover:bg-blue-700" }],
 };
 
 export default function WarrantiesPage() {
@@ -353,15 +360,20 @@ export default function WarrantiesPage() {
                           <Printer className="w-3.5 h-3.5 mr-1" /> Boleta
                         </Button>
                       </div>
-                      {action && (
-                        <Button
-                          onClick={() => handleStatusUpdate(warranty.id, action.next)}
-                          className={`${action.color} text-white`}
-                          disabled={updateMutation.isPending}
-                          size="sm"
-                        >
-                          {action.label}
-                        </Button>
+                      {action && action.length > 0 && (
+                        <div className="flex flex-col gap-2">
+                          {action.map((act) => (
+                            <Button
+                              key={act.next}
+                              onClick={() => handleStatusUpdate(warranty.id, act.next)}
+                              className={`${act.color} text-white`}
+                              disabled={updateMutation.isPending}
+                              size="sm"
+                            >
+                              {act.label}
+                            </Button>
+                          ))}
+                        </div>
                       )}
                     </div>
                   </div>

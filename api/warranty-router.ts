@@ -104,6 +104,7 @@ export const warrantyRouter = {
         eq(warranties.status, "RECIBIDO_EN_CEDI"),
         eq(warranties.status, "EN_REPARACION"),
         eq(warranties.status, "REPARADO"),
+        eq(warranties.status, "NO_REPARABLE"),
         eq(warranties.status, "ENVIADO_A_TIENDA")
       );
     } else {
@@ -112,7 +113,10 @@ export const warrantyRouter = {
         eq(warranties.originFranchiseId, franchiseId),
         and(
           eq(warranties.currentLocationId, franchiseId),
-          eq(warranties.status, "RECIBIDO_EN_TIENDA")
+          or(
+            eq(warranties.status, "ENVIADO_A_TIENDA"),
+            eq(warranties.status, "RECIBIDO_EN_TIENDA")
+          )
         )
       );
     }
@@ -273,6 +277,7 @@ export const warrantyRouter = {
         eq(warranties.status, "RECIBIDO_EN_CEDI"),
         eq(warranties.status, "EN_REPARACION"),
         eq(warranties.status, "REPARADO"),
+        eq(warranties.status, "NO_REPARABLE"),
         eq(warranties.status, "ENVIADO_A_TIENDA")
       );
     } else {
@@ -280,7 +285,10 @@ export const warrantyRouter = {
         eq(warranties.originFranchiseId, franchiseId),
         and(
           eq(warranties.currentLocationId, franchiseId),
-          eq(warranties.status, "RECIBIDO_EN_TIENDA")
+          or(
+            eq(warranties.status, "ENVIADO_A_TIENDA"),
+            eq(warranties.status, "RECIBIDO_EN_TIENDA")
+          )
         )
       );
     }
@@ -296,6 +304,7 @@ export const warrantyRouter = {
       RECIBIDO_EN_CEDI: 0,
       EN_REPARACION: 0,
       REPARADO: 0,
+      NO_REPARABLE: 0,
       ENVIADO_A_TIENDA: 0,
       RECIBIDO_EN_TIENDA: 0,
       ENTREGADO_AL_CLIENTE: 0,

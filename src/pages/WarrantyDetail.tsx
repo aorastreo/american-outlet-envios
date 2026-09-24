@@ -11,6 +11,7 @@ const statusConfig: Record<string, { label: string; color: string; bg: string }>
   RECIBIDO_EN_CEDI: { label: "Recibido en CEDI", color: "text-purple-700", bg: "bg-purple-50" },
   EN_REPARACION: { label: "En Reparacion", color: "text-amber-700", bg: "bg-amber-50" },
   REPARADO: { label: "Reparado", color: "text-emerald-700", bg: "bg-emerald-50" },
+  NO_REPARABLE: { label: "No Reparable", color: "text-red-700", bg: "bg-red-50" },
   ENVIADO_A_TIENDA: { label: "Enviado a Tienda", color: "text-blue-700", bg: "bg-blue-50" },
   RECIBIDO_EN_TIENDA: { label: "Recibido en Tienda", color: "text-purple-700", bg: "bg-purple-50" },
   ENTREGADO_AL_CLIENTE: { label: "Entregado al Cliente", color: "text-green-700", bg: "bg-green-50" },

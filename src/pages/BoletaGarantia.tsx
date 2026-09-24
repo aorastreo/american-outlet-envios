@@ -9,6 +9,7 @@ const statusConfig: Record<string, { label: string }> = {
   RECIBIDO_EN_CEDI: { label: "Recibido en CEDI" },
   EN_REPARACION: { label: "En Reparacion" },
   REPARADO: { label: "Reparado" },
+  NO_REPARABLE: { label: "No Reparable" },
   ENVIADO_A_TIENDA: { label: "Enviado a Tienda" },
   RECIBIDO_EN_TIENDA: { label: "Recibido en Tienda" },
   ENTREGADO_AL_CLIENTE: { label: "Entregado al Cliente" },

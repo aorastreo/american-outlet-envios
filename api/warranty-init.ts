@@ -17,7 +17,7 @@ export async function initWarrantyTables() {
         defectDescription TEXT NOT NULL,
         originFranchiseId BIGINT UNSIGNED NOT NULL,
         currentLocationId BIGINT UNSIGNED NOT NULL,
-        status ENUM('CREADA', 'ENVIADO_A_CEDI', 'RECIBIDO_EN_CEDI', 'EN_REPARACION', 'REPARADO', 'ENVIADO_A_TIENDA', 'RECIBIDO_EN_TIENDA', 'ENTREGADO_AL_CLIENTE') DEFAULT 'CREADA' NOT NULL,
+        status ENUM('CREADA', 'ENVIADO_A_CEDI', 'RECIBIDO_EN_CEDI', 'EN_REPARACION', 'REPARADO', 'NO_REPARABLE', 'ENVIADO_A_TIENDA', 'RECIBIDO_EN_TIENDA', 'ENTREGADO_AL_CLIENTE') DEFAULT 'CREADA' NOT NULL,
         notes TEXT,
         createdBy BIGINT UNSIGNED NOT NULL,
         createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
@@ -36,6 +36,18 @@ export async function initWarrantyTables() {
         createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
       )
     `);
+    
+    // Alter existing table to add NO_REPARABLE if missing
+    try {
+      await db.execute(sql`
+        ALTER TABLE warranties 
+        MODIFY COLUMN status 
+        ENUM('CREADA', 'ENVIADO_A_CEDI', 'RECIBIDO_EN_CEDI', 'EN_REPARACION', 'REPARADO', 'NO_REPARABLE', 'ENVIADO_A_TIENDA', 'RECIBIDO_EN_TIENDA', 'ENTREGADO_AL_CLIENTE') 
+        DEFAULT 'CREADA' NOT NULL
+      `);
+    } catch (e) {
+      // Ignore if column already has the enum value
+    }
     
     console.log("[initWarrantyTables] Tables created successfully");
     return true;

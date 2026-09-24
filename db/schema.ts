@@ -216,6 +216,7 @@ export const warranties = mysqlTable("warranties", {
     "RECIBIDO_EN_CEDI",
     "EN_REPARACION",
     "REPARADO",
+    "NO_REPARABLE",
     "ENVIADO_A_TIENDA",
     "RECIBIDO_EN_TIENDA",
     "ENTREGADO_AL_CLIENTE",
