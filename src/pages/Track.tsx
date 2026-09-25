@@ -205,8 +205,8 @@ export default function Track() {
   // Build clean timeline with specific bodega names
   const trackingHistory = shipment?.tracking || [];
   const whLoc = (shipment as any)?.warehouseLocation;
-  const originFranchiseName = shipment?.originFranchise?.name || "";
-  const destFranchiseName = shipment?.destinationFranchise?.name || "";
+  const originFranchiseName = shipment?.originFranchise?.name || shipment?.originName || "";
+  const destFranchiseName = shipment?.destinationFranchise?.name || shipment?.destinationFranchise?.displayName || shipment?.destinationName || "";
   const timelineSteps = shipment
     ? buildShipmentTimeline(isPickup, originIsWarehouse, destIsWarehouse, trackingHistory, whLoc, shipment.status, originFranchiseName, destFranchiseName)
     : [];
