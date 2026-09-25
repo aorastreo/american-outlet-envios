@@ -216,12 +216,6 @@ const SABANA_TABS: TabDef<SabanaTabKey>[] = [
 
 /* ─── status badge helper ─────────────────────────────────────── */
 
-// Helper: check if a shipment destination is a pickup route (Grecia, Palmares, San Ramon)
-function isRouteShipment(shipment: any): boolean {
-  const destName = (shipment.destinationName || "").toLowerCase();
-  return destName.includes("grecia") || destName.includes("palmares") || destName.includes("san ramon");
-}
-
 function getStatusConfig(status: string) {
   const configs: Record<string, { color: string; label: string; icon: React.ElementType }> = {
     CREADO: { color: "bg-slate-100 text-[#1A1A1A] hover:bg-slate-200", label: "Creado", icon: Package },
@@ -529,7 +523,8 @@ export default function Shipments() {
         if (s.status === "CREADO" && !originFranchise?.isWarehouse) return false;
         if (isDestWarehouse(s)) return false; // dest=bodega goes to ENTREGA_CLIENTE
         // Route shipments (Grecia, Palmares, San Ramon) go directly to Rutas, not En Bodega
-        if (isRouteShipment(s)) return false;
+        const destNameLower = (s.destinationName || "").toLowerCase();
+        if (destNameLower.includes("grecia") || destNameLower.includes("palmares") || destNameLower.includes("san ramon")) return false;
       }
       // Warehouse-specific: ENTREGA_CLIENTE tab — only dest=bodega + RECIBIDO_EN_BODEGA
       if (isBodega && activeTab === "ENTREGA_CLIENTE") {
