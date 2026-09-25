@@ -347,8 +347,7 @@ export default function Home() {
                 <CardContent className="p-3 flex items-center gap-2">
                   <Zap className="w-4 h-4 text-[#C8102E]" />
                   <span className="text-sm text-[#C8102E] font-medium">
-                    Envio Directo desde Bodega - Flujo acelerado (Bodega →
-                    Tienda)
+                    {destIsWarehouse ? "Envio entre Bodegas (Pasa por CEDI)" : "Envio desde Bodega (Pasa por CEDI)"}
                   </span>
                 </CardContent>
               </Card>
