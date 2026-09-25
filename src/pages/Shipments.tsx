@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { Link, useSearchParams } from "react-router";
 import FranchiseLayout from "@/components/FranchiseLayout";
 import { trpc } from "@/providers/trpc";
@@ -34,6 +34,7 @@ import {
   Inbox,
   Box,
   Download,
+  ChevronDown,
 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
@@ -363,7 +364,9 @@ export default function Shipments() {
   const [activeTab, setActiveTab] = useState<ActiveTabKey>(defaultTab);
   const [searchQuery, setSearchQuery] = useState("");
   const [originFilter, setOriginFilter] = useState<string>(urlOriginId || "ALL");
-  const [destFilter, setDestFilter] = useState<string>("ALL");
+  const [destFilter, setDestFilter] = useState<string[]>([]);
+  const [destDropdownOpen, setDestDropdownOpen] = useState(false);
+  const destDropdownRef = useRef<HTMLDivElement>(null);
 
   // Fix activeTab when user type (warehouse vs store) changes
   // This prevents crashes when user loads and isWarehouse flips from false to true
@@ -393,6 +396,17 @@ export default function Shipments() {
       setActiveTab(urlTab);
     }
   }, [urlTab, TABS]);
+
+  // Close destination dropdown on outside click
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (destDropdownRef.current && !destDropdownRef.current.contains(e.target as Node)) {
+        setDestDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   // Update URL when tab changes
   const handleTabChange = (tab: ActiveTabKey) => {
@@ -540,7 +554,7 @@ export default function Shipments() {
 
       // Origin / Dest filters
       const matchesOrigin = originFilter === "ALL" || s.originFranchiseId.toString() === originFilter;
-      const matchesDest = destFilter === "ALL" || s.destinationFranchiseId.toString() === destFilter;
+      const matchesDest = destFilter.length === 0 || destFilter.includes(s.destinationFranchiseId.toString());
 
       // Date filter (only for store ENVIADOS tab) — compare year/month/day in local time
       let matchesDate = true;
@@ -727,12 +741,12 @@ export default function Shipments() {
     );
   };
 
-  const hasFilters = searchQuery !== "" || originFilter !== "ALL" || destFilter !== "ALL";
+  const hasFilters = searchQuery !== "" || originFilter !== "ALL" || destFilter.length > 0;
 
   const clearFilters = () => {
     setSearchQuery("");
     setOriginFilter("ALL");
-    setDestFilter("ALL");
+    setDestFilter([]);
   };
 
   const toggleSelection = (id: number) => {
@@ -1180,18 +1194,59 @@ export default function Shipments() {
           )}
           {!isReceivingWarehouse && (
             <div className="flex gap-2">
-              <select
-                value={destFilter}
-                onChange={(e) => setDestFilter(e.target.value)}
-                className="flex-1 h-11 px-3 text-sm border border-[#D4D4D4] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C8102E]/20 focus:border-[#C8102E] text-[#1A1A1A] bg-white"
-              >
-                <option value="ALL">Todos los destinos</option>
-                {storeFranchises.map((f) => (
-                  <option key={f.id} value={f.id.toString()}>
-                    {cleanName(f.displayName)}
-                  </option>
-                ))}
-              </select>
+              {/* Multi-select destination dropdown */}
+              <div className="relative flex-1" ref={destDropdownRef}>
+                <button
+                  onClick={() => setDestDropdownOpen(!destDropdownOpen)}
+                  className="w-full h-11 px-3 text-sm border border-[#D4D4D4] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C8102E]/20 focus:border-[#C8102E] text-[#1A1A1A] bg-white flex items-center justify-between"
+                >
+                  <span className="truncate">
+                    {destFilter.length === 0
+                      ? "Todos los destinos"
+                      : destFilter.length === 1
+                        ? cleanName(storeFranchises.find((f) => f.id.toString() === destFilter[0])?.displayName)
+                        : `${destFilter.length} destinos seleccionados`}
+                  </span>
+                  <ChevronDown className="w-4 h-4 text-[#8A8A8A] shrink-0 ml-2" />
+                </button>
+                {destDropdownOpen && (
+                  <div className="absolute z-50 mt-1 w-full bg-white border border-[#D4D4D4] rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                    <div
+                      className="px-3 py-2 flex items-center gap-2 cursor-pointer hover:bg-[#F9F9F9] border-b border-[#F0F0F0]"
+                      onClick={() => setDestFilter([])}
+                    >
+                      <Checkbox
+                        checked={destFilter.length === 0}
+                        onCheckedChange={() => setDestFilter([])}
+                      />
+                      <span className="text-sm text-[#1A1A1A]">Todos los destinos</span>
+                    </div>
+                    {storeFranchises.map((f) => (
+                      <div
+                        key={f.id}
+                        className="px-3 py-2 flex items-center gap-2 cursor-pointer hover:bg-[#F9F9F9]"
+                        onClick={() => {
+                          const id = f.id.toString();
+                          setDestFilter((prev) =>
+                            prev.includes(id) ? prev.filter((d) => d !== id) : [...prev, id]
+                          );
+                        }}
+                      >
+                        <Checkbox
+                          checked={destFilter.includes(f.id.toString())}
+                          onCheckedChange={() => {
+                            const id = f.id.toString();
+                            setDestFilter((prev) =>
+                              prev.includes(id) ? prev.filter((d) => d !== id) : [...prev, id]
+                            );
+                          }}
+                        />
+                        <span className="text-sm text-[#1A1A1A]">{cleanName(f.displayName)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
               {hasFilters && (
                 <button
                   onClick={clearFilters}
