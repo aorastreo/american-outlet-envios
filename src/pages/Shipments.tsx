@@ -265,6 +265,12 @@ export default function Shipments() {
     return name.replace(/AMERICAN OUTLET\s*/i, "").trim() || name;
   }
 
+  // Helper: check if a shipment is a pickup route (Grecia, Palmares, San Ramon)
+  function isRouteShipment(shipment: any): boolean {
+    const destName = (shipment.destinationName || "").toLowerCase();
+    return destName.includes("grecia") || destName.includes("palmares") || destName.includes("san ramon");
+  }
+
   // Helper: classify franchise by group (mio, vendedor, route, warehouse, sabana)
   // Note: route pickups (Grecia, Palmares, San Ramon) and Sabana are associated with the vendor group (Cedi)
   function getFranchiseGroup(name: string | undefined): "mio" | "vendedor" | "route" | "warehouse" | "sabana" | "unknown" {
@@ -522,6 +528,8 @@ export default function Shipments() {
         const originFranchise = allFranchises?.find((f) => f.id === s.originFranchiseId);
         if (s.status === "CREADO" && !originFranchise?.isWarehouse) return false;
         if (isDestWarehouse(s)) return false; // dest=bodega goes to ENTREGA_CLIENTE
+        // Route shipments (Grecia, Palmares, San Ramon) go directly to Rutas, not En Bodega
+        if (isRouteShipment(s)) return false;
       }
       // Warehouse-specific: ENTREGA_CLIENTE tab — only dest=bodega + RECIBIDO_EN_BODEGA
       if (isBodega && activeTab === "ENTREGA_CLIENTE") {
