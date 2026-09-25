@@ -290,7 +290,18 @@ export default function Track() {
                 <CardContent className="p-3 flex items-center gap-2">
                   <Zap className="w-4 h-4 text-[#C8102E]" />
                   <span className="text-sm text-[#C8102E] font-medium">
-                    {destIsWarehouse ? "Envio entre Bodegas (Pasa por CEDI)" : "Envio desde Bodega (Pasa por CEDI)"}
+                    {(() => {
+                      const originIsCedi = (shipment?.originFranchise?.name || "").toLowerCase().includes("cedi");
+                      const originIsPavon = (shipment?.originFranchise?.name || "").toLowerCase().includes("pavon");
+                      const destN = (shipment?.destinationFranchise?.name || "").toLowerCase();
+                      const destIsMio = destN.includes("chiles") || destN.includes("pavon") || destN.includes("santa rosa") || destN.includes("ganga");
+                      const destIsVendedor = destN.includes("boca arenal") || destN.includes("florencia") || destN.includes("fortuna") || destN.includes("quesada") || destN.includes("puerto viejo");
+                      if (destIsWarehouse) return "Envio entre Bodegas";
+                      if (originIsCedi && destIsMio) return "Envio desde CEDI (Pasa por Pavon)";
+                      if (originIsCedi && destIsVendedor) return "Envio desde CEDI (Directo)";
+                      if (originIsPavon && destIsVendedor) return "Envio desde Pavon (Pasa por CEDI)";
+                      return "Envio desde Bodega";
+                    })()}
                   </span>
                 </CardContent>
               </Card>
