@@ -210,9 +210,10 @@ export default function Track() {
   // Buscar desde el final para encontrar el ultimo matching (para steps duplicados)
   // Mapear status finales del envio a status del timeline
   const mappedStatus = shipment?.status === "ENTREGADO" ? "RECIBIDO_EN_DESTINO" : shipment?.status;
-  const currentStepIndex = shipment
-    ? timelineSteps.length - 1 - [...timelineSteps].reverse().findIndex((s) => s.status === mappedStatus)
+  const foundReverseIndex = shipment
+    ? [...timelineSteps].reverse().findIndex((s) => s.status === mappedStatus)
     : -1;
+  const currentStepIndex = foundReverseIndex >= 0 ? timelineSteps.length - 1 - foundReverseIndex : -1;
 
   return (
     <FranchiseLayout>

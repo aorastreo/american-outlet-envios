@@ -227,9 +227,10 @@ export default function Home() {
   // Buscar desde el final para encontrar el ultimo matching (para steps duplicados)
   // Mapear ENTREGADO a RECIBIDO_EN_DESTINO para encontrar el step correcto
   const mappedHomeStatus = (shipment as any)?.status === "ENTREGADO" ? "RECIBIDO_EN_DESTINO" : (shipment as any)?.status;
-  const currentStepIndex = shipment
-    ? timelineSteps.length - 1 - [...timelineSteps].reverse().findIndex((s) => s.status === mappedHomeStatus)
+  const foundHomeReverseIndex = shipment
+    ? [...timelineSteps].reverse().findIndex((s) => s.status === mappedHomeStatus)
     : -1;
+  const currentStepIndex = foundHomeReverseIndex >= 0 ? timelineSteps.length - 1 - foundHomeReverseIndex : -1;
 
   return (
     <div className="min-h-screen bg-white">

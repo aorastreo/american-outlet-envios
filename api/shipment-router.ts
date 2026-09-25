@@ -177,15 +177,15 @@ export const shipmentRouter = createRouter({
       // Determine target bodega
       const { firstBodega } = getTargetBodega(originName, destName);
 
-      // Check if this is a pickup route (destination is Grecia, SanRamon, Palmares, Sabana)
+      // Check if this is a pickup route (destination is Grecia, SanRamon, Palmares)
       // Pickup routes are truck destinations (Grecia, Palmares, San Ramon)
-      // Sabana is a receiving warehouse, NOT a truck route
       const pickupCodes = ["grecia", "san_ramon", "palmares"];
       const isPickup = pickupCodes.includes(destFranchise[0]?.code?.toLowerCase() || "");
-      // Sabana is treated as a warehouse destination (not a pickup route)
-      const isSabana = destFranchise[0]?.code?.toLowerCase() === "bodega_sabana";
-      const initialStatus = (originIsWarehouse && isPickup) || (originIsWarehouse && isSabana) ? "RECIBIDO_EN_BODEGA" : "CREADO";
-      const trackingNotes = (originIsWarehouse && isPickup) || (originIsWarehouse && isSabana) ? "Envio creado en bodega - listo para envio" : "Envio creado";
+      // All shipments start as CREADO regardless of origin
+      const initialStatus = "CREADO";
+      const trackingNotes = originIsWarehouse
+        ? `Envio creado en ${originName} - Destino: ${destName}`
+        : "Envio creado";
 
       const trackingNumber = await generateTrackingNumber();
 
