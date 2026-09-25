@@ -63,45 +63,46 @@ function buildShipmentTimeline(
 
   let steps: { status: string; label: string; desc: string }[] = [];
 
-  if (destIsWarehouse) {
+  if (originIsWarehouse && destIsWarehouse) {
+    // Bodega Pavon -> Bodega Sabana (siempre pasa por CEDI primero)
     steps = [
       { status: "CREADO", label: "Creado", desc: "Envio registrado" },
-      { status: "ENVIADO_A_BODEGA", label: `Enviado a ${bodega1}`, desc: "Tienda envia a bodega" },
+      { status: "ENVIADO_A_BODEGA", label: `Enviado a ${bodega1}`, desc: "Enviado a bodega intermedia" },
+      { status: "RECIBIDO_EN_BODEGA", label: `En ${bodega1}`, desc: "Bodega intermedia recibio" },
+    ];
+    if (hasInterBodega) {
+      steps.push({ status: "ENVIADO_A_BODEGA", label: `Enviado a ${bodega2}`, desc: "Enviado a bodega destino" });
+      steps.push({ status: "RECIBIDO_EN_BODEGA", label: `En ${bodega2}`, desc: "Bodega destino recibio" });
+    }
+  } else if (destIsWarehouse) {
+    // Tienda -> Bodega (pasa por CEDI, luego a bodega destino)
+    steps = [
+      { status: "CREADO", label: "Creado", desc: "Envio registrado" },
+      { status: "ENVIADO_A_BODEGA", label: `Enviado a ${bodega1}`, desc: "Enviado a bodega" },
       { status: "RECIBIDO_EN_BODEGA", label: `En ${bodega1}`, desc: "Bodega recibio" },
     ];
-  } else if (originIsWarehouse) {
     if (hasInterBodega) {
-      steps = [
-        { status: "CREADO", label: "Creado", desc: "Envio registrado" },
-        { status: "ENVIADO_A_BODEGA", label: `Enviado a ${bodega2}`, desc: "Bodega envia a bodega" },
-        { status: "RECIBIDO_EN_BODEGA", label: `En ${bodega2}`, desc: "Bodega recibio" },
-      ];
-      if (isPickup) {
-        steps.push(
-          { status: "EN_RUTA", label: "En Ruta", desc: "Asignado a camion" },
-          { status: "EN_PARADA", label: "En Parada", desc: "Camion en punto" },
-          { status: "RECIBIDO_EN_DESTINO", label: "Entregado", desc: "Cliente recibio" }
-        );
-      } else {
-        steps.push(
-          { status: "ENVIADO_A_DESTINO", label: "Enviado a Destino", desc: "Bodega envia a tienda" },
-          { status: "RECIBIDO_EN_DESTINO", label: "Entregado", desc: "Tienda recibio" }
-        );
-      }
-    } else if (isPickup) {
-      steps = [
-        { status: "CREADO", label: "Creado", desc: "Envio registrado" },
-        { status: "ENVIADO_A_DESTINO", label: "Enviado a Destino", desc: "Bodega envia directo" },
+      steps.push({ status: "ENVIADO_A_BODEGA", label: `Enviado a ${bodega2}`, desc: "Enviado a bodega destino" });
+      steps.push({ status: "RECIBIDO_EN_BODEGA", label: `En ${bodega2}`, desc: "Bodega destino recibio" });
+    }
+  } else if (originIsWarehouse) {
+    // Bodega Pavon -> Tienda (siempre pasa por CEDI primero)
+    steps = [
+      { status: "CREADO", label: "Creado", desc: "Envio registrado" },
+      { status: "ENVIADO_A_BODEGA", label: `Enviado a ${bodega1}`, desc: "Enviado a bodega" },
+      { status: "RECIBIDO_EN_BODEGA", label: `En ${bodega1}`, desc: "Bodega recibio" },
+    ];
+    if (isPickup) {
+      steps.push(
         { status: "EN_RUTA", label: "En Ruta", desc: "Asignado a camion" },
         { status: "EN_PARADA", label: "En Parada", desc: "Camion en punto" },
-        { status: "RECIBIDO_EN_DESTINO", label: "Entregado", desc: "Cliente recibio" },
-      ];
+        { status: "RECIBIDO_EN_DESTINO", label: "Entregado", desc: "Cliente recibio" }
+      );
     } else {
-      steps = [
-        { status: "CREADO", label: "Creado", desc: "Envio registrado" },
-        { status: "ENVIADO_A_DESTINO", label: "Enviado a Destino", desc: "Bodega envia a tienda" },
-        { status: "RECIBIDO_EN_DESTINO", label: "Entregado", desc: "Tienda recibio" },
-      ];
+      steps.push(
+        { status: "ENVIADO_A_DESTINO", label: "Enviado a Destino", desc: "Enviado a tienda" },
+        { status: "RECIBIDO_EN_DESTINO", label: "Entregado", desc: "Tienda recibio" }
+      );
     }
   } else if (isPickup) {
     steps = [
