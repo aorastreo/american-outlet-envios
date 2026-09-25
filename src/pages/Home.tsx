@@ -54,43 +54,44 @@ function buildShipmentTimeline(
   destIsWarehouse: boolean,
   trackingHistory: any[],
   whLoc?: string | null,
-  currentShipmentStatus?: string | null
+  currentShipmentStatus?: string | null,
+  originName?: string,
+  destName?: string
 ) {
   const { firstBodega, secondBodega } = extractBodegaNames(trackingHistory);
-  const bodega1 = firstBodega || whLoc || "Bodega";
-  const bodega2 = secondBodega || whLoc || "Bodega";
-  const hasInterBodega = !!secondBodega;
+  // CEDI is always the intermediate warehouse for warehouse-origin shipments
+  const cediName = firstBodega && firstBodega !== originName ? firstBodega : "CEDI";
+  const finalDestName = secondBodega || destName || whLoc || "Destino";
+  const hasInterBodega = originIsWarehouse && destIsWarehouse ? true : !!secondBodega;
 
   let steps: { status: string; label: string; desc: string }[] = [];
 
   if (originIsWarehouse && destIsWarehouse) {
     // Bodega Pavon -> Bodega Sabana (siempre pasa por CEDI primero)
     steps = [
-      { status: "CREADO", label: "Creado", desc: "Envio registrado" },
-      { status: "ENVIADO_A_BODEGA", label: `Enviado a ${bodega1}`, desc: "Enviado a bodega intermedia" },
-      { status: "RECIBIDO_EN_BODEGA", label: `En ${bodega1}`, desc: "Bodega intermedia recibio" },
+      { status: "CREADO", label: "Creado", desc: originName ? `En ${originName}` : "Envio registrado" },
+      { status: "ENVIADO_A_BODEGA", label: `Enviado a ${cediName}`, desc: "Enviado a bodega intermedia" },
+      { status: "RECIBIDO_EN_BODEGA", label: `En ${cediName}`, desc: "Bodega intermedia recibio" },
     ];
-    if (hasInterBodega) {
-      steps.push({ status: "ENVIADO_A_BODEGA", label: `Enviado a ${bodega2}`, desc: "Enviado a bodega destino" });
-      steps.push({ status: "RECIBIDO_EN_BODEGA", label: `En ${bodega2}`, desc: "Bodega destino recibio" });
-    }
+    steps.push({ status: "ENVIADO_A_BODEGA", label: `Enviado a ${finalDestName}`, desc: "Enviado a bodega destino" });
+    steps.push({ status: "RECIBIDO_EN_BODEGA", label: `En ${finalDestName}`, desc: "Bodega destino recibio" });
   } else if (destIsWarehouse) {
     // Tienda -> Bodega (pasa por CEDI, luego a bodega destino)
     steps = [
       { status: "CREADO", label: "Creado", desc: "Envio registrado" },
-      { status: "ENVIADO_A_BODEGA", label: `Enviado a ${bodega1}`, desc: "Enviado a bodega" },
-      { status: "RECIBIDO_EN_BODEGA", label: `En ${bodega1}`, desc: "Bodega recibio" },
+      { status: "ENVIADO_A_BODEGA", label: `Enviado a ${cediName}`, desc: "Enviado a bodega" },
+      { status: "RECIBIDO_EN_BODEGA", label: `En ${cediName}`, desc: "Bodega recibio" },
     ];
     if (hasInterBodega) {
-      steps.push({ status: "ENVIADO_A_BODEGA", label: `Enviado a ${bodega2}`, desc: "Enviado a bodega destino" });
-      steps.push({ status: "RECIBIDO_EN_BODEGA", label: `En ${bodega2}`, desc: "Bodega destino recibio" });
+      steps.push({ status: "ENVIADO_A_BODEGA", label: `Enviado a ${finalDestName}`, desc: "Enviado a bodega destino" });
+      steps.push({ status: "RECIBIDO_EN_BODEGA", label: `En ${finalDestName}`, desc: "Bodega destino recibio" });
     }
   } else if (originIsWarehouse) {
     // Bodega Pavon -> Tienda (siempre pasa por CEDI primero)
     steps = [
-      { status: "CREADO", label: "Creado", desc: "Envio registrado" },
-      { status: "ENVIADO_A_BODEGA", label: `Enviado a ${bodega1}`, desc: "Enviado a bodega" },
-      { status: "RECIBIDO_EN_BODEGA", label: `En ${bodega1}`, desc: "Bodega recibio" },
+      { status: "CREADO", label: "Creado", desc: originName ? `En ${originName}` : "Envio registrado" },
+      { status: "ENVIADO_A_BODEGA", label: `Enviado a ${cediName}`, desc: "Enviado a bodega" },
+      { status: "RECIBIDO_EN_BODEGA", label: `En ${cediName}`, desc: "Bodega recibio" },
     ];
     if (isPickup) {
       steps.push(
@@ -100,19 +101,19 @@ function buildShipmentTimeline(
       );
     } else {
       steps.push(
-        { status: "ENVIADO_A_DESTINO", label: "Enviado a Destino", desc: "Enviado a tienda" },
-        { status: "RECIBIDO_EN_DESTINO", label: "Entregado", desc: "Tienda recibio" }
+        { status: "ENVIADO_A_DESTINO", label: "Enviado a Destino", desc: destName ? `Enviado a ${destName}` : "Enviado a tienda" },
+        { status: "RECIBIDO_EN_DESTINO", label: "Entregado", desc: destName ? `${destName} recibio` : "Tienda recibio" }
       );
     }
   } else if (isPickup) {
     steps = [
       { status: "CREADO", label: "Creado", desc: "Envio registrado" },
-      { status: "ENVIADO_A_BODEGA", label: `Enviado a ${bodega1}`, desc: "Tienda envia a bodega" },
-      { status: "RECIBIDO_EN_BODEGA", label: `En ${bodega1}`, desc: "Bodega recibio" },
+      { status: "ENVIADO_A_BODEGA", label: `Enviado a ${cediName}`, desc: "Tienda envia a bodega" },
+      { status: "RECIBIDO_EN_BODEGA", label: `En ${cediName}`, desc: "Bodega recibio" },
     ];
     if (hasInterBodega) {
-      steps.push({ status: "ENVIADO_A_BODEGA", label: `Enviado a ${bodega2}`, desc: "Bodega envia a bodega" });
-      steps.push({ status: "RECIBIDO_EN_BODEGA", label: `En ${bodega2}`, desc: "Bodega recibio" });
+      steps.push({ status: "ENVIADO_A_BODEGA", label: `Enviado a ${finalDestName}`, desc: "Bodega envia a bodega" });
+      steps.push({ status: "RECIBIDO_EN_BODEGA", label: `En ${finalDestName}`, desc: "Bodega recibio" });
     }
     steps.push(
       { status: "EN_RUTA", label: "En Ruta", desc: "Asignado a camion" },
@@ -219,11 +220,13 @@ export default function Home() {
   // Build clean timeline with specific bodega names
   const trackingHistory = (shipment as any)?.tracking || [];
   const whLoc = (shipment as any)?.warehouseLocation;
+  const originFranchiseName = (shipment as any)?.originFranchise?.name || "";
+  const destFranchiseName = (shipment as any)?.destinationFranchise?.name || "";
   const timelineSteps = useMemo(() => {
     return shipment
-      ? buildShipmentTimeline(isPickup, originIsWarehouse, destIsWarehouse, trackingHistory, whLoc, (shipment as any)?.status)
+      ? buildShipmentTimeline(isPickup, originIsWarehouse, destIsWarehouse, trackingHistory, whLoc, (shipment as any)?.status, originFranchiseName, destFranchiseName)
       : [];
-  }, [isPickup, originIsWarehouse, destIsWarehouse, trackingHistory, whLoc, shipment]);
+  }, [isPickup, originIsWarehouse, destIsWarehouse, trackingHistory, whLoc, shipment, originFranchiseName, destFranchiseName]);
 
   // Buscar desde el final para encontrar el ultimo matching (para steps duplicados)
   // Mapear ENTREGADO a RECIBIDO_EN_DESTINO para encontrar el step correcto
