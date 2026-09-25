@@ -144,8 +144,8 @@ function buildShipmentTimeline(
   } else if (isPickup) {
     steps = [
       { status: "CREADO", label: "Creado", desc: "Envio registrado" },
-      { status: "ENVIADO_A_BODEGA", label: `Enviado a ${cediName}`, desc: "Tienda envia a bodega" },
-      { status: "RECIBIDO_EN_BODEGA", label: `En ${cediName}`, desc: "Bodega recibio" },
+      { status: "ENVIADO_A_BODEGA", label: `Enviado a ${bodega1}`, desc: "Tienda envia a bodega" },
+      { status: "RECIBIDO_EN_BODEGA", label: `En ${bodega1}`, desc: "Bodega recibio" },
     ];
     if (hasInterBodega) {
       steps.push({ status: "ENVIADO_A_BODEGA", label: `Enviado a ${finalDestName}`, desc: "Bodega envia a bodega" });
