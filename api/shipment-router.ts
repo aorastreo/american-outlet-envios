@@ -312,9 +312,9 @@ export const shipmentRouter = createRouter({
       const myBodegaName = userFranchise[0]?.name || "";
       const normalizedName = myBodegaName.toLowerCase().includes("cedi") ? "Bodega Cedi" : "Bodega Pavon";
 
-      // Find shipments that were received in this bodega but are no longer here
+      // Find shipments that were RECEIVED in this bodega but are no longer here
       const receivedHere = db
-        .select({ shipmentId: shipmentTracking.shipmentId })
+        .select({ id: shipmentTracking.shipmentId })
         .from(shipmentTracking)
         .where(
           and(
@@ -323,8 +323,22 @@ export const shipmentRouter = createRouter({
           )
         );
 
+      // Find shipments that were CREATED in this bodega and already left
+      const createdHere = db
+        .select({ id: shipments.id })
+        .from(shipments)
+        .where(
+          and(
+            eq(shipments.originFranchiseId, franchiseId),
+            sql`${shipments.status} != 'CREADO'`
+          )
+        );
+
       const conditions = [
-        inArray(shipments.id, receivedHere),
+        or(
+          inArray(shipments.id, receivedHere),
+          inArray(shipments.id, createdHere)
+        ),
         sql`${shipments.warehouseLocation} != ${normalizedName}`,
         sql`${shipments.status} != 'CREADO'`,
       ];
