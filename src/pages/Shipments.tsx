@@ -522,9 +522,6 @@ export default function Shipments() {
         const originFranchise = allFranchises?.find((f) => f.id === s.originFranchiseId);
         if (s.status === "CREADO" && !originFranchise?.isWarehouse) return false;
         if (isDestWarehouse(s)) return false; // dest=bodega goes to ENTREGA_CLIENTE
-        // Route shipments (Grecia, Palmares, San Ramon) go directly to Rutas, not En Bodega
-        const destNameLower = (s.destinationName || "").toLowerCase();
-        if (destNameLower.includes("grecia") || destNameLower.includes("palmares") || destNameLower.includes("san ramon")) return false;
       }
       // Warehouse-specific: ENTREGA_CLIENTE tab — only dest=bodega + RECIBIDO_EN_BODEGA
       if (isBodega && activeTab === "ENTREGA_CLIENTE") {
