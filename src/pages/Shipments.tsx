@@ -216,59 +216,10 @@ const SABANA_TABS: TabDef<SabanaTabKey>[] = [
 
 /* ─── status badge helper ─────────────────────────────────────── */
 
-// Module-level helpers (avoid TDZ issues inside component)
-
-function _cleanName(name: string | undefined): string {
-  if (!name) return "";
-  const upper = name.toUpperCase();
-  if (upper.includes("GANGA")) return "Ganga Santa Rosa";
-  return name.replace(/AMERICAN OUTLET\s*/i, "").trim() || name;
-}
-
-function _getFranchiseGroup(name: string | undefined): "mio" | "vendedor" | "route" | "warehouse" | "sabana" | "unknown" {
-  if (!name) return "unknown";
-  const n = name.toLowerCase();
-  if (n.includes("sabana")) return "sabana";
-  if (n.includes("grecia") || n.includes("palmares") || n.includes("san ramon")) return "route";
-  if (n.includes("pavon") && n.includes("bodega")) return "mio";
-  if (n.includes("cedi") && n.includes("bodega")) return "vendedor";
-  if (n.includes("chiles") || n.includes("pavon") || n.includes("santa rosa") || n.includes("ganga")) return "mio";
-  if (n.includes("boca arenal") || n.includes("florencia") || n.includes("fortuna") || n.includes("quesada") || n.includes("puerto viejo")) return "vendedor";
-  if (n.includes("cedi")) return "vendedor";
-  if (n.includes("bodega")) return "warehouse";
-  return "unknown";
-}
-
-function _needsInterBodega(shipment: any): { needsTransfer: boolean; targetBodega: string } {
-  const originGroup = _getFranchiseGroup(shipment.originName);
-  const destGroup = _getFranchiseGroup(shipment.destinationName);
-  const currentWh = shipment.warehouseLocation as string | undefined;
-
-  if (destGroup === "sabana" || destGroup === "route") {
-    if (currentWh === "Bodega Cedi") return { needsTransfer: false, targetBodega: "" };
-    return { needsTransfer: true, targetBodega: "Bodega Cedi" };
-  }
-  if (originGroup === destGroup) return { needsTransfer: false, targetBodega: "" };
-  if (originGroup === "mio" && destGroup === "vendedor") {
-    if (currentWh === "Bodega Cedi") return { needsTransfer: false, targetBodega: "" };
-    return { needsTransfer: true, targetBodega: "Bodega Cedi" };
-  }
-  if (originGroup === "vendedor" && destGroup === "mio") {
-    if (currentWh === "Bodega Pavon") return { needsTransfer: false, targetBodega: "" };
-    return { needsTransfer: true, targetBodega: "Bodega Pavon" };
-  }
-  return { needsTransfer: false, targetBodega: "" };
-}
-
+// Helper: check if a shipment destination is a pickup route (Grecia, Palmares, San Ramon)
 function isRouteShipment(shipment: any): boolean {
   const destName = (shipment.destinationName || "").toLowerCase();
   return destName.includes("grecia") || destName.includes("palmares") || destName.includes("san ramon");
-}
-
-const _routeCodes = ["grecia", "palmares", "san_ramon"];
-
-function _isRouteFranchise(f: { code?: string | null; displayName?: string | null }): boolean {
-  return _routeCodes.includes(f.code?.toLowerCase() || "") || (f.displayName?.toLowerCase() || "").includes("recogida");
 }
 
 function getStatusConfig(status: string) {
@@ -312,14 +263,81 @@ export default function Shipments() {
   // isBodega ya definido arriba (linea 241)
   const myFranchiseId = user?.franchiseId;
 
-  // Use module-level helpers (avoid TDZ)
-  const cleanName = _cleanName;
-  const getFranchiseGroup = _getFranchiseGroup;
-  const needsInterBodega = _needsInterBodega;
+  // Helper: clean franchise names (remove "AMERICAN OUTLET" prefix)
+  function cleanName(name: string | undefined): string {
+    if (!name) return "";
+    const upper = name.toUpperCase();
+    if (upper.includes("GANGA")) return "Ganga Santa Rosa";
+    return name.replace(/AMERICAN OUTLET\s*/i, "").trim() || name;
+  }
+
+  // Helper: classify franchise by group (mio, vendedor, route, warehouse, sabana)
+  // Note: route pickups (Grecia, Palmares, San Ramon) and Sabana are associated with the vendor group (Cedi)
+  function getFranchiseGroup(name: string | undefined): "mio" | "vendedor" | "route" | "warehouse" | "sabana" | "unknown" {
+    if (!name) return "unknown";
+    const n = name.toLowerCase();
+    // Route pickups and Sabana are associated with the vendor group (Cedi)
+    if (n.includes("sabana")) return "sabana";
+    if (n.includes("grecia") || n.includes("palmares") || n.includes("san ramon")) return "route";
+    // Bodegas have group ownership too
+    if (n.includes("pavon") && n.includes("bodega")) return "mio"; // Bodega Pavon = grupo mio
+    if (n.includes("cedi") && n.includes("bodega")) return "vendedor"; // Bodega Cedi = grupo vendedor
+    // Stores
+    if (n.includes("chiles") || n.includes("pavon") || n.includes("santa rosa") || n.includes("ganga")) return "mio";
+    if (n.includes("boca arenal") || n.includes("florencia") || n.includes("fortuna") || n.includes("quesada") || n.includes("puerto viejo")) return "vendedor";
+    if (n.includes("cedi")) return "vendedor";
+    if (n.includes("bodega")) return "warehouse";
+    return "unknown";
+  }
+
+  // Helper: determine if a shipment in bodega needs inter-bodega transfer
+  // Considers current warehouse location to avoid sending to same bodega again
+  function needsInterBodega(shipment: any): { needsTransfer: boolean; targetBodega: string } {
+    const originGroup = getFranchiseGroup(shipment.originName);
+    const destGroup = getFranchiseGroup(shipment.destinationName);
+    const currentWh = shipment.warehouseLocation as string | undefined;
+
+    // Sabana or Route destinations: always goes through Cedi (associated with vendor group)
+    if (destGroup === "sabana" || destGroup === "route") {
+      if (currentWh === "Bodega Cedi") {
+        return { needsTransfer: false, targetBodega: "" }; // Already at Cedi, send directly to destination
+      }
+      return { needsTransfer: true, targetBodega: "Bodega Cedi" };
+    }
+
+    // Same group: direct delivery (e.g., Los Chiles -> Pavon, or Fortuna -> Florencia)
+    if (originGroup === destGroup) {
+      return { needsTransfer: false, targetBodega: "" };
+    }
+
+    // Cross-group: Mio -> Vendedor (needs to end at Bodega Cedi)
+    if (originGroup === "mio" && destGroup === "vendedor") {
+      if (currentWh === "Bodega Cedi") {
+        return { needsTransfer: false, targetBodega: "" }; // Already at correct bodega
+      }
+      return { needsTransfer: true, targetBodega: "Bodega Cedi" };
+    }
+
+    // Cross-group: Vendedor -> Mio (needs to end at Bodega Pavon)
+    if (originGroup === "vendedor" && destGroup === "mio") {
+      if (currentWh === "Bodega Pavon") {
+        return { needsTransfer: false, targetBodega: "" }; // Already at correct bodega
+      }
+      return { needsTransfer: true, targetBodega: "Bodega Pavon" };
+    }
+
+    return { needsTransfer: false, targetBodega: "" };
+  }
+
+  // Route destinations (Grecia, Palmares, San Ramon) — excluded from normal shipment filters
+  const routeCodes = ["grecia", "palmares", "san_ramon"];
+  const isRouteFranchise = (f: { code?: string | null; displayName?: string | null }) =>
+    routeCodes.includes(f.code?.toLowerCase() || "") ||
+    (f.displayName?.toLowerCase() || "").includes("recogida");
 
   // Store franchises: exclude warehouses AND route destinations (but include Sabana)
   const storeFranchises = (allFranchises || []).filter(
-    (f) => (!f.isWarehouse && !_isRouteFranchise(f)) || f.code?.toLowerCase() === "bodega_sabana"
+    (f) => (!f.isWarehouse && !isRouteFranchise(f)) || f.code?.toLowerCase() === "bodega_sabana"
   );
 
   // Sabana is a receiving warehouse — available as destination for all stores
@@ -333,7 +351,7 @@ export default function Shipments() {
 
   // All origin options for warehouse users: stores + warehouses that can create shipments
   const originFranchisesForFilter = isBodega
-    ? (allFranchises || []).filter((f) => !_isRouteFranchise(f))
+    ? (allFranchises || []).filter((f) => !isRouteFranchise(f))
     : storeFranchises;
 
   // Select tabs based on user type
