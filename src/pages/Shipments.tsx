@@ -216,6 +216,12 @@ const SABANA_TABS: TabDef<SabanaTabKey>[] = [
 
 /* ─── status badge helper ─────────────────────────────────────── */
 
+// Helper: check if a shipment destination is a pickup route (Grecia, Palmares, San Ramon)
+function isRouteShipment(shipment: any): boolean {
+  const destName = (shipment.destinationName || "").toLowerCase();
+  return destName.includes("grecia") || destName.includes("palmares") || destName.includes("san ramon");
+}
+
 function getStatusConfig(status: string) {
   const configs: Record<string, { color: string; label: string; icon: React.ElementType }> = {
     CREADO: { color: "bg-slate-100 text-[#1A1A1A] hover:bg-slate-200", label: "Creado", icon: Package },
@@ -263,12 +269,6 @@ export default function Shipments() {
     const upper = name.toUpperCase();
     if (upper.includes("GANGA")) return "Ganga Santa Rosa";
     return name.replace(/AMERICAN OUTLET\s*/i, "").trim() || name;
-  }
-
-  // Helper: check if a shipment is a pickup route (Grecia, Palmares, San Ramon)
-  function isRouteShipment(shipment: any): boolean {
-    const destName = (shipment.destinationName || "").toLowerCase();
-    return destName.includes("grecia") || destName.includes("palmares") || destName.includes("san ramon");
   }
 
   // Helper: classify franchise by group (mio, vendedor, route, warehouse, sabana)
