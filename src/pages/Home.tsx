@@ -142,15 +142,34 @@ function buildShipmentTimeline(
       { status: "RECIBIDO_EN_DESTINO", label: "Entregado", desc: "Cliente recibio" }
     );
   } else {
+    // Tienda -> Tienda routing
+    const originNameLower = (originName || "").toLowerCase();
+    const originIsMio = originNameLower.includes("chiles") || originNameLower.includes("pavon") || originNameLower.includes("santa rosa") || originNameLower.includes("ganga");
+    const originIsVendedor = originNameLower.includes("boca arenal") || originNameLower.includes("florencia") || originNameLower.includes("fortuna") || originNameLower.includes("quesada") || originNameLower.includes("puerto viejo");
+
+    // Cross-group shipments (Mio <-> Vendedor) always pass through both bodegas
+    const isCrossGroup = (originIsMio && destIsVendedor) || (originIsVendedor && destIsMio);
+
+    // Determine first bodega based on origin group (fallback when tracking history is empty)
+    const firstBodegaName = firstBodega ||
+      (originIsMio ? "Bodega Pavon" : originIsVendedor ? "CEDI" : whLoc || "Bodega");
+
     steps = [
       { status: "CREADO", label: "Creado", desc: "Envio registrado" },
-      { status: "ENVIADO_A_BODEGA", label: `Enviado a ${bodega1}`, desc: "Tienda envia a bodega" },
-      { status: "RECIBIDO_EN_BODEGA", label: `En ${bodega1}`, desc: "Bodega recibio" },
+      { status: "ENVIADO_A_BODEGA", label: `Enviado a ${firstBodegaName}`, desc: "Tienda envia a bodega" },
+      { status: "RECIBIDO_EN_BODEGA", label: `En ${firstBodegaName}`, desc: "Bodega recibio" },
     ];
-    if (hasInterBodega) {
+
+    if (isCrossGroup) {
+      // Mio -> Vendedor: Pavon -> CEDI, Vendedor -> Mio: CEDI -> Pavon
+      const interBodega = secondBodega || (originIsMio ? "CEDI" : "Bodega Pavon");
+      steps.push({ status: "ENVIADO_A_BODEGA", label: `Enviado a ${interBodega}`, desc: "Bodega envia a bodega" });
+      steps.push({ status: "RECIBIDO_EN_BODEGA", label: `En ${interBodega}`, desc: "Bodega recibio" });
+    } else if (hasInterBodega) {
       steps.push({ status: "ENVIADO_A_BODEGA", label: `Enviado a ${bodega2}`, desc: "Bodega envia a bodega" });
       steps.push({ status: "RECIBIDO_EN_BODEGA", label: `En ${bodega2}`, desc: "Bodega recibio" });
     }
+
     steps.push(
       { status: "ENVIADO_A_DESTINO", label: "Enviado a Destino", desc: "Bodega envia a tienda" },
       { status: "RECIBIDO_EN_DESTINO", label: "Entregado", desc: "Tienda recibio" }
