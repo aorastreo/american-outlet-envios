@@ -1121,4 +1121,16 @@ export const shipmentRouter = createRouter({
         period: `${month}/${year}`,
       };
     }),
+
+    // TEMP: Delete all shipments (for testing)
+    deleteAll: publicQuery
+      .input(z.object({ confirm: z.literal("BORRAR_TODO") }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        // Delete in correct order to respect foreign keys
+        await db.execute(sql`DELETE FROM shipment_tracking`);
+        await db.execute(sql`DELETE FROM shipment_items`);
+        await db.execute(sql`DELETE FROM shipments`);
+        return { success: true, message: "Todos los envios han sido eliminados" };
+      }),
 });
