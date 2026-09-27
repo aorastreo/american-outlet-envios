@@ -483,16 +483,6 @@ export default function Shipments() {
   });
 
   // Store: Recibir en destino (tienda)
-  const deleteAllMutation = trpc.shipment.deleteAll.useMutation({
-    onSuccess: () => {
-      toast.success("Todos los envios han sido eliminados");
-      utils.shipment.list.invalidate();
-    },
-    onError: (err) => {
-      toast.error("Error al eliminar: " + err.message);
-    },
-  });
-
   const recibirDestinoMutation = trpc.shipment.recibirEnDestinoMasiva.useMutation({
     onSuccess: (data) => {
       toast.success(`${data.count} envio(s) recibido(s) en tienda`);
@@ -1089,21 +1079,6 @@ export default function Shipments() {
             </p>
           </div>
           <div className="flex gap-2 flex-wrap">
-            {/* TEMP: Delete all shipments button for testing */}
-            <button
-              onClick={() => {
-                if (confirm("ESTAS SEGURO? Esto borrara TODOS los envios permanentemente.\n\nEscribe BORRAR_TODO para confirmar.")) {
-                  const input = prompt("Confirma escribiendo: BORRAR_TODO");
-                  if (input === "BORRAR_TODO") {
-                    deleteAllMutation.mutate({ confirm: "BORRAR_TODO" });
-                  }
-                }
-              }}
-              className="h-10 px-3 rounded-lg border border-red-300 text-red-600 text-sm hover:bg-red-50 transition-colors"
-              disabled={deleteAllMutation.isPending}
-            >
-              {deleteAllMutation.isPending ? "Borrando..." : "Borrar Todo"}
-            </button>
             {renderActionButtons()}
             {!isBodega && (
               <Link

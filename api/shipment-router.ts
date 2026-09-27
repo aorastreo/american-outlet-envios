@@ -1122,33 +1122,4 @@ export const shipmentRouter = createRouter({
       };
     }),
 
-    // TEMP: Delete own shipments (for testing)
-    deleteAll: franchiseAuthedQuery
-      .input(z.object({ confirm: z.literal("BORRAR_TODO") }))
-      .mutation(async ({ input, ctx }) => {
-        const db = await getDb();
-        const franchiseId = ctx.franchiseUser!.franchiseId;
-        
-        // Only delete shipments where this franchise is the origin
-        // Get IDs of shipments to delete
-        const toDelete = await db
-          .select({ id: shipments.id })
-          .from(shipments)
-          .where(eq(shipments.originFranchiseId, franchiseId));
-        
-        const ids = toDelete.map((s) => s.id);
-        
-        if (ids.length === 0) {
-          return { success: true, message: "No hay envios para eliminar", count: 0 };
-        }
-        
-        // Delete in correct order to respect foreign keys
-        for (const id of ids) {
-          await db.delete(shipmentTracking).where(eq(shipmentTracking.shipmentId, id));
-          await db.delete(shipmentItems).where(eq(shipmentItems.shipmentId, id));
-          await db.delete(shipments).where(eq(shipments.id, id));
-        }
-        
-        return { success: true, message: `${ids.length} envio(s) eliminado(s)`, count: ids.length };
-      }),
 });
