@@ -523,6 +523,8 @@ export default function Shipments() {
       if (!isBodega && myFranchiseId) {
         // POR_ENVIAR: only show shipments CREATED BY this store
         if (activeTab === "POR_ENVIAR" && s.originFranchiseId !== myFranchiseId) return false;
+        // ENVIADOS: only show shipments SENT FROM this store
+        if (activeTab === "ENVIADOS" && s.originFranchiseId !== myFranchiseId) return false;
         // POR_RECIBIR: only show shipments coming TO the current store
         if (activeTab === "POR_RECIBIR" && s.destinationFranchiseId !== myFranchiseId) return false;
         // EN_TIENDA: only show shipments received IN the current store (destino)
