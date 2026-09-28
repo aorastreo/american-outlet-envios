@@ -363,7 +363,9 @@ export default function Shipments() {
   const defaultTab = isBodega ? "POR_RECIBIR" : "POR_ENVIAR";
   const [activeTab, setActiveTab] = useState<ActiveTabKey>(defaultTab);
   const [searchQuery, setSearchQuery] = useState("");
-  const [originFilter, setOriginFilter] = useState<string>(urlOriginId || "ALL");
+  const [originFilter, setOriginFilter] = useState<string[]>(urlOriginId ? [urlOriginId] : []);
+  const [originDropdownOpen, setOriginDropdownOpen] = useState(false);
+  const originDropdownRef = useRef<HTMLDivElement>(null);
   const [destFilter, setDestFilter] = useState<string[]>([]);
   const [destDropdownOpen, setDestDropdownOpen] = useState(false);
   const destDropdownRef = useRef<HTMLDivElement>(null);
@@ -397,11 +399,14 @@ export default function Shipments() {
     }
   }, [urlTab, TABS]);
 
-  // Close destination dropdown on outside click
+  // Close dropdowns on outside click
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (destDropdownRef.current && !destDropdownRef.current.contains(e.target as Node)) {
         setDestDropdownOpen(false);
+      }
+      if (originDropdownRef.current && !originDropdownRef.current.contains(e.target as Node)) {
+        setOriginDropdownOpen(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -555,7 +560,7 @@ export default function Shipments() {
         (s.invoiceNumber || "").toLowerCase().includes(q);
 
       // Origin / Dest filters
-      const matchesOrigin = originFilter === "ALL" || s.originFranchiseId.toString() === originFilter;
+      const matchesOrigin = originFilter.length === 0 || originFilter.includes(s.originFranchiseId.toString());
       const matchesDest = destFilter.length === 0 || destFilter.includes(s.destinationFranchiseId.toString());
 
       // Date filter (only for store ENVIADOS tab) — compare year/month/day in local time
@@ -746,11 +751,11 @@ export default function Shipments() {
     );
   };
 
-  const hasFilters = searchQuery !== "" || originFilter !== "ALL" || destFilter.length > 0;
+  const hasFilters = searchQuery !== "" || originFilter.length > 0 || destFilter.length > 0;
 
   const clearFilters = () => {
     setSearchQuery("");
-    setOriginFilter("ALL");
+    setOriginFilter([]);
     setDestFilter([]);
   };
 
@@ -1183,18 +1188,59 @@ export default function Shipments() {
           </div>
           {isWarehouse && !isReceivingWarehouse && (
             <div className="flex gap-2">
-              <select
-                value={originFilter}
-                onChange={(e) => setOriginFilter(e.target.value)}
-                className="flex-1 h-11 px-3 text-sm border border-[#D4D4D4] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C8102E]/20 focus:border-[#C8102E] text-[#1A1A1A] bg-white"
-              >
-                <option value="ALL">Todas las tiendas (origen)</option>
-                {originFranchisesForFilter.map((f) => (
-                  <option key={f.id} value={f.id.toString()}>
-                    {cleanName(f.displayName)}
-                  </option>
-                ))}
-              </select>
+              {/* Multi-select origin dropdown */}
+              <div className="relative flex-1" ref={originDropdownRef}>
+                <button
+                  onClick={() => setOriginDropdownOpen(!originDropdownOpen)}
+                  className="w-full h-11 px-3 text-sm border border-[#D4D4D4] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C8102E]/20 focus:border-[#C8102E] text-[#1A1A1A] bg-white flex items-center justify-between"
+                >
+                  <span className="truncate">
+                    {originFilter.length === 0
+                      ? "Todas las tiendas (origen)"
+                      : originFilter.length === 1
+                        ? cleanName(originFranchisesForFilter.find((f) => f.id.toString() === originFilter[0])?.displayName)
+                        : `${originFilter.length} tiendas seleccionadas`}
+                  </span>
+                  <ChevronDown className="w-4 h-4 text-[#8A8A8A] shrink-0 ml-2" />
+                </button>
+                {originDropdownOpen && (
+                  <div className="absolute z-50 mt-1 w-full bg-white border border-[#D4D4D4] rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                    <div
+                      className="px-3 py-2 flex items-center gap-2 cursor-pointer hover:bg-[#F9F9F9] border-b border-[#F0F0F0]"
+                      onClick={() => setOriginFilter([])}
+                    >
+                      <Checkbox
+                        checked={originFilter.length === 0}
+                        onCheckedChange={() => setOriginFilter([])}
+                      />
+                      <span className="text-sm text-[#1A1A1A]">Todas las tiendas (origen)</span>
+                    </div>
+                    {originFranchisesForFilter.map((f) => (
+                      <div
+                        key={f.id}
+                        className="px-3 py-2 flex items-center gap-2 cursor-pointer hover:bg-[#F9F9F9]"
+                        onClick={() => {
+                          const id = f.id.toString();
+                          setOriginFilter((prev) =>
+                            prev.includes(id) ? prev.filter((d) => d !== id) : [...prev, id]
+                          );
+                        }}
+                      >
+                        <Checkbox
+                          checked={originFilter.includes(f.id.toString())}
+                          onCheckedChange={() => {
+                            const id = f.id.toString();
+                            setOriginFilter((prev) =>
+                              prev.includes(id) ? prev.filter((d) => d !== id) : [...prev, id]
+                            );
+                          }}
+                        />
+                        <span className="text-sm text-[#1A1A1A]">{cleanName(f.displayName)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
           {!isReceivingWarehouse && (
