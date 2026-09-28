@@ -76,12 +76,14 @@ function buildShipmentTimeline(
     // Bodega -> Bodega
     steps = [
       { status: "CREADO", label: "Creado", desc: originName ? `En ${originName}` : "Envio registrado" },
-      { status: "ENVIADO_A_BODEGA", label: `Enviado a ${bodega1}`, desc: "Enviado a bodega intermedia" },
-      { status: "RECIBIDO_EN_BODEGA", label: `En ${bodega1}`, desc: "Bodega intermedia recibio" },
     ];
     if (hasInterBodega) {
-      steps.push({ status: "ENVIADO_A_BODEGA", label: `Enviado a ${bodega2}`, desc: "Enviado a bodega destino" });
-      steps.push({ status: "RECIBIDO_EN_BODEGA", label: `En ${bodega2}`, desc: "Bodega destino recibio" });
+      // Bodega origen envia directo a bodega destino
+      steps.push({ status: "ENVIADO_A_BODEGA", label: `Enviado a ${bodega2}`, desc: "Bodega envia a bodega destino" });
+      steps.push({ status: "RECIBIDO_EN_BODEGA", label: `En ${bodega2}`, desc: "Listo para retiro en bodega" });
+    } else {
+      // Misma bodega (pickup directo en la bodega origen)
+      steps.push({ status: "RECIBIDO_EN_BODEGA", label: `En ${bodega1}`, desc: "Listo para retiro en bodega" });
     }
   } else if (destIsWarehouse) {
     // Tienda -> Bodega
