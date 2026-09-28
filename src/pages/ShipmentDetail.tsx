@@ -67,7 +67,9 @@ function buildShipmentTimeline(
   destIsWarehouse: boolean,
   trackingHistory: any[],
   whLoc?: string | null,
-  currentShipmentStatus?: string | null
+  currentShipmentStatus?: string | null,
+  originName?: string,
+  destName?: string
 ) {
   const { firstBodega, secondBodega } = extractBodegaNames(trackingHistory);
   const bodega1 = firstBodega || whLoc || "Bodega";
@@ -78,12 +80,17 @@ function buildShipmentTimeline(
 
   if (originIsWarehouse && destIsWarehouse) {
     // Bodega -> Bodega
+    const originNameClean = (originName || "").toLowerCase().replace("bodega ", "").trim();
+    const destNameClean = (destName || "").toLowerCase().replace("bodega ", "").trim();
+    const isSameBodega = originNameClean === destNameClean && originNameClean !== "";
+
     steps = [
-      { status: "CREADO", label: "Creado", desc: "Envio registrado" },
+      { status: "CREADO", label: "Creado", desc: originName ? `En ${originName}` : "Envio registrado" },
     ];
-    if (hasInterBodega) {
-      steps.push({ status: "ENVIADO_A_BODEGA", label: `Enviado a ${bodega2}`, desc: "Bodega envia a bodega destino" });
-      steps.push({ status: "RECIBIDO_EN_BODEGA", label: `En ${bodega2}`, desc: "Listo para retiro en bodega" });
+    if (!isSameBodega) {
+      const destBodega = destName || bodega2 || "Bodega Destino";
+      steps.push({ status: "ENVIADO_A_BODEGA", label: `Enviado a ${destBodega}`, desc: "Bodega envia a bodega destino" });
+      steps.push({ status: "RECIBIDO_EN_BODEGA", label: `En ${destBodega}`, desc: "Listo para retiro en bodega" });
     } else {
       steps.push({ status: "RECIBIDO_EN_BODEGA", label: `En ${bodega1}`, desc: "Listo para retiro en bodega" });
     }
@@ -316,7 +323,16 @@ export default function ShipmentDetail() {
   // Build clean timeline with specific bodega names
   const trackingHistory = shipment.tracking || [];
   const whLoc = (shipment as any).warehouseLocation;
-  const timelineSteps = buildShipmentTimeline(isPickup, originIsWarehouse, destIsWarehouse, trackingHistory, whLoc, shipment.status);
+  const timelineSteps = buildShipmentTimeline(
+    isPickup,
+    originIsWarehouse,
+    destIsWarehouse,
+    trackingHistory,
+    whLoc,
+    shipment.status,
+    shipment.originFranchise?.displayName,
+    shipment.destinationFranchise?.displayName
+  );
 
   // Find current step index
   // Buscar desde el final para encontrar el ultimo matching (para steps duplicados como ENVIADO_A_BODEGA)
