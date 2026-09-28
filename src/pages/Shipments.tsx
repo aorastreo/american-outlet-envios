@@ -340,7 +340,8 @@ export default function Shipments() {
 
   // Helper: check if a shipment's destination is a warehouse (uses loaded franchises)
   const isDestWarehouse = (shipment: any) => {
-    const dest = (allFranchises || []).find((f) => f.id === shipment.destinationFranchiseId);
+    const destFranchiseId = Number(shipment.destinationFranchiseId);
+    const dest = (allFranchises || []).find((f) => Number(f.id) === destFranchiseId);
     return dest?.isWarehouse === 1;
   };
 
