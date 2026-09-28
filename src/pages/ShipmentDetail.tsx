@@ -76,7 +76,18 @@ function buildShipmentTimeline(
 
   let steps: { status: string; label: string; desc: string }[] = [];
 
-  if (destIsWarehouse) {
+  if (originIsWarehouse && destIsWarehouse) {
+    // Bodega -> Bodega
+    steps = [
+      { status: "CREADO", label: "Creado", desc: "Envio registrado" },
+    ];
+    if (hasInterBodega) {
+      steps.push({ status: "ENVIADO_A_BODEGA", label: `Enviado a ${bodega2}`, desc: "Bodega envia a bodega destino" });
+      steps.push({ status: "RECIBIDO_EN_BODEGA", label: `En ${bodega2}`, desc: "Listo para retiro en bodega" });
+    } else {
+      steps.push({ status: "RECIBIDO_EN_BODEGA", label: `En ${bodega1}`, desc: "Listo para retiro en bodega" });
+    }
+  } else if (destIsWarehouse) {
     steps = [
       { status: "CREADO", label: "Creado", desc: "Envio registrado" },
       { status: "ENVIADO_A_BODEGA", label: `Enviado a ${bodega1}`, desc: "Tienda envia a bodega" },
