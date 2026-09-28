@@ -85,8 +85,6 @@ function buildShipmentTimeline(
     }
   } else if (destIsWarehouse) {
     // Tienda -> Bodega
-    // If destination is Sabana, route through CEDI regardless of origin group
-    const destIsSabana = destNameLower.includes("sabana");
     const originNameLower = (originName || "").toLowerCase();
     const originIsMioStore = originNameLower.includes("chiles") || originNameLower.includes("pavon") || originNameLower.includes("santa rosa") || originNameLower.includes("ganga");
     const originIsVendedorStore = originNameLower.includes("boca arenal") || originNameLower.includes("florencia") || originNameLower.includes("fortuna") || originNameLower.includes("quesada") || originNameLower.includes("puerto viejo");
@@ -94,6 +92,16 @@ function buildShipmentTimeline(
     // Determine first bodega based on origin group
     const firstBodegaName = firstBodega ||
       (originIsMioStore ? "Bodega Pavon" : originIsVendedorStore ? "CEDI" : whLoc || "Bodega");
+
+    // Determine destination bodega name
+    const destIsCedi = destNameLower.includes("cedi");
+    const destIsPavon = destNameLower.includes("pavon");
+    const destIsSabana = destNameLower.includes("sabana");
+    const destBodegaName = destName || (destIsCedi ? "CEDI" : destIsPavon ? "Bodega Pavon" : destIsSabana ? "Bodega Sabana" : whLoc || "Bodega");
+
+    // Check if destination is different from first bodega (requires inter-bodega transfer)
+    const needsInterBodega = !destBodegaName.toLowerCase().includes(firstBodegaName.toLowerCase().replace("bodega ", "").trim()) &&
+      !firstBodegaName.toLowerCase().includes(destBodegaName.toLowerCase().replace("bodega ", "").trim());
 
     steps = [
       { status: "CREADO", label: "Creado", desc: "Envio registrado" },
@@ -103,15 +111,16 @@ function buildShipmentTimeline(
 
     if (destIsSabana) {
       // To Sabana: always go through CEDI as intermediate step
-      const interBodega = secondBodega || (firstBodegaName.includes("CEDI") ? "CEDI" : "CEDI");
-      const destBodega = secondBodega || "Bodega Sabana";
+      const interBodega = secondBodega || "CEDI";
+      const sabanaBodega = secondBodega || "Bodega Sabana";
       steps.push({ status: "ENVIADO_A_BODEGA", label: `Enviado a ${interBodega}`, desc: "Bodega envia a bodega" });
       steps.push({ status: "RECIBIDO_EN_BODEGA", label: `En ${interBodega}`, desc: "Bodega recibio" });
-      steps.push({ status: "ENVIADO_A_BODEGA", label: `Enviado a ${destBodega}`, desc: "Bodega envia a bodega destino" });
-      steps.push({ status: "RECIBIDO_EN_BODEGA", label: `En ${destBodega}`, desc: "Bodega destino recibio" });
-    } else if (hasInterBodega) {
-      steps.push({ status: "ENVIADO_A_BODEGA", label: `Enviado a ${bodega2}`, desc: "Bodega envia a bodega" });
-      steps.push({ status: "RECIBIDO_EN_BODEGA", label: `En ${bodega2}`, desc: "Bodega recibio" });
+      steps.push({ status: "ENVIADO_A_BODEGA", label: `Enviado a ${sabanaBodega}`, desc: "Bodega envia a bodega destino" });
+      steps.push({ status: "RECIBIDO_EN_BODEGA", label: `En ${sabanaBodega}`, desc: "Bodega destino recibio" });
+    } else if (needsInterBodega) {
+      // Destination is a different bodega than the first one
+      steps.push({ status: "ENVIADO_A_BODEGA", label: `Enviado a ${destBodegaName}`, desc: "Bodega envia a bodega" });
+      steps.push({ status: "RECIBIDO_EN_BODEGA", label: `En ${destBodegaName}`, desc: "Bodega destino recibio" });
     }
   } else if (originIsWarehouse) {
     // Bodega -> Tienda
