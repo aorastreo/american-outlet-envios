@@ -294,13 +294,35 @@ export default function Track() {
   const timelineSteps = shipment
     ? buildShipmentTimeline(isPickup, originIsWarehouse, destIsWarehouse, trackingHistory, whLoc, shipment.status, originFranchiseName, destFranchiseName)
     : [];
-  // Buscar desde el final para encontrar el ultimo matching (para steps duplicados)
-  // Mapear status finales del envio a status del timeline
+  // Determine current step using tracking history (more accurate for duplicate statuses)
   const mappedStatus = shipment?.status === "ENTREGADO" ? "RECIBIDO_EN_DESTINO" : shipment?.status;
-  const foundReverseIndex = shipment
-    ? [...timelineSteps].reverse().findIndex((s) => s.status === mappedStatus)
-    : -1;
-  const currentStepIndex = foundReverseIndex >= 0 ? timelineSteps.length - 1 - foundReverseIndex : -1;
+  const lastTracking = trackingHistory.length > 0 ? trackingHistory[trackingHistory.length - 1] : null;
+  const lastNotes = (lastTracking?.notes || "").toLowerCase();
+
+  let currentStepIndex = -1;
+  if (shipment && timelineSteps.length > 0) {
+    // Try to match by status AND bodega name from tracking notes
+    for (let i = 0; i < timelineSteps.length; i++) {
+      const step = timelineSteps[i];
+      if (step.status !== mappedStatus) continue;
+
+      const stepLabel = step.label.toLowerCase();
+      // Match by bodega name mentioned in tracking notes
+      if (lastNotes.includes("pavon") && stepLabel.includes("pavon")) {
+        currentStepIndex = i; break;
+      }
+      if (lastNotes.includes("cedi") && stepLabel.includes("cedi")) {
+        currentStepIndex = i; break;
+      }
+      if (lastNotes.includes("sabana") && stepLabel.includes("sabana")) {
+        currentStepIndex = i; break;
+      }
+    }
+    // Fallback: find first matching step (for cases without bodega in notes)
+    if (currentStepIndex === -1) {
+      currentStepIndex = timelineSteps.findIndex((s) => s.status === mappedStatus);
+    }
+  }
 
   return (
     <FranchiseLayout>

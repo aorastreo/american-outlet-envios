@@ -312,13 +312,35 @@ export default function Home() {
       : [];
   }, [isPickup, originIsWarehouse, destIsWarehouse, trackingHistory, whLoc, shipment, originFranchiseName, destFranchiseName]);
 
-  // Buscar desde el final para encontrar el ultimo matching (para steps duplicados)
-  // Mapear ENTREGADO a RECIBIDO_EN_DESTINO para encontrar el step correcto
+  // Determine current step using tracking history (more accurate for duplicate statuses)
   const mappedHomeStatus = (shipment as any)?.status === "ENTREGADO" ? "RECIBIDO_EN_DESTINO" : (shipment as any)?.status;
-  const foundHomeReverseIndex = shipment
-    ? [...timelineSteps].reverse().findIndex((s) => s.status === mappedHomeStatus)
-    : -1;
-  const currentStepIndex = foundHomeReverseIndex >= 0 ? timelineSteps.length - 1 - foundHomeReverseIndex : -1;
+  const lastHomeTracking = trackingHistory.length > 0 ? trackingHistory[trackingHistory.length - 1] : null;
+  const lastHomeNotes = (lastHomeTracking?.notes || "").toLowerCase();
+
+  let currentStepIndex = -1;
+  if (shipment && timelineSteps.length > 0) {
+    // Try to match by status AND bodega name from tracking notes
+    for (let i = 0; i < timelineSteps.length; i++) {
+      const step = timelineSteps[i];
+      if (step.status !== mappedHomeStatus) continue;
+
+      const stepLabel = step.label.toLowerCase();
+      // Match by bodega name mentioned in tracking notes
+      if (lastHomeNotes.includes("pavon") && stepLabel.includes("pavon")) {
+        currentStepIndex = i; break;
+      }
+      if (lastHomeNotes.includes("cedi") && stepLabel.includes("cedi")) {
+        currentStepIndex = i; break;
+      }
+      if (lastHomeNotes.includes("sabana") && stepLabel.includes("sabana")) {
+        currentStepIndex = i; break;
+      }
+    }
+    // Fallback: find first matching step (for cases without bodega in notes)
+    if (currentStepIndex === -1) {
+      currentStepIndex = timelineSteps.findIndex((s) => s.status === mappedHomeStatus);
+    }
+  }
 
   return (
     <div className="min-h-screen bg-white">
