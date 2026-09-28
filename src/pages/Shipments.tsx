@@ -600,6 +600,8 @@ export default function Shipments() {
         if (!isBodega && myFranchiseId) {
           if (tab.key === "POR_ENVIAR" && s.originFranchiseId === myFranchiseId) {
             counts[tab.key]++;
+          } else if (tab.key === "ENVIADOS" && s.originFranchiseId === myFranchiseId) {
+            counts[tab.key]++;
           } else if (tab.key === "POR_RECIBIR" && s.destinationFranchiseId === myFranchiseId) {
             counts[tab.key]++;
           } else if (tab.key === "EN_TIENDA" && s.destinationFranchiseId === myFranchiseId) {
@@ -608,6 +610,7 @@ export default function Shipments() {
             counts[tab.key]++;
           } else if (
             tab.key !== "POR_ENVIAR" &&
+            tab.key !== "ENVIADOS" &&
             tab.key !== "POR_RECIBIR" &&
             tab.key !== "EN_TIENDA" &&
             tab.key !== "COMPLETADOS"
