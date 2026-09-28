@@ -539,15 +539,15 @@ export default function Shipments() {
         if (activeTab === "COMPLETADOS" && s.originFranchiseId !== myFranchiseId) return false;
       }
 
-      // Warehouse-specific: EN_BODEGA tab — CREADO only if created FROM warehouse, exclude dest=bodega
+      // Warehouse-specific: EN_BODEGA tab — CREADO only if created FROM warehouse, exclude if dest IS this warehouse
       if (isBodega && activeTab === "EN_BODEGA") {
         const originFranchise = allFranchises?.find((f) => f.id === s.originFranchiseId);
         if (s.status === "CREADO" && !originFranchise?.isWarehouse) return false;
-        if (isDestWarehouse(s)) return false; // dest=bodega goes to ENTREGA_CLIENTE
+        if (s.destinationFranchiseId === myFranchiseId) return false; // dest is THIS bodega, goes to ENTREGA_CLIENTE
       }
-      // Warehouse-specific: ENTREGA_CLIENTE tab — only dest=bodega + RECIBIDO_EN_BODEGA
+      // Warehouse-specific: ENTREGA_CLIENTE tab — only if dest IS this bodega + RECIBIDO_EN_BODEGA
       if (isBodega && activeTab === "ENTREGA_CLIENTE") {
-        if (!isDestWarehouse(s) || s.status !== "RECIBIDO_EN_BODEGA") return false;
+        if (s.destinationFranchiseId !== myFranchiseId || s.status !== "RECIBIDO_EN_BODEGA") return false;
       }
 
       // Search filter
@@ -634,12 +634,12 @@ export default function Shipments() {
             const isRouteDest = destName.includes("grecia") || destName.includes("palmares") || destName.includes("san ramon");
             // Route shipments in Cedi go to Routes page, hide from EN_BODEGA count
             if (isRouteDest && s.warehouseLocation === "Bodega Cedi") continue;
-            if (isDestWarehouse(s)) continue; // goes to ENTREGA_CLIENTE
+            if (s.destinationFranchiseId === myFranchiseId) continue; // dest is THIS bodega, goes to ENTREGA_CLIENTE
             const originFr = allFranchises?.find((f) => f.id === s.originFranchiseId);
             if (s.status === "CREADO" && !originFr?.isWarehouse) continue;
             counts[tab.key]++;
           } else if (isBodega && tab.key === "ENTREGA_CLIENTE") {
-            if (isDestWarehouse(s) && s.status === "RECIBIDO_EN_BODEGA") {
+            if (s.destinationFranchiseId === myFranchiseId && s.status === "RECIBIDO_EN_BODEGA") {
               counts[tab.key]++;
             }
           } else {
