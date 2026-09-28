@@ -110,11 +110,14 @@ function buildShipmentTimeline(
     ];
 
     if (destIsSabana) {
-      // To Sabana: always go through CEDI as intermediate step
-      const interBodega = secondBodega || "CEDI";
-      const sabanaBodega = secondBodega || "Bodega Sabana";
-      steps.push({ status: "ENVIADO_A_BODEGA", label: `Enviado a ${interBodega}`, desc: "Bodega envia a bodega" });
-      steps.push({ status: "RECIBIDO_EN_BODEGA", label: `En ${interBodega}`, desc: "Bodega recibio" });
+      // Sabana always goes through CEDI as intermediate step
+      const firstIsCedi = firstBodegaName.toLowerCase().includes("cedi");
+      const sabanaBodega = "Bodega Sabana";
+      if (!firstIsCedi) {
+        // Mio store: first bodega is Pavon, need CEDI intermediate
+        steps.push({ status: "ENVIADO_A_BODEGA", label: "Enviado a CEDI", desc: "Bodega envia a bodega" });
+        steps.push({ status: "RECIBIDO_EN_BODEGA", label: "En CEDI", desc: "Bodega recibio" });
+      }
       steps.push({ status: "ENVIADO_A_BODEGA", label: `Enviado a ${sabanaBodega}`, desc: "Bodega envia a bodega destino" });
       steps.push({ status: "RECIBIDO_EN_BODEGA", label: `En ${sabanaBodega}`, desc: "Listo para retiro en bodega" });
     } else if (needsInterBodega) {
