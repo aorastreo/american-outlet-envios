@@ -11,8 +11,7 @@ import {
 } from "@db/schema";
 import { TRPCError } from "@trpc/server";
 
-// DEBUG: Railway rebuild verification - timestamp 2026-09-28
-console.log("[API] shipment-router loaded - v2026-09-28-03");
+// API router loaded
 
 // Helper: replicate frontend's extractBodegaNames logic
 function extractBodegaNamesBackend(trackingHistory: any[]) {
