@@ -12,7 +12,28 @@ import {
 import { TRPCError } from "@trpc/server";
 
 // DEBUG: Railway rebuild verification - timestamp 2026-09-28
-console.log("[API] shipment-router loaded - v2026-09-28-02");
+console.log("[API] shipment-router loaded - v2026-09-28-03");
+
+// Helper: replicate frontend's extractBodegaNames logic
+function extractBodegaNamesBackend(trackingHistory: any[]) {
+  let firstBodega = "";
+  let secondBodega = "";
+  for (const t of trackingHistory) {
+    if (t.status === "RECIBIDO_EN_BODEGA" && !firstBodega && t.notes) {
+      const match = t.notes.match(/Recibido en (Bodega\s+\w+)/i);
+      if (match) firstBodega = match[1];
+    }
+    if (t.status === "ENVIADO_A_BODEGA" && !firstBodega && t.notes) {
+      const match = t.notes.match(/desde\s+(Bodega\s+\w+)/i);
+      if (match) firstBodega = match[1];
+    }
+    if (t.status === "ENVIADO_A_BODEGA" && firstBodega && t.notes) {
+      const match = t.notes.match(/hacia\s+(Bodega\s+\w+)/i);
+      if (match && match[1] !== firstBodega) secondBodega = match[1];
+    }
+  }
+  return { firstBodega, secondBodega };
+}
 
 // Helper: build timeline steps for public tracking
 function buildTimelineSteps(
@@ -742,10 +763,35 @@ export const shipmentRouter = createRouter({
         destFranchiseData?.displayName
       );
 
+      // ENRICH trackingHistory for old frontend that doesn't read timelineSteps
+      // For bodega->bodega shipments, inject a synthetic entry so extractBodegaNames
+      // detects firstBodega and secondBodega correctly
+      let enrichedTracking = [...trackingHistory];
+      if (originIsWarehouse && destIsWarehouse) {
+        const { secondBodega } = extractBodegaNamesBackend(trackingHistory);
+        if (!secondBodega) {
+          // No second bodega detected - inject synthetic entry
+          const originBodegaName = originFranchiseData?.displayName || "Bodega Origen";
+          const destBodegaName = destFranchiseData?.displayName || "Bodega Destino";
+          enrichedTracking = [
+            ...trackingHistory,
+            {
+              id: -1,
+              shipmentId: shipment[0].id,
+              status: "ENVIADO_A_BODEGA",
+              locationId: shipment[0].originFranchiseId,
+              notes: `Enviado desde ${originBodegaName} hacia ${destBodegaName}`,
+              createdBy: null,
+              createdAt: shipment[0].createdAt,
+            }
+          ];
+        }
+      }
+
       return {
         ...shipment[0],
         items,
-        tracking: trackingHistory,
+        tracking: enrichedTracking,
         originFranchise: originFranchiseData,
         destinationFranchise: destFranchiseData,
         destinationFranchiseId: shipment[0].destinationFranchiseId,
