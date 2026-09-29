@@ -11,6 +11,9 @@ import {
 } from "@db/schema";
 import { TRPCError } from "@trpc/server";
 
+// DEBUG: Railway rebuild verification - timestamp 2026-09-28
+console.log("[API] shipment-router loaded - v2026-09-28-01");
+
 // Helper: limpiar nombres de franquicia
 function cleanFranchiseName(name: string | null | undefined): string {
   if (!name) return "Tienda";
