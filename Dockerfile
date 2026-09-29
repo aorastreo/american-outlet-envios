@@ -1,18 +1,8 @@
-# Stage 1: Build everything
-FROM node:20-alpine AS builder
+FROM node:20-alpine
 WORKDIR /app
 COPY package.json ./
 RUN npm install --force
 COPY . .
-RUN rm -rf dist
-RUN npm run build
-
-# Stage 2: Production image
-FROM node:20-alpine
-WORKDIR /app
-COPY package.json ./
-COPY start.sh ./
-RUN npm install --force
-COPY --from=builder /app/dist ./dist
+RUN rm -rf dist && npm run build
 EXPOSE 3000
 CMD ["sh", "start.sh"]
