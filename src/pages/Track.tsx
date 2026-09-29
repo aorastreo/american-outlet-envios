@@ -89,13 +89,17 @@ function buildShipmentTimeline(
 
   if (originIsWarehouse && destIsWarehouse) {
     // Bodega -> Bodega
+    const originNameClean = (originName || "").toLowerCase().replace("bodega ", "").trim();
+    const destNameClean = (destName || "").toLowerCase().replace("bodega ", "").trim();
+    const isSameBodega = originNameClean === destNameClean && originNameClean !== "";
     steps = [
       { status: "CREADO", label: "Creado", desc: originName ? `En ${originName}` : "Envio registrado" },
     ];
-    if (hasInterBodega) {
+    if (!isSameBodega) {
       // Bodega origen envia directo a bodega destino
-      steps.push({ status: "ENVIADO_A_BODEGA", label: `Enviado a ${bodega2}`, desc: "Bodega envia a bodega destino" });
-      steps.push({ status: "RECIBIDO_EN_BODEGA", label: `En ${bodega2}`, desc: "Listo para retiro en bodega" });
+      const destBodega = destName || bodega2 || "Bodega Destino";
+      steps.push({ status: "ENVIADO_A_BODEGA", label: `Enviado a ${destBodega}`, desc: "Bodega envia a bodega destino" });
+      steps.push({ status: "RECIBIDO_EN_BODEGA", label: `En ${destBodega}`, desc: "Listo para retiro en bodega" });
     } else {
       // Misma bodega (pickup directo en la bodega origen)
       steps.push({ status: "RECIBIDO_EN_BODEGA", label: `En ${bodega1}`, desc: "Listo para retiro en bodega" });
@@ -429,7 +433,7 @@ export default function Track() {
             {/* Timeline */}
             <Card>
               <CardContent className="p-6">
-                <h3 className="font-semibold text-[#1A1A1A] mb-6">Progreso del Envio</h3>
+                <h3 className="font-semibold text-[#1A1A1A] mb-6">Progreso del Envio (public-v1)</h3>
                 <div className="relative">
                   <div className="flex items-center justify-between">
                     {timelineSteps.map((step, index) => {
