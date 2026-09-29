@@ -43,7 +43,7 @@ import toast from "react-hot-toast";
 /* ─── tab definitions ─────────────────────────────────────────── */
 
 type StoreTabKey = "POR_ENVIAR" | "ENVIADOS" | "POR_RECIBIR" | "EN_TIENDA" | "COMPLETADOS";
-type WarehouseTabKey = "POR_RECIBIR" | "EN_BODEGA" | "ENTREGA_CLIENTE" | "EN_RUTA" | "ENTREGADOS";
+type WarehouseTabKey = "MIS_ENVIOS" | "POR_RECIBIR" | "EN_BODEGA" | "ENTREGA_CLIENTE" | "EN_RUTA" | "ENTREGADOS";
 type SabanaTabKey = "POR_RECIBIR" | "EN_BODEGA";
 
 interface TabDef<T extends string> {
@@ -125,6 +125,18 @@ const STORE_TABS: TabDef<StoreTabKey>[] = [
 
 // Tabs for WAREHOUSE (bodega)
 const WAREHOUSE_TABS: TabDef<WarehouseTabKey>[] = [
+  {
+    key: "MIS_ENVIOS",
+    label: "Mis Envios",
+    icon: Send,
+    statuses: ["CREADO", "ENVIADO_A_BODEGA", "RECIBIDO_EN_BODEGA", "EN_RUTA", "EN_PARADA", "ENVIADO_A_DESTINO", "RECIBIDO_EN_DESTINO"],
+    description: "Envios creados por esta bodega",
+    color: "text-[#525252]",
+    activeColor: "text-[#C8102E]",
+    activeBg: "bg-[#FFF5F5]",
+    activeBorder: "border-[#C8102E]",
+    badgeColor: "bg-[#C8102E] text-white",
+  },
   {
     key: "POR_RECIBIR",
     label: "Por Recibir",
@@ -539,6 +551,10 @@ export default function Shipments() {
         if (activeTab === "COMPLETADOS" && s.originFranchiseId !== myFranchiseId) return false;
       }
 
+      // Warehouse-specific: MIS_ENVIOS tab — only show shipments CREATED BY this warehouse
+      if (isBodega && activeTab === "MIS_ENVIOS") {
+        if (s.originFranchiseId !== myFranchiseId) return false;
+      }
       // Warehouse-specific: EN_BODEGA tab — CREADO only if created FROM warehouse, exclude if dest IS this warehouse
       if (isBodega && activeTab === "EN_BODEGA") {
         const originFranchise = allFranchises?.find((f) => f.id === s.originFranchiseId);
@@ -624,8 +640,12 @@ export default function Shipments() {
             counts[tab.key]++;
           }
         } else {
-          // Warehouse: POR_RECIBIR — CREADO only from stores (not from warehouse)
-          if (isBodega && tab.key === "POR_RECIBIR" && s.status === "CREADO") {
+          // Warehouse: MIS_ENVIOS — only count shipments created BY this warehouse
+          if (isBodega && tab.key === "MIS_ENVIOS") {
+            if (s.originFranchiseId === myFranchiseId) {
+              counts[tab.key]++;
+            }
+          } else if (isBodega && tab.key === "POR_RECIBIR" && s.status === "CREADO") {
             const originFr = allFranchises?.find((f) => f.id === s.originFranchiseId);
             if (originFr?.isWarehouse) continue; // CREADO from warehouse goes to EN_BODEGA
             counts[tab.key]++;
