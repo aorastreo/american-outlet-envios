@@ -3,6 +3,6 @@ WORKDIR /app
 COPY package.json ./
 RUN npm install --force
 COPY . .
-RUN npm run build
+RUN rm -rf dist && npm run build
 EXPOSE 3000
 CMD ["sh", "start.sh"]
