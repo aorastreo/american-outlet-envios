@@ -5,7 +5,7 @@ package-lock.json
 .pnp.js
 
 # Build
-dist/
+# dist/ - included for Railway static serving
 build/
 *.tsbuildinfo
 
