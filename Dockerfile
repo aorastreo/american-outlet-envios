@@ -12,7 +12,7 @@ FROM node:20-alpine
 WORKDIR /app
 COPY package.json ./
 COPY start.sh ./
-RUN npm install --force --omit=dev
+RUN npm install --force
 COPY --from=builder /app/dist ./dist
 EXPOSE 3000
 CMD ["sh", "start.sh"]
