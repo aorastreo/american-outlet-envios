@@ -295,24 +295,27 @@ export default function Track() {
     destName.includes("recogida") ||
     ["grecia", "palmares", "san ramon"].some(city => destName.includes(city));
 
-  // Build clean timeline with specific bodega names
+  // Use timeline steps from backend (server-calculated)
   const trackingHistory = shipment?.tracking || [];
+  const timelineSteps = (shipment as any)?.timelineSteps || [];
+  // Fallback to local calculation if backend doesn't provide steps (old clients)
   const whLoc = (shipment as any)?.warehouseLocation;
   const originFranchiseName = shipment?.originFranchise?.name || shipment?.originName || "";
   const destFranchiseName = shipment?.destinationFranchise?.name || shipment?.destinationFranchise?.displayName || shipment?.destinationName || "";
-  const timelineSteps = shipment
+  const localSteps = shipment && timelineSteps.length === 0
     ? buildShipmentTimeline(isPickup, originIsWarehouse, destIsWarehouse, trackingHistory, whLoc, shipment.status, originFranchiseName, destFranchiseName)
     : [];
+  const displaySteps = timelineSteps.length > 0 ? timelineSteps : localSteps;
   // Determine current step using tracking history (more accurate for duplicate statuses)
   const mappedStatus = shipment?.status === "ENTREGADO" ? "RECIBIDO_EN_DESTINO" : shipment?.status;
   const lastTracking = trackingHistory.length > 0 ? trackingHistory[trackingHistory.length - 1] : null;
   const lastNotes = (lastTracking?.notes || "").toLowerCase();
 
   let currentStepIndex = -1;
-  if (shipment && timelineSteps.length > 0) {
+  if (shipment && displaySteps.length > 0) {
     // Try to match by status AND bodega name from tracking notes
-    for (let i = 0; i < timelineSteps.length; i++) {
-      const step = timelineSteps[i];
+    for (let i = 0; i < displaySteps.length; i++) {
+      const step = displaySteps[i];
       if (step.status !== mappedStatus) continue;
 
       const stepLabel = step.label.toLowerCase();
@@ -329,7 +332,7 @@ export default function Track() {
     }
     // Fallback: find first matching step (for cases without bodega in notes)
     if (currentStepIndex === -1) {
-      currentStepIndex = timelineSteps.findIndex((s) => s.status === mappedStatus);
+      currentStepIndex = displaySteps.findIndex((s) => s.status === mappedStatus);
     }
   }
 
@@ -433,14 +436,14 @@ export default function Track() {
             {/* Timeline */}
             <Card>
               <CardContent className="p-6">
-                <h3 className="font-semibold text-[#1A1A1A] mb-6">Progreso del Envio (public-v1)</h3>
+                <h3 className="font-semibold text-[#1A1A1A] mb-6">Progreso del Envio (server)</h3>
                 <div className="relative">
                   <div className="flex items-center justify-between">
-                    {timelineSteps.map((step, index) => {
+                    {displaySteps.map((step, index) => {
                       const isCompleted = index <= currentStepIndex;
                       const isCurrent = index === currentStepIndex;
                       return (
-                        <div key={step.status} className="flex flex-col items-center relative z-10 flex-1">
+                        <div key={step.status + index} className="flex flex-col items-center relative z-10 flex-1">
                           <div className={`w-12 h-12 rounded-full flex items-center justify-center border-2 transition-colors ${isCompleted ? "bg-[#C8102E] border-blue-600 text-white" : "bg-white border-[#D4D4D4] text-[#A3A3A3]"} ${isCurrent ? "ring-4 ring-blue-100" : ""}`}>
                             {step.status === "RECIBIDO_EN_DESTINO" ? <CheckCircle className="w-6 h-6" /> :
                              step.status === "RECIBIDO_EN_BODEGA" ? <ClipboardCheck className="w-6 h-6" /> :
@@ -454,7 +457,7 @@ export default function Track() {
                     })}
                   </div>
                   <div className="absolute top-6 left-6 right-6 h-1 bg-[#F0F0F0] -z-0">
-                    <div className="h-full bg-[#C8102E] transition-all duration-500" style={{ width: `${timelineSteps.length > 1 ? Math.max(0, (currentStepIndex / (timelineSteps.length - 1)) * 100) : 0}%` }} />
+                    <div className="h-full bg-[#C8102E] transition-all duration-500" style={{ width: `${displaySteps.length > 1 ? Math.max(0, (currentStepIndex / (displaySteps.length - 1)) * 100) : 0}%` }} />
                   </div>
                 </div>
               </CardContent>
