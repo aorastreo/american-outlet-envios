@@ -86,36 +86,14 @@ export default function Track() {
     ? buildShipmentTimeline(isPickup, originIsWarehouse, destIsWarehouse, trackingHistory, whLoc, shipment.status, originFranchiseName, destFranchiseName)
     : [];
   const displaySteps = timelineSteps.length > 0 ? timelineSteps : localSteps;
-  // Determine current step using tracking history (more accurate for duplicate statuses)
+  // Determine current step - same logic as admin (ShipmentDetail.tsx)
   const mappedStatus = shipment?.status === "ENTREGADO" ? "RECIBIDO_EN_DESTINO" : shipment?.status;
-  const lastTracking = trackingHistory.length > 0 ? trackingHistory[trackingHistory.length - 1] : null;
-  const lastNotes = (lastTracking?.notes || "").toLowerCase();
-
-  let currentStepIndex = -1;
-  if (shipment && displaySteps.length > 0) {
-    // Try to match by status AND bodega name from tracking notes
-    for (let i = 0; i < displaySteps.length; i++) {
-      const step = displaySteps[i];
-      if (step.status !== mappedStatus) continue;
-
-      const stepLabel = step.label.toLowerCase();
-      // Match by bodega name mentioned in tracking notes
-      if (lastNotes.includes("pavon") && stepLabel.includes("pavon")) {
-        currentStepIndex = i; break;
-      }
-      if (lastNotes.includes("cedi") && stepLabel.includes("cedi")) {
-        currentStepIndex = i; break;
-      }
-      if (lastNotes.includes("sabana") && stepLabel.includes("sabana")) {
-        currentStepIndex = i; break;
-      }
-    }
-    // Fallback: find LAST matching step (same as admin - handles duplicate statuses)
-    if (currentStepIndex === -1) {
-      const reversedIndex = [...displaySteps].reverse().findIndex((s) => s.status === mappedStatus);
-      currentStepIndex = reversedIndex >= 0 ? displaySteps.length - 1 - reversedIndex : -1;
-    }
-  }
+  const currentStepIndex = shipment && displaySteps.length > 0 && mappedStatus
+    ? (() => {
+        const reversedIndex = [...displaySteps].reverse().findIndex((s) => s.status === mappedStatus);
+        return reversedIndex >= 0 ? displaySteps.length - 1 - reversedIndex : -1;
+      })()
+    : -1;
 
   return (
     <FranchiseLayout>
