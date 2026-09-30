@@ -1,9 +1,0 @@
-[build]
-builder = "dockerfile"
-dockerfilePath = "Dockerfile"
-
-[deploy]
-startCommand = "sh start.sh"
-healthcheckPath = "/api/trpc/ping"
-healthcheckTimeout = 100
-restartPolicyType = "on_failure"
