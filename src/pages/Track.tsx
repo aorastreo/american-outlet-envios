@@ -110,9 +110,10 @@ export default function Track() {
         currentStepIndex = i; break;
       }
     }
-    // Fallback: find first matching step (for cases without bodega in notes)
+    // Fallback: find LAST matching step (same as admin - handles duplicate statuses)
     if (currentStepIndex === -1) {
-      currentStepIndex = displaySteps.findIndex((s) => s.status === mappedStatus);
+      const reversedIndex = [...displaySteps].reverse().findIndex((s) => s.status === mappedStatus);
+      currentStepIndex = reversedIndex >= 0 ? displaySteps.length - 1 - reversedIndex : -1;
     }
   }
 
