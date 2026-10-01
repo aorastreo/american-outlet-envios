@@ -75,17 +75,14 @@ export default function Track() {
     destName.includes("recogida") ||
     ["grecia", "palmares", "san ramon"].some(city => destName.includes(city));
 
-  // Use timeline steps from backend (server-calculated)
+  // Build timeline locally — same logic as admin (ShipmentDetail.tsx)
   const trackingHistory = shipment?.tracking || [];
-  const timelineSteps = (shipment as any)?.timelineSteps || [];
-  // Fallback to local calculation if backend doesn't provide steps (old clients)
   const whLoc = (shipment as any)?.warehouseLocation;
   const originFranchiseName = shipment?.originFranchise?.name || shipment?.originName || "";
   const destFranchiseName = shipment?.destinationFranchise?.name || shipment?.destinationFranchise?.displayName || shipment?.destinationName || "";
-  const localSteps = shipment && timelineSteps.length === 0
+  const displaySteps = shipment
     ? buildShipmentTimeline(isPickup, originIsWarehouse, destIsWarehouse, trackingHistory, whLoc, shipment.status, originFranchiseName, destFranchiseName)
     : [];
-  const displaySteps = timelineSteps.length > 0 ? timelineSteps : localSteps;
   // Determine current step - same logic as admin (ShipmentDetail.tsx)
   const mappedStatus = shipment?.status === "ENTREGADO" ? "RECIBIDO_EN_DESTINO" : shipment?.status;
   const currentStepIndex = shipment && displaySteps.length > 0 && mappedStatus
