@@ -2,7 +2,7 @@
   "name": "my-app",
   "private": true,
   "version": "0.0.0",
-  "railwayRebuild": "2026-09-28-force-001",
+  "railwayRebuild": "2026-10-01-force-002",
   "type": "module",
   "engines": {
     "node": "20"
