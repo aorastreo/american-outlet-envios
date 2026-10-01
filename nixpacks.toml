@@ -2,4 +2,4 @@
 cmds = ["npm install --force", "npm run build"]
 
 [start]
-cmd = "NODE_ENV=production node dist/boot.js"
+cmd = "sh start.sh"
