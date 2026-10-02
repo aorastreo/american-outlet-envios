@@ -107,7 +107,7 @@ export default function Track() {
     <FranchiseLayout>
       <div className="max-w-4xl mx-auto space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-[#C8102E]">RASTREAR ENVIO v3.3-BUILD</h1>
+          <h1 className="text-2xl font-bold text-[#C8102E]">RASTREAR ENVIO v3.4-FINAL</h1>
           <p className="text-[#8A8A8A] mt-1">Ingrese el numero de rastreo para ver el estado del envio o garantia</p>
         </div>
 
