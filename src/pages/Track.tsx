@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { buildShipmentTimeline, extractBodegaNames } from "../lib/timeline";
+import { buildShipmentTimeline, extractBodegaNames, getCurrentStepIndex } from "../lib/timeline";
 
 function cleanName(name: string | undefined): string {
   if (!name) return "";
@@ -83,17 +83,12 @@ export default function Track() {
   const displaySteps = shipment
     ? buildShipmentTimeline(isPickup, originIsWarehouse, destIsWarehouse, trackingHistory, whLoc, shipment.status, originFranchiseName, destFranchiseName)
     : [];
-  // Determine current step - same logic as admin (ShipmentDetail.tsx)
+  // Determine current step using tracking history to disambiguate duplicate statuses
   const mappedStatus = shipment?.status === "ENTREGADO" ? "RECIBIDO_EN_DESTINO" : shipment?.status;
-  const currentStepIndex = shipment && displaySteps.length > 0 && mappedStatus
-    ? (() => {
-        const reversedIndex = [...displaySteps].reverse().findIndex((s) => s.status === mappedStatus);
-        return reversedIndex >= 0 ? displaySteps.length - 1 - reversedIndex : -1;
-      })()
-    : -1;
+  const currentStepIndex = getCurrentStepIndex(displaySteps, mappedStatus, trackingHistory);
 
   // DEBUG: visible version number + step calculation info
-  const TIMELINE_VERSION = "v3.0-oct3";
+  const TIMELINE_VERSION = "v3.1-oct3";
   const debugInfo = {
     version: TIMELINE_VERSION,
     status: shipment?.status,

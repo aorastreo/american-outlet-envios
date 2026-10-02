@@ -17,7 +17,7 @@ import { es } from "date-fns/locale";
 import { useState } from "react";
 import { useFranchiseAuth } from "@/hooks/useFranchiseAuth";
 import toast from "react-hot-toast";
-import { buildShipmentTimeline, extractBodegaNames } from "../lib/timeline";
+import { buildShipmentTimeline, extractBodegaNames, getCurrentStepIndex } from "../lib/timeline";
 
 // Safe helper to get status config - never returns undefined
 function getStatusConfig(status: string) {
@@ -188,12 +188,9 @@ export default function ShipmentDetail() {
     shipment.destinationFranchise?.displayName
   );
 
-  // Find current step index
-  // Buscar desde el final para encontrar el ultimo matching (para steps duplicados como ENVIADO_A_BODEGA)
-  // Mapear ENTREGADO a RECIBIDO_EN_DESTINO para encontrar el step correcto
+  // Find current step index using tracking history to disambiguate duplicate statuses
   const searchStatus = shipment.status === "ENTREGADO" ? "RECIBIDO_EN_DESTINO" : shipment.status;
-  const reversedIndex = [...timelineSteps].reverse().findIndex((s) => s.status === searchStatus);
-  let currentStepIndex = reversedIndex >= 0 ? timelineSteps.length - 1 - reversedIndex : -1;
+  const currentStepIndex = getCurrentStepIndex(timelineSteps, searchStatus, trackingHistory);
 
 
   return (

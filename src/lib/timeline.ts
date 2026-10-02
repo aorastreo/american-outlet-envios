@@ -7,6 +7,46 @@ export interface TimelineStep {
 }
 
 /**
+ * Determine current step index using tracking history to disambiguate duplicate statuses.
+ * Counts how many times each status has occurred in history + current status.
+ * Walks through steps forward, matching occurrences until we reach the current state.
+ */
+export function getCurrentStepIndex(
+  displaySteps: TimelineStep[],
+  mappedStatus: string | undefined | null,
+  trackingHistory: any[],
+): number {
+  if (!mappedStatus || displaySteps.length === 0) return -1;
+
+  // Count occurrences of each status in tracking history
+  const statusCounts: Record<string, number> = {};
+  for (const t of trackingHistory) {
+    if (t.status) {
+      statusCounts[t.status] = (statusCounts[t.status] || 0) + 1;
+    }
+  }
+  // Current status is the latest state (may not be in history yet if just changed)
+  statusCounts[mappedStatus] = (statusCounts[mappedStatus] || 0) + 1;
+
+  // Walk forward through steps, consuming counts
+  const remaining = { ...statusCounts };
+  for (let i = 0; i < displaySteps.length; i++) {
+    const stepStatus = displaySteps[i].status;
+    if (remaining[stepStatus] && remaining[stepStatus] > 0) {
+      remaining[stepStatus]--;
+      // If we just consumed the last occurrence of the current status, this is our step
+      if (stepStatus === mappedStatus && remaining[stepStatus] === 0) {
+        return i;
+      }
+    }
+  }
+
+  // Fallback: reverse find (for cases without tracking history)
+  const reversedIndex = [...displaySteps].reverse().findIndex((s) => s.status === mappedStatus);
+  return reversedIndex >= 0 ? displaySteps.length - 1 - reversedIndex : -1;
+}
+
+/**
  * Build shipment timeline steps for display.
  * Shared between admin (ShipmentDetail) and public (Track) views.
  */
