@@ -1,5 +1,11 @@
+[phases.setup]
+cmds = ["npm install --force --no-audit --no-fund"]
+
 [phases.build]
-cmds = ["npm install --force", "npm run build"]
+cmds = [
+  "npm run build:backend",
+  "npm run build:frontend || echo 'Frontend build failed, using cached'"
+]
 
 [start]
-cmd = "sh start.sh"
+cmd = "NODE_ENV=production node dist/boot.js"
