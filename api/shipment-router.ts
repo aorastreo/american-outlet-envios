@@ -83,11 +83,11 @@ function buildTimelineSteps(
         steps.push({ status: "ENVIADO_A_BODEGA", label: "Enviado a CEDI", desc: "Bodega envia a bodega" });
         steps.push({ status: "RECIBIDO_EN_BODEGA", label: "En CEDI", desc: "Bodega recibio" });
       }
-      steps.push({ status: "ENVIADO_A_DESTINO", label: `Enviado a Bodega Sabana`, desc: "Bodega envia a bodega destino" });
-      steps.push({ status: "RECIBIDO_EN_DESTINO", label: `En Bodega Sabana`, desc: "Listo para retiro en bodega" });
+      steps.push({ status: "ENVIADO_A_BODEGA", label: `Enviado a Bodega Sabana`, desc: "Bodega envia a bodega destino" });
+      steps.push({ status: "RECIBIDO_EN_BODEGA", label: `En Bodega Sabana`, desc: "Listo para retiro en bodega" });
     } else if (firstBodegaName !== destBodegaName) {
-      steps.push({ status: "ENVIADO_A_DESTINO", label: `Enviado a ${destBodegaName}`, desc: "Bodega envia a bodega destino" });
-      steps.push({ status: "RECIBIDO_EN_DESTINO", label: `En ${destBodegaName}`, desc: "Listo para retiro en bodega" });
+      steps.push({ status: "ENVIADO_A_BODEGA", label: `Enviado a ${destBodegaName}`, desc: "Bodega envia a bodega destino" });
+      steps.push({ status: "RECIBIDO_EN_BODEGA", label: `En ${destBodegaName}`, desc: "Listo para retiro en bodega" });
     }
   } else if (originIsWarehouse) {
     // Bodega -> Tienda
