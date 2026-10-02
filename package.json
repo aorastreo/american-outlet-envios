@@ -5,7 +5,7 @@
   "railwayRebuild": "2026-10-03-force-004-nixpacks",
   "type": "module",
   "engines": {
-    "node": "20"
+    "node": "24.x"
   },
   "scripts": {
     "dev": "vite",
