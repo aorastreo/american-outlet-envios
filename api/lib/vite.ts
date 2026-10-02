@@ -24,7 +24,18 @@ export function serveStaticFiles(app: App) {
       return c.json({ error: "Not Found" }, 404);
     }
     const indexPath = path.resolve(distPath, "index.html");
-    const content = fs.readFileSync(indexPath, "utf-8");
+    let content = fs.readFileSync(indexPath, "utf-8");
+
+    // INJECT: visible build marker + timeline fallback
+    const injectScript = `<script>
+window.__AO_BUILD__ = "v3.3-injected-${Date.now()}";
+console.log("[AO] Backend-injected build:", window.__AO_BUILD__);
+// Fallback timeline disambiguation for duplicate statuses
+window.__AO_TIMELINE_FIX__ = true;
+</script>`;
+
+    content = content.replace("<head>", `<head>\n${injectScript}`);
+
     return c.html(content);
   });
 }
