@@ -92,6 +92,22 @@ export default function Track() {
       })()
     : -1;
 
+  // DEBUG: visible version number + step calculation info
+  const TIMELINE_VERSION = "v3.0-oct3";
+  const debugInfo = {
+    version: TIMELINE_VERSION,
+    status: shipment?.status,
+    mappedStatus,
+    originIsWarehouse,
+    destIsWarehouse,
+    isPickup,
+    originName: originFranchiseName,
+    destName: destFranchiseName,
+    steps: displaySteps.map((s, i) => ({ idx: i, status: s.status, label: s.label, active: i === currentStepIndex, completed: i <= currentStepIndex })),
+    currentStepIndex,
+  };
+  console.log("[Track Debug]", debugInfo);
+
   return (
     <FranchiseLayout>
       <div className="max-w-4xl mx-auto space-y-6">
@@ -135,7 +151,22 @@ export default function Track() {
             <div className="bg-[#C8102E] text-white rounded-xl p-6 text-center">
               <p className="text-blue-100 text-sm mb-1">Numero de Rastreo</p>
               <p className="text-3xl font-bold font-mono tracking-wider">{shipment.trackingNumber}</p>
+              <p className="text-[10px] text-white/60 mt-2 font-mono">{TIMELINE_VERSION}</p>
             </div>
+
+            {/* DEBUG Panel — muestra calculo del timeline */}
+            <Card className="bg-yellow-50 border-yellow-300">
+              <CardContent className="p-3">
+                <p className="text-[10px] font-mono text-yellow-800 leading-tight">
+                  <strong>DEBUG {TIMELINE_VERSION}</strong><br/>
+                  status={shipment?.status} | mapped={mappedStatus || "null"}<br/>
+                  originWH={String(originIsWarehouse)} | destWH={String(destIsWarehouse)} | pickup={String(isPickup)}<br/>
+                  origin="{originFranchiseName}" | dest="{destFranchiseName}"<br/>
+                  steps={displaySteps.map((s,i) => `${i}:${s.status}${i===currentStepIndex?"*":""}`).join(", ")}<br/>
+                  currentStepIndex={currentStepIndex}
+                </p>
+              </CardContent>
+            </Card>
 
             {/* Direct flow badge */}
             {originIsWarehouse && (

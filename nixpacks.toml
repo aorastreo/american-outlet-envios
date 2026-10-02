@@ -1,5 +1,5 @@
 [phases.build]
-cmds = ["npm install --force", "npm run build"]
+cmds = ["npm install --force", "npm run build", "npx vite build"]
 
 [start]
-cmd = "sh start.sh"
+cmd = "NODE_ENV=production node dist/boot.js"
