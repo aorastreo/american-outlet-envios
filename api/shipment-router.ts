@@ -762,31 +762,8 @@ export const shipmentRouter = createRouter({
         destFranchiseData?.displayName
       );
 
-      // ENRICH trackingHistory for old frontend that doesn't read timelineSteps
-      // For bodega->bodega shipments, inject a synthetic entry so extractBodegaNames
-      // detects firstBodega and secondBodega correctly
-      let enrichedTracking = [...trackingHistory];
-      if (originIsWarehouse && destIsWarehouse) {
-        const { secondBodega } = extractBodegaNamesBackend(trackingHistory);
-        if (!secondBodega) {
-          // No second bodega detected - inject synthetic entry
-          const originBodegaName = originFranchiseData?.displayName || "Bodega Origen";
-          const destBodegaName = destFranchiseData?.displayName || "Bodega Destino";
-          enrichedTracking = [
-            ...trackingHistory,
-            {
-              id: -1,
-              shipmentId: shipment[0].id,
-              status: "ENVIADO_A_BODEGA",
-              locationId: shipment[0].originFranchiseId,
-              notes: `Enviado desde ${originBodegaName} hacia ${destBodegaName}`,
-              createdBy: null,
-              createdAt: shipment[0].createdAt,
-            }
-          ];
-        }
-      }
-
+           // Use raw tracking history (frontend now handles timeline via buildShipmentTimeline)
+      const enrichedTracking = [...trackingHistory];
       return {
   ...shipment[0],
   items,
