@@ -15,7 +15,6 @@ export function getCurrentStepIndex(
   displaySteps: TimelineStep[],
   mappedStatus: string | undefined | null,
   trackingHistory: any[],
-  warehouseLocation?: string | null,
 ): number {
   if (!mappedStatus || displaySteps.length === 0) return -1;
 
@@ -39,17 +38,6 @@ export function getCurrentStepIndex(
       if (stepStatus === mappedStatus && remaining[stepStatus] === 0) {
         return i;
       }
-    }
-  }
-
-  // ENHANCED: Use warehouseLocation to disambiguate duplicate ENVIADO_A_BODEGA
-  // when tracking history is incomplete (e.g., after page refresh)
-  if (mappedStatus === "ENVIADO_A_BODEGA" && warehouseLocation) {
-    const whLocLower = warehouseLocation.toLowerCase().replace("bodega ", "").trim();
-    const matchingSteps = displaySteps.map((s, i) => ({ idx: i, ...s }))
-      .filter(s => s.status === "ENVIADO_A_BODEGA" && s.label.toLowerCase().includes(whLocLower));
-    if (matchingSteps.length > 0) {
-      return matchingSteps[0].idx;
     }
   }
 
