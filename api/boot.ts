@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { cors } from "hono/cors";
 import type { HttpBindings } from "@hono/node-server";
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import { appRouter } from "./router";
@@ -256,6 +257,12 @@ async function runSeed() {
 }
 
 const app = new Hono<{ Bindings: HttpBindings }>();
+app.use(cors({
+  origin: ["https://american-outlet-envios.vercel.app", "https://www.aorastreo.com"],
+  allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowHeaders: ["Content-Type", "Authorization"],
+  credentials: true,
+}));
 
 // Import franchise auth utilities
 async function createFranchiseToken(userId: number): Promise<string> {
