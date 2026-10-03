@@ -91,12 +91,8 @@ export default function Track() {
       )
     : [];
   // Determine current step using tracking history to disambiguate duplicate statuses
-  const mappedStatus = shipment?.status === "ENTREGADO" ? "RECIBIDO_EN_DESTINO" : shipment?.status;
-  const currentStepIndex = getCurrentStepIndex(displaySteps, mappedStatus || null, trackingHistory);
-    : [];
-  // Determine current step using tracking history to disambiguate duplicate statuses
-  const mappedStatus = shipment?.status === "ENTREGADO" ? "RECIBIDO_EN_DESTINO" : shipment?.status;
-  const currentStepIndex = getCurrentStepIndex(displaySteps, mappedStatus, trackingHistory);
+ const mappedStatus = shipment?.status === "ENTREGADO" ? "RECIBIDO_EN_DESTINO" : shipment?.status;
+const currentStepIndex = getCurrentStepIndex(displaySteps, mappedStatus || null, trackingHistory);
 
   // DEBUG: visible version number + step calculation info
   const TIMELINE_VERSION = "v3.1-oct3";
