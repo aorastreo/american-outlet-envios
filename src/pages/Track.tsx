@@ -75,17 +75,21 @@ export default function Track() {
     destName.includes("recogida") ||
     ["grecia", "palmares", "san ramon"].some(city => destName.includes(city));
 
-  // Use backend-provided timelineSteps (backend recompiles reliably via esbuild)
+    // Build timeline steps exactly like the admin (ShipmentDetail)
   const trackingHistory = shipment?.tracking || [];
   const whLoc = (shipment as any)?.warehouseLocation;
-  const originFranchiseName = shipment?.originFranchise?.name || shipment?.originName || "";
-  const destFranchiseName = shipment?.destinationFranchise?.name || shipment?.destinationFranchise?.displayName || shipment?.destinationName || "";
-  const backendSteps = (shipment as any)?.timelineSteps;
-  const displaySteps = backendSteps && backendSteps.length > 0
-    ? backendSteps
-    : (shipment
-        ? buildShipmentTimeline(isPickup, originIsWarehouse, destIsWarehouse, trackingHistory, whLoc, shipment.status, originFranchiseName, destFranchiseName)
-        : []);
+  const displaySteps = shipment
+    ? buildShipmentTimeline(
+        isPickup,
+        originIsWarehouse,
+        destIsWarehouse,
+        trackingHistory,
+        whLoc,
+        shipment.status,
+        shipment?.originFranchise?.displayName,
+        shipment?.destinationFranchise?.displayName
+      )
+    : [];
   // Determine current step using tracking history to disambiguate duplicate statuses
   const mappedStatus = shipment?.status === "ENTREGADO" ? "RECIBIDO_EN_DESTINO" : shipment?.status;
   const currentStepIndex = getCurrentStepIndex(displaySteps, mappedStatus, trackingHistory);
