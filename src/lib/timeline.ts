@@ -25,8 +25,14 @@ export function getCurrentStepIndex(
       statusCounts[t.status] = (statusCounts[t.status] || 0) + 1;
     }
   }
-  // Current status is the latest state (may not be in history yet if just changed)
-  statusCounts[mappedStatus] = (statusCounts[mappedStatus] || 0) + 1;
+    // Current status is the latest state — only count it if it's NOT already
+  // the last entry in history (avoids double-counting when status hasn't changed)
+  const lastHistoryStatus = trackingHistory.length > 0 
+    ? trackingHistory[trackingHistory.length - 1].status 
+    : null;
+  if (lastHistoryStatus !== mappedStatus) {
+    statusCounts[mappedStatus] = (statusCounts[mappedStatus] || 0) + 1;
+  }
 
   // Walk forward through steps, consuming counts
   const remaining = { ...statusCounts };
