@@ -66,8 +66,8 @@ export default function Track() {
     }
   };
 
-  const originIsWarehouse = shipment?.originFranchise?.isWarehouse === 1;
-  const destIsWarehouse = (shipment as any)?.destinationIsWarehouse === true;
+    const originIsWarehouse = shipment?.originFranchise?.isWarehouse === 1;
+  const destIsWarehouse = (shipment?.destinationFranchise as any)?.isWarehouse === 1;
 
   // Use isPickupRoute from backend (reliable) or fallback to name detection
   const destName = (shipment?.destinationFranchise?.displayName || shipment?.destinationName || "").toLowerCase();
@@ -75,7 +75,7 @@ export default function Track() {
     destName.includes("recogida") ||
     ["grecia", "palmares", "san ramon"].some(city => destName.includes(city));
 
-      // Build timeline steps exactly like the admin (ShipmentDetail)
+  // Build timeline steps EXACTLY like the admin (ShipmentDetail)
   const trackingHistory = shipment?.tracking || [];
   const whLoc = (shipment as any)?.warehouseLocation;
   const displaySteps = shipment
@@ -89,6 +89,10 @@ export default function Track() {
         shipment?.originFranchise?.displayName,
         shipment?.destinationFranchise?.displayName
       )
+    : [];
+  // Determine current step using tracking history to disambiguate duplicate statuses
+  const mappedStatus = shipment?.status === "ENTREGADO" ? "RECIBIDO_EN_DESTINO" : shipment?.status;
+  const currentStepIndex = getCurrentStepIndex(displaySteps, mappedStatus, trackingHistory);
     : [];
   // Determine current step using tracking history to disambiguate duplicate statuses
   const mappedStatus = shipment?.status === "ENTREGADO" ? "RECIBIDO_EN_DESTINO" : shipment?.status;
