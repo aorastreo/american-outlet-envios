@@ -15,6 +15,7 @@ export function getCurrentStepIndex(
   displaySteps: TimelineStep[],
   mappedStatus: string | undefined | null,
   trackingHistory: any[],
+  warehouseLocation?: string | null,
 ): number {
   if (!mappedStatus || displaySteps.length === 0) return -1;
 
@@ -41,11 +42,21 @@ export function getCurrentStepIndex(
     }
   }
 
+  // ENHANCED: Use warehouseLocation to disambiguate duplicate ENVIADO_A_BODEGA
+  // when tracking history is incomplete (e.g., after page refresh)
+  if (mappedStatus === "ENVIADO_A_BODEGA" && warehouseLocation) {
+    const whLocLower = warehouseLocation.toLowerCase().replace("bodega ", "").trim();
+    const matchingSteps = displaySteps.map((s, i) => ({ idx: i, ...s }))
+      .filter(s => s.status === "ENVIADO_A_BODEGA" && s.label.toLowerCase().includes(whLocLower));
+    if (matchingSteps.length > 0) {
+      return matchingSteps[0].idx;
+    }
+  }
+
   // Fallback: reverse find (for cases without tracking history)
   const reversedIndex = [...displaySteps].reverse().findIndex((s) => s.status === mappedStatus);
   return reversedIndex >= 0 ? displaySteps.length - 1 - reversedIndex : -1;
 }
-
 /**
  * Build shipment timeline steps for display.
  * Shared between admin (ShipmentDetail) and public (Track) views.
@@ -77,7 +88,7 @@ export function buildShipmentTimeline(
   // --- BODEGA → BODEGA ---
   if (originIsWarehouse && destIsWarehouse) {
     const originNameClean = (originName || "").toLowerCase().replace("bodega ", "").trim();
-    const destNameClean = (destName || "").toLowerCase().replace("bodega ", "").trim();
+    const currentStepIndex = getCurrentStepIndex(displaySteps, mappedStatus, trackingHistory, whLoc);
     const isSameBodega = originNameClean === destNameClean && originNameClean !== "";
     steps = [
       { status: "CREADO", label: "Creado", desc: originName ? `En ${originName}` : "Envio registrado" },
