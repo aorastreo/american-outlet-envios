@@ -788,17 +788,18 @@ export const shipmentRouter = createRouter({
       }
 
       return {
-        ...shipment[0],
-        items,
-        tracking: enrichedTracking,
-        originFranchise: originFranchiseData,
-        destinationFranchise: destFranchiseData,
-        destinationFranchiseId: shipment[0].destinationFranchiseId,
-        destinationIsWarehouse: destIsWarehouse,
-        currentLocation: franchiseMap.get(shipment[0].currentLocationId),
-        isPickupRoute,
-        timelineSteps,
-      };
+  ...shipment[0],
+  items,
+  tracking: enrichedTracking,
+  originFranchise: originFranchiseData,
+  destinationFranchise: destFranchiseData,
+  destinationFranchiseId: shipment[0].destinationFranchiseId,
+  destinationIsWarehouse: destIsWarehouse,
+  currentLocation: franchiseMap.get(shipment[0].currentLocationId),
+  isPickupRoute,
+  timelineSteps,
+  warehouseLocation: shipment[0].warehouseLocation,
+};
     }),
 
   // ─── Stats ─────────────────────────────────────────────────────
