@@ -75,7 +75,7 @@ export default function Track() {
     destName.includes("recogida") ||
     ["grecia", "palmares", "san ramon"].some(city => destName.includes(city));
 
-    // Build timeline steps exactly like the admin (ShipmentDetail)
+      // Build timeline steps exactly like the admin (ShipmentDetail)
   const trackingHistory = shipment?.tracking || [];
   const whLoc = (shipment as any)?.warehouseLocation;
   const displaySteps = shipment
