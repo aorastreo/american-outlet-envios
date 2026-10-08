@@ -75,10 +75,10 @@ export default function Track() {
   const originIsWarehouse = shipment?.originFranchise?.isWarehouse === 1;
   const destIsWarehouse = (shipment?.destinationFranchise as any)?.isWarehouse === 1;
 
-  const destName = (shipment?.destinationFranchise?.displayName || shipment?.destinationName || "").toLowerCase();
+  const destNameLower = (shipment?.destinationFranchise?.displayName || shipment?.destinationName || "").toLowerCase();
   const isPickup = (shipment as any)?.isPickupRoute === true ||
-    destName.includes("recogida") ||
-    ["grecia", "palmares", "san ramon"].some(city => destName.includes(city));
+    destNameLower.includes("recogida") ||
+    ["grecia", "palmares", "san ramon"].some(city => destNameLower.includes(city));
 
   const trackingHistory = shipment?.tracking || [];
   const whLoc = (shipment as any)?.warehouseLocation;
@@ -97,7 +97,7 @@ export default function Track() {
 
   const mappedStatus = shipment?.status === "ENTREGADO" ? "RECIBIDO_EN_DESTINO" : shipment?.status;
   const currentStepIndex = getCurrentStepIndex(displaySteps, mappedStatus || null, trackingHistory);
-
+  
   return (
     <div className="min-h-screen bg-white">
       {/* Public Header */}
