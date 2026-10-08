@@ -1,5 +1,4 @@
 import { useState, useMemo, useEffect } from "react";
-import { useState, useMemo } from "react";
 import { useParams } from "react-router-dom";
 import FranchiseLayout from "@/components/FranchiseLayout";
 import { trpc } from "@/providers/trpc";
