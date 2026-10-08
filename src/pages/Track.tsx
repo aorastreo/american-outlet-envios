@@ -67,8 +67,7 @@ export default function Track() {
   };
 
     const originIsWarehouse = shipment?.originFranchise?.isWarehouse === 1;
-  const destIsWarehouse = (shipment?.destinationFranchise as any)?.isWarehouse === 1;
-
+ const destIsWarehouse = (shipment?.destinationFranchise as any)?.isWarehouse === 1;
   // Use isPickupRoute from backend (reliable) or fallback to name detection
   const destName = (shipment?.destinationFranchise?.displayName || shipment?.destinationName || "").toLowerCase();
   const isPickup = (shipment as any)?.isPickupRoute === true ||
@@ -76,10 +75,9 @@ export default function Track() {
     ["grecia", "palmares", "san ramon"].some(city => destName.includes(city));
 
   // Build timeline steps EXACTLY like the admin (ShipmentDetail)
+  // Build timeline steps EXACTLY like the admin (ShipmentDetail)
   const trackingHistory = shipment?.tracking || [];
   const whLoc = (shipment as any)?.warehouseLocation;
-  const originFranchiseName = shipment?.originFranchise?.displayName || shipment?.originFranchise?.name || shipment?.originName || "";
-const destFranchiseName = shipment?.destinationFranchise?.displayName || shipment?.destinationFranchise?.name || shipment?.destinationName || "";
   const displaySteps = shipment
     ? buildShipmentTimeline(
         isPickup,
@@ -92,10 +90,12 @@ const destFranchiseName = shipment?.destinationFranchise?.displayName || shipmen
         shipment?.destinationFranchise?.displayName
       )
     : [];
-  // Determine current step using tracking history to disambiguate duplicate statuses
- const mappedStatus = shipment?.status === "ENTREGADO" ? "RECIBIDO_EN_DESTINO" : shipment?.status;
-const currentStepIndex = getCurrentStepIndex(displaySteps, mappedStatus || null, trackingHistory);
+  const mappedStatus = shipment?.status === "ENTREGADO" ? "RECIBIDO_EN_DESTINO" : shipment?.status;
+  const currentStepIndex = getCurrentStepIndex(displaySteps, mappedStatus || null, trackingHistory);
+  const originFranchiseName = shipment?.originFranchise?.displayName || shipment?.originName || "";
+  const destFranchiseName = shipment?.destinationFranchise?.displayName || shipment?.destinationName || "";
 
+  // DEBUG: visible version number + step calculation info
   // DEBUG: visible version number + step calculation info
   const TIMELINE_VERSION = "v3.1-oct3";
   const debugInfo = {
