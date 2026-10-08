@@ -824,6 +824,23 @@ export default function Shipments() {
   const enviarADestino = () => {
     if (selectedIds.length === 0) return;
     const seleccionados = filteredShipments.filter((s) => selectedIds.includes(s.id));
+        // SOLO en Bodega Pavon: bloquear si se mezclan envios propios con recolecciones de tiendas
+    const isBodegaPavon = (user?.franchise?.displayName || "").toLowerCase().includes("pavon");
+    if (isBodegaPavon) {
+      const conOrigenBodega = seleccionados.filter((s) => {
+        const originFr = allFranchises?.find((f) => f.id === s.originFranchiseId);
+        return originFr?.isWarehouse === 1;
+      });
+      const conOrigenTienda = seleccionados.filter((s) => {
+        const originFr = allFranchises?.find((f) => f.id === s.originFranchiseId);
+        return !originFr || originFr?.isWarehouse !== 1;
+      });
+
+      if (conOrigenBodega.length > 0 && conOrigenTienda.length > 0) {
+        toast.error("No se puede procesar envios de bodega y recolecciones de tiendas juntos. Selecciona solo uno de los dos tipos.");
+        return;
+      }
+    }
     const invalidos = seleccionados.filter((s) => s.status !== "RECIBIDO_EN_BODEGA" && s.status !== "CREADO");
     if (invalidos.length > 0) {
       toast.error(`${invalidos.length} envio(s) no estan en estado valido para enviar`);
