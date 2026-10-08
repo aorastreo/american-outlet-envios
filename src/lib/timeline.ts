@@ -82,17 +82,25 @@ export function buildShipmentTimeline(
   // --- BODEGA → BODEGA ---
   if (originIsWarehouse && destIsWarehouse) {
     const originNameClean = (originName || "").toLowerCase().replace("bodega ", "").trim();
-    const currentStepIndex = getCurrentStepIndex(displaySteps, mappedStatus, trackingHistory, whLoc);
+    const destNameClean = (destName || "").toLowerCase().replace("bodega ", "").trim();
     const isSameBodega = originNameClean === destNameClean && originNameClean !== "";
+    const originIsCediClean = originNameClean.includes("cedi");
+    const destIsCediClean = destNameClean.includes("cedi");
     steps = [
       { status: "CREADO", label: "Creado", desc: originName ? `En ${originName}` : "Envio registrado" },
     ];
-    if (!isSameBodega) {
+    if (isSameBodega) {
+      steps.push({ status: "RECIBIDO_EN_BODEGA", label: `En ${originName || "Bodega"}`, desc: "Listo para retiro en bodega" });
+    } else if (originIsCediClean || destIsCediClean) {
       const destBodega = destName || "Bodega Destino";
       steps.push({ status: "ENVIADO_A_BODEGA", label: `Enviado a ${destBodega}`, desc: "Bodega envia a bodega destino" });
       steps.push({ status: "RECIBIDO_EN_BODEGA", label: `En ${destBodega}`, desc: "Listo para retiro en bodega" });
     } else {
-      steps.push({ status: "RECIBIDO_EN_BODEGA", label: `En ${originName || "Bodega"}`, desc: "Listo para retiro en bodega" });
+      steps.push({ status: "ENVIADO_A_BODEGA", label: `Enviado a Cedi`, desc: "Bodega envia a bodega" });
+      steps.push({ status: "RECIBIDO_EN_BODEGA", label: `En Cedi`, desc: "Bodega recibio" });
+      const destBodega = destName || "Bodega Destino";
+      steps.push({ status: "ENVIADO_A_BODEGA", label: `Enviado a ${destBodega}`, desc: "Bodega envia a bodega destino" });
+      steps.push({ status: "RECIBIDO_EN_BODEGA", label: `En ${destBodega}`, desc: "Listo para retiro en bodega" });
     }
   }
   // --- TIENDA → BODEGA ---

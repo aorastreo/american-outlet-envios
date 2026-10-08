@@ -58,13 +58,21 @@ function buildTimelineSteps(
   if (originIsWarehouse && destIsWarehouse) {
     // Bodega -> Bodega
     const isSameBodega = originNameClean === destNameClean && originNameClean !== "";
+    const originIsCediClean = originNameClean.includes("cedi");
+    const destIsCediClean = destNameClean.includes("cedi");
     steps.push({ status: "CREADO", label: "Creado", desc: originName ? `En ${originName}` : "Envio registrado" });
-    if (!isSameBodega) {
+    if (isSameBodega) {
+      steps.push({ status: "RECIBIDO_EN_BODEGA", label: `En ${originName || "Bodega"}`, desc: "Listo para retiro en bodega" });
+    } else if (originIsCediClean || destIsCediClean) {
       const destBodega = destName || "Bodega Destino";
       steps.push({ status: "ENVIADO_A_BODEGA", label: `Enviado a ${destBodega}`, desc: "Bodega envia a bodega destino" });
       steps.push({ status: "RECIBIDO_EN_BODEGA", label: `En ${destBodega}`, desc: "Listo para retiro en bodega" });
     } else {
-      steps.push({ status: "RECIBIDO_EN_BODEGA", label: `En ${originName || "Bodega"}`, desc: "Listo para retiro en bodega" });
+      steps.push({ status: "ENVIADO_A_BODEGA", label: `Enviado a Cedi`, desc: "Bodega envia a bodega" });
+      steps.push({ status: "RECIBIDO_EN_BODEGA", label: `En Cedi`, desc: "Bodega recibio" });
+      const destBodega = destName || "Bodega Destino";
+      steps.push({ status: "ENVIADO_A_BODEGA", label: `Enviado a ${destBodega}`, desc: "Bodega envia a bodega destino" });
+      steps.push({ status: "RECIBIDO_EN_BODEGA", label: `En ${destBodega}`, desc: "Listo para retiro en bodega" });
     }
   } else if (destIsWarehouse) {
     // Tienda -> Bodega
@@ -762,21 +770,19 @@ export const shipmentRouter = createRouter({
         destFranchiseData?.displayName
       );
 
-           // Use raw tracking history (frontend now handles timeline via buildShipmentTimeline)
-      const enrichedTracking = [...trackingHistory];
       return {
-  ...shipment[0],
-  items,
-  tracking: enrichedTracking,
-  originFranchise: originFranchiseData,
-  destinationFranchise: destFranchiseData,
-  destinationFranchiseId: shipment[0].destinationFranchiseId,
-  destinationIsWarehouse: destIsWarehouse,
-  currentLocation: franchiseMap.get(shipment[0].currentLocationId),
-  isPickupRoute,
-  timelineSteps,
-  warehouseLocation: shipment[0].warehouseLocation,
-};
+        ...shipment[0],
+        items,
+        tracking: trackingHistory,
+        originFranchise: originFranchiseData,
+        destinationFranchise: destFranchiseData,
+        destinationFranchiseId: shipment[0].destinationFranchiseId,
+        destinationIsWarehouse: destIsWarehouse,
+        currentLocation: franchiseMap.get(shipment[0].currentLocationId),
+        isPickupRoute,
+        timelineSteps,
+        warehouseLocation: shipment[0].warehouseLocation,
+      };
     }),
 
   // ─── Stats ─────────────────────────────────────────────────────
