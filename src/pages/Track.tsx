@@ -98,18 +98,6 @@ export default function Track() {
   const mappedStatus = shipment?.status === "ENTREGADO" ? "RECIBIDO_EN_DESTINO" : shipment?.status;
   const currentStepIndex = getCurrentStepIndex(displaySteps, mappedStatus || null, trackingHistory);
 
-  // DEBUG: visible to diagnose timeline issues
-  const debugInfo = shipment ? {
-    originName: shipment?.originFranchise?.displayName,
-    originIsWarehouse,
-    destName: shipment?.destinationFranchise?.displayName,
-    destIsWarehouse,
-    isPickup,
-    status: shipment.status,
-    stepCount: displaySteps.length,
-    steps: displaySteps.map(s => s.label),
-  } : null;
-
   return (
     <div className="min-h-screen bg-white">
       {/* Public Header */}
@@ -187,15 +175,6 @@ export default function Track() {
                 </div>
               </CardContent>
             </Card>
-
-            {/* DEBUG */}
-            {debugInfo && (
-              <Card className="bg-yellow-50 border-yellow-300">
-                <CardContent className="p-3">
-                  <pre className="text-xs text-yellow-800 whitespace-pre-wrap">{JSON.stringify(debugInfo, null, 2)}</pre>
-                </CardContent>
-              </Card>
-            )}
 
             <Card>
               <CardContent className="p-6">
