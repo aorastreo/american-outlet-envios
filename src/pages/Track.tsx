@@ -1,4 +1,6 @@
+import { useState, useMemo, useEffect } from "react";
 import { useState, useMemo } from "react";
+import { useParams } from "react-router-dom";
 import FranchiseLayout from "@/components/FranchiseLayout";
 import { trpc } from "@/providers/trpc";
 import { Button } from "@/components/ui/button";
@@ -39,10 +41,10 @@ function getStatusConfig(status: string) {
 };
   return configs[status] || { color: "bg-gray-100 text-gray-500", label: status, icon: Package };
 }
-
 export default function Track() {
-  const [trackingNumber, setTrackingNumber] = useState("");
-  const [searchedTracking, setSearchedTracking] = useState("");
+  const { trackingNumber: urlTrackingNumber } = useParams();
+  const [trackingNumber, setTrackingNumber] = useState(urlTrackingNumber || "");
+  const [searchedTracking, setSearchedTracking] = useState(urlTrackingNumber || "");
   const isWarrantySearch = searchedTracking.startsWith("G");
 
   const { data: shipment, isLoading: shipmentLoading, isError: shipmentError } = trpc.shipment.track.useQuery(
@@ -58,6 +60,12 @@ export default function Track() {
   const isLoading = isWarrantySearch ? warrantyLoading : shipmentLoading;
   const isError = isWarrantySearch ? warrantyError : shipmentError;
   const hasResult = !!shipment || !!warranty;
+    useEffect(() => {
+    if (urlTrackingNumber) {
+      setTrackingNumber(urlTrackingNumber);
+      setSearchedTracking(urlTrackingNumber);
+    }
+  }, [urlTrackingNumber]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
