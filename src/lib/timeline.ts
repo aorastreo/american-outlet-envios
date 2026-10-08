@@ -79,7 +79,7 @@ export function buildShipmentTimeline(
   const destIsMio = destNameLower.includes("chiles") || destNameLower.includes("pavon") || destNameLower.includes("santa rosa") || destNameLower.includes("ganga");
   const destIsVendedor = destNameLower.includes("boca arenal") || destNameLower.includes("florencia") || destNameLower.includes("fortuna") || destNameLower.includes("quesada") || destNameLower.includes("puerto viejo");
 
-  // --- BODEGA → BODEGA ---
+   // --- BODEGA → BODEGA ---
   if (originIsWarehouse && destIsWarehouse) {
     const originNameClean = (originName || "").toLowerCase().replace("bodega ", "").trim();
     const destNameClean = (destName || "").toLowerCase().replace("bodega ", "").trim();
