@@ -30,7 +30,7 @@ export default function App() {
       <Route path="/enviar" element={<CreateShipment />} />
       <Route path="/envios" element={<Shipments />} />
       <Route path="/envios/:id" element={<ShipmentDetail />} />
-   <Route path="/rastrear/:trackingNumber?" element={<Track />} />
+<Route path="/rastrear/:trackingNumber?" element={<Track />} />
       <Route path="/boleta/:id" element={<Boleta />} />
       <Route path="/bitacora" element={<Bitacora />} />
       <Route path="/rutas" element={<Rutas />} />
