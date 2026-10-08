@@ -78,6 +78,8 @@ export default function Track() {
   // Build timeline steps EXACTLY like the admin (ShipmentDetail)
   const trackingHistory = shipment?.tracking || [];
   const whLoc = (shipment as any)?.warehouseLocation;
+  const originFranchiseName = shipment?.originFranchise?.displayName || shipment?.originFranchise?.name || shipment?.originName || "";
+const destFranchiseName = shipment?.destinationFranchise?.displayName || shipment?.destinationFranchise?.name || shipment?.destinationName || "";
   const displaySteps = shipment
     ? buildShipmentTimeline(
         isPickup,
