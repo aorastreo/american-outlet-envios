@@ -129,14 +129,16 @@ export function buildShipmentTimeline(
   }
   // --- BODEGA → TIENDA ---
   else if (originIsWarehouse) {
-    steps.push({ status: "CREADO", label: "Creado", desc: originName ? `En ${originName}` : "Envio registrado" });
-    if (originIsCedi && destIsMio) {
-      steps.push({ status: "ENVIADO_A_BODEGA", label: "Enviado a Bodega Pavon", desc: "Enviado a bodega" });
-      steps.push({ status: "RECIBIDO_EN_BODEGA", label: "En Bodega Pavon", desc: "Bodega recibio" });
-    } else if (originIsPavon && destIsVendedor) {
-      steps.push({ status: "ENVIADO_A_BODEGA", label: "Enviado a CEDI", desc: "Enviado a bodega" });
-      steps.push({ status: "RECIBIDO_EN_BODEGA", label: "En CEDI", desc: "Bodega recibio" });
-    }
+  steps.push({ status: "CREADO", label: "Creado", desc: originName ? `En ${originName}` : "Envio registrado" });
+  if (originIsPavon && !destIsMio) {
+    // Desde Pavon hacia cualquier destino que NO sea del grupo Mio (vendedores, pickup, etc.): pasa por Cedi
+    steps.push({ status: "ENVIADO_A_BODEGA", label: "Enviado a CEDI", desc: "Enviado a bodega" });
+    steps.push({ status: "RECIBIDO_EN_BODEGA", label: "En CEDI", desc: "Bodega recibio" });
+  } else if (originIsCedi && destIsMio) {
+    // Desde Cedi hacia grupo Mio: pasa por Pavon
+    steps.push({ status: "ENVIADO_A_BODEGA", label: "Enviado a Bodega Pavon", desc: "Enviado a bodega" });
+    steps.push({ status: "RECIBIDO_EN_BODEGA", label: "En Bodega Pavon", desc: "Bodega recibio" });
+  }
     if (isPickup) {
       steps.push({ status: "EN_RUTA", label: "En Ruta", desc: "Asignado a camion" });
       steps.push({ status: "EN_PARADA", label: "En Parada", desc: "Camion en punto" });
