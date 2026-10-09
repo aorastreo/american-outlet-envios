@@ -841,6 +841,17 @@ export default function Shipments() {
         return;
       }
     }
+        // SOLO en Cedi: bloquear si se mezclan envios hacia grupo Mio (Pavon) con envios hacia grupo Vendedor/Sabana/Ruta (directo)
+    const isBodegaCedi = (user?.franchise?.displayName || "").toLowerCase().includes("cedi");
+    if (isBodegaCedi) {
+      const vaAPavon = seleccionados.filter((s) => needsInterBodega(s).needsTransfer);
+      const vaDirecto = seleccionados.filter((s) => !needsInterBodega(s).needsTransfer);
+
+      if (vaAPavon.length > 0 && vaDirecto.length > 0) {
+        toast.error("No se puede procesar envios hacia tiendas Mio y tiendas Vendedor juntos. Selecciona solo uno de los dos grupos.");
+        return;
+      }
+    }
     const invalidos = seleccionados.filter((s) => s.status !== "RECIBIDO_EN_BODEGA" && s.status !== "CREADO");
     if (invalidos.length > 0) {
       toast.error(`${invalidos.length} envio(s) no estan en estado valido para enviar`);
