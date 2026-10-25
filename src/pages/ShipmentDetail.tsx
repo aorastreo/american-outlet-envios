@@ -203,7 +203,9 @@ export default function ShipmentDetail() {
 
     if (originIsWarehouse && isWarehouseUser && !isPickup) {
       if ((shipment.status === "CREADO" && isOrigin) || (shipment.status === "RECIBIDO_EN_BODEGA" && packageIsHere)) {
-        if (transfer.needsTransfer) {
+        if (shipment.status === "RECIBIDO_EN_BODEGA" && isDestination) {
+          availableActions.push({ label: "Entregado al cliente", status: "RECIBIDO_EN_DESTINO", icon: <CheckCircle className="w-4 h-4" />, color: "bg-emerald-600 hover:bg-emerald-700", desc: "El cliente ya retiró el paquete en esta bodega" });
+        } else if (transfer.needsTransfer) {
           availableActions.push({ label: `Enviar a ${transfer.targetBodega}`, status: "ENVIADO_A_BODEGA", icon: <Send className="w-4 h-4" />, color: "bg-amber-600 hover:bg-amber-700", desc: `El paquete sigue hacia ${transfer.targetBodega}` });
         } else {
           availableActions.push({ label: "Enviar a Destino", status: "ENVIADO_A_DESTINO", icon: <Truck className="w-4 h-4" />, color: "bg-[#C8102E] hover:bg-[#9B0B22]", desc: "Confirmar envio a la tienda de destino" });
@@ -220,7 +222,9 @@ export default function ShipmentDetail() {
         availableActions.push({ label: "Confirmar Recepcion", status: "RECIBIDO_EN_BODEGA", icon: <ClipboardCheck className="w-4 h-4" />, color: "bg-purple-600 hover:bg-purple-700", desc: "Confirmar recepcion en bodega" });
       }
       if (shipment.status === "RECIBIDO_EN_BODEGA" && isWarehouseUser && !isPickup) {
-        if (transfer.needsTransfer) {
+        if (isDestination) {
+          availableActions.push({ label: "Entregado al cliente", status: "RECIBIDO_EN_DESTINO", icon: <CheckCircle className="w-4 h-4" />, color: "bg-emerald-600 hover:bg-emerald-700", desc: "El cliente ya retiró el paquete en esta bodega" });
+        } else if (transfer.needsTransfer) {
           availableActions.push({ label: `Enviar a ${transfer.targetBodega}`, status: "ENVIADO_A_BODEGA", icon: <Send className="w-4 h-4" />, color: "bg-amber-600 hover:bg-amber-700", desc: `El paquete sigue hacia ${transfer.targetBodega}` });
         } else {
           availableActions.push({ label: "Enviar a Destino", status: "ENVIADO_A_DESTINO", icon: <Truck className="w-4 h-4" />, color: "bg-[#C8102E] hover:bg-[#9B0B22]", desc: "Confirmar envio a tienda de destino" });

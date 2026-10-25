@@ -426,6 +426,17 @@ export default function Shipments() {
   });
 
   // Store: Recibir en destino (tienda)
+  const entregarClienteMutation = trpc.shipment.entregarAlClienteMasiva.useMutation({
+    onSuccess: (data) => {
+      toast.success(`${data.count} envio(s) entregado(s) al cliente`);
+      utils.shipment.list.invalidate();
+      setSelectedIds([]);
+    },
+    onError: (error) => {
+      toast.error(error.message || "Error al entregar al cliente");
+    },
+  });
+
   const recibirDestinoMutation = trpc.shipment.recibirEnDestinoMasiva.useMutation({
     onSuccess: (data) => {
       toast.success(`${data.count} envio(s) recibido(s) en tienda`);
@@ -819,6 +830,21 @@ export default function Shipments() {
     }
   };
 
+  const entregarAlCliente = () => {
+    if (selectedIds.length === 0) return;
+    const seleccionados = filteredShipments.filter((s) => selectedIds.includes(s.id));
+    const invalidos = seleccionados.filter((s) => s.status !== "RECIBIDO_EN_BODEGA" || s.destinationFranchiseId !== myFranchiseId);
+    if (invalidos.length > 0) {
+      toast.error("Selecciona solo envios que el cliente retira en esta bodega");
+      return;
+    }
+    openConfirmDialog(
+      "Entregar al cliente",
+      `El cliente ya retiró ${selectedIds.length} envio(s) en esta bodega? Esta accion no se puede deshacer.`,
+      () => entregarClienteMutation.mutate({ ids: selectedIds })
+    );
+  };
+
   const recibirEnDestino = () => {
     if (selectedIds.length === 0) return;
     const seleccionados = filteredShipments.filter((s) => selectedIds.includes(s.id));
@@ -955,6 +981,30 @@ export default function Shipments() {
               {enviarDestinoMutation.isPending ? "Procesando..." : "Enviar a Destino"}
             </Button>
           )}
+          <Button
+            onClick={generateBitacora}
+            variant="outline"
+            className="border-[#C8102E]/20 text-[#C8102E] hover:bg-[#FFF5F5]"
+          >
+            <ClipboardList className="w-4 h-4 mr-2" />
+            Generar Bitacora
+          </Button>
+        </>
+      );
+    }
+
+    if (isBodega && activeTab === "ENTREGA_CLIENTE") {
+      return (
+        <>
+          <Button
+            onClick={entregarAlCliente}
+            disabled={entregarClienteMutation.isPending}
+            variant="outline"
+            className="border-[#1B6B3E]/20 text-[#1B6B3E] hover:bg-emerald-50"
+          >
+            <CheckCircle className="w-4 h-4 mr-2" />
+            {entregarClienteMutation.isPending ? "Procesando..." : "Entregado al cliente"}
+          </Button>
           <Button
             onClick={generateBitacora}
             variant="outline"
