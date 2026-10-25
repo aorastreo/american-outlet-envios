@@ -6,7 +6,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   Package,
-  Clock,
   CheckCircle,
   Truck,
   ClipboardCheck,
@@ -19,12 +18,11 @@ import {
   Send,
   Inbox,
   Route,
-  MapPin,
-  History,
 } from "lucide-react";
 import { Link } from "react-router";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { shipmentPlaceText } from "@/lib/franchise-groups";
 
 function getStatusConfig(status: string) {
   const configs: Record<string, { color: string; label: string; bg: string }> = {
@@ -35,6 +33,7 @@ function getStatusConfig(status: string) {
     EN_PARADA: { color: "text-orange-700", label: "En Parada", bg: "bg-orange-50" },
     ENVIADO_A_DESTINO: { color: "text-[#C8102E]", label: "Enviado a Destino", bg: "bg-[#FFF5F5]" },
     RECIBIDO_EN_DESTINO: { color: "text-emerald-700", label: "Entregado", bg: "bg-emerald-50" },
+    NO_RECOGIDO: { color: "text-red-700", label: "No recogido", bg: "bg-red-50" },
     CANCELADO: { color: "text-red-700", label: "Cancelado", bg: "bg-red-50" },
   };
   return configs[status] || { color: "text-gray-700", label: status, bg: "bg-gray-100" };
@@ -54,6 +53,7 @@ function cleanName(name: string | undefined): string {
 
 function ShipmentCard({ shipment }: { shipment: any }) {
   const cfg = getStatusConfig(shipment.status);
+  const place = shipmentPlaceText(shipment);
   return (
     <Link to={`/envios/${shipment.id}`} key={shipment.id}>
       <Card className="hover:shadow-md transition-shadow cursor-pointer border-[#F0F0F0] hover:border-[#C8102E]/20">
@@ -68,8 +68,13 @@ function ShipmentCard({ shipment }: { shipment: any }) {
                   </p>
                 </div>
                 <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${cfg.bg} ${cfg.color}`}>
-                  {cfg.label}
+                  {place.badge || cfg.label}
                 </span>
+                {place.chip && (
+                  <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded bg-teal-50 text-teal-700 border border-teal-200">
+                    {place.chip}
+                  </span>
+                )}
               </div>
               <div className="flex items-center gap-2 mt-1 text-sm text-[#8A8A8A]">
                 <span className="flex items-center gap-1">
@@ -235,18 +240,6 @@ export default function Dashboard() {
     return shipments.filter((s) => s.originFranchiseId === myFranchiseId && s.status === "RECIBIDO_EN_DESTINO");
   }, [shipments, isBodega, myFranchiseId]);
 
-  const storeHistory = useMemo(() => {
-    if (isBodega || !shipments) return [];
-    return shipments.filter(
-      (s) =>
-        (s.originFranchiseId === myFranchiseId ||
-          s.destinationFranchiseId === myFranchiseId) &&
-        ["RECIBIDO_EN_DESTINO", "ENVIADO_A_BODEGA", "RECIBIDO_EN_BODEGA"].includes(
-          s.status
-        )
-    );
-  }, [shipments, isBodega, myFranchiseId]);
-
   // Stats for receiving warehouse (Sabana) — only 2 counters
   const receivingStats = [
     {
@@ -385,7 +378,23 @@ export default function Dashboard() {
               </div>
             )}
 
-            {/* TO RECEIVE - POR RECIBIR */}
+            {storeSent.length > 0 && (
+              <div className="space-y-3">
+                <SectionHeader
+                  icon={Truck}
+                  title="Enviados"
+                  count={storeSent.length}
+                  iconColor="text-[#D4730E]"
+                  badgeColor="bg-orange-50 text-[#D4730E]"
+                />
+                <div className="space-y-3">
+                  {storeSent.map((s) => (
+                    <ShipmentCard key={s.id} shipment={s} />
+                  ))}
+                </div>
+              </div>
+            )}
+
             {storeToReceive.length > 0 && (
               <div className="space-y-3">
                 <SectionHeader
@@ -403,18 +412,34 @@ export default function Dashboard() {
               </div>
             )}
 
-            {/* HISTORY */}
-            {storeHistory.length > 0 && (
+            {storeInStore.length > 0 && (
               <div className="space-y-3">
                 <SectionHeader
-                  icon={History}
-                  title="Historial de Envios"
-                  count={storeHistory.length}
-                  iconColor="text-[#8A8A8A]"
-                  badgeColor="bg-gray-100 text-gray-600"
+                  icon={Store}
+                  title="En Tienda"
+                  count={storeInStore.length}
+                  iconColor="text-[#1B6B3E]"
+                  badgeColor="bg-emerald-50 text-[#1B6B3E]"
                 />
                 <div className="space-y-3">
-                  {storeHistory.slice(0, 10).map((s) => (
+                  {storeInStore.map((s) => (
+                    <ShipmentCard key={s.id} shipment={s} />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {storeCompleted.length > 0 && (
+              <div className="space-y-3">
+                <SectionHeader
+                  icon={CheckCircle}
+                  title="Completados"
+                  count={storeCompleted.length}
+                  iconColor="text-blue-700"
+                  badgeColor="bg-blue-50 text-blue-700"
+                />
+                <div className="space-y-3">
+                  {storeCompleted.slice(0, 10).map((s) => (
                     <ShipmentCard key={s.id} shipment={s} />
                   ))}
                 </div>
