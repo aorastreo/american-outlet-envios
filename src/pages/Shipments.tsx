@@ -667,10 +667,13 @@ export default function Shipments() {
                       {place.chip}
                     </span>
                   )}
-                  {/* Inter-bodega badge */}
-                  {isBodega && activeTab === "POR_RECIBIR" && (shipment.originFranchise as any)?.isWarehouse === 1 && (
+                  {isBodega && activeTab === "POR_RECIBIR" && shipment.status === "ENVIADO_A_BODEGA" && (() => {
+                    const firstStop = getFranchiseGroup(shipment.originName) === "vendedor" ? "Bodega Cedi" : "Bodega Pavon";
+                    if (!shipment.warehouseLocation || shipment.warehouseLocation === firstStop) return null;
+                    return firstStop;
+                  })() && (
                     <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">
-                      De otra bodega
+                      Viene de {getFranchiseGroup(shipment.originName) === "vendedor" ? "Bodega Cedi" : "Bodega Pavon"}
                     </span>
                   )}
                   <button

@@ -391,12 +391,11 @@ export const shipmentRouter = createRouter({
       } else if (isWarehouse) {
         // WAREHOUSE USER: only see shipments assigned to this warehouse
         const myBodegaName = userFranchise[0]?.name || "";
-        const normalizedName = myBodegaName.toLowerCase().includes("cedi") ? "Bodega Cedi" : "Bodega Pavon";
-
-        whereClause = or(
-          eq(shipments.warehouseLocation, normalizedName),
-          sql`${shipments.warehouseLocation} IS NULL`, // legacy shipments
-        );
+        const isCedi = myBodegaName.toLowerCase().includes("cedi");
+        const normalizedName = isCedi ? "Bodega Cedi" : "Bodega Pavon";
+        whereClause = isCedi
+          ? eq(shipments.warehouseLocation, normalizedName)
+          : or(eq(shipments.warehouseLocation, normalizedName), sql`${shipments.warehouseLocation} IS NULL`);
       } else {
         // STORE USER: see shipments related to this store
         whereClause = or(
@@ -835,11 +834,11 @@ export const shipmentRouter = createRouter({
       );
     } else if (isWarehouse) {
       const myBodegaName = userFranchise[0]?.name || "";
-      const normalizedName = myBodegaName.toLowerCase().includes("cedi") ? "Bodega Cedi" : "Bodega Pavon";
-      whereClause = or(
-        eq(shipments.warehouseLocation, normalizedName),
-        sql`${shipments.warehouseLocation} IS NULL`,
-      );
+      const isCedi = myBodegaName.toLowerCase().includes("cedi");
+      const normalizedName = isCedi ? "Bodega Cedi" : "Bodega Pavon";
+      whereClause = isCedi
+        ? eq(shipments.warehouseLocation, normalizedName)
+        : or(eq(shipments.warehouseLocation, normalizedName), sql`${shipments.warehouseLocation} IS NULL`);
     } else {
       whereClause = or(
         eq(shipments.originFranchiseId, franchiseId),
