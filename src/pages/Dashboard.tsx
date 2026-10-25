@@ -40,6 +40,11 @@ function getStatusConfig(status: string) {
   return configs[status] || { color: "text-gray-700", label: status, bg: "bg-gray-100" };
 }
 
+function isRouteDestinationName(name?: string | null) {
+  const n = (name || "").toLowerCase();
+  return n.includes("grecia") || n.includes("palmares") || n.includes("san ramon");
+}
+
 function cleanName(name: string | undefined): string {
   if (!name) return "";
   const upper = name.toUpperCase();
@@ -129,8 +134,10 @@ function SectionHeader({
 
 export default function Dashboard() {
   const { user } = useFranchiseAuth();
-  const { data: stats } = trpc.shipment.stats.useQuery();
   const { data: shipments, isLoading: shipmentsLoading } = trpc.shipment.list.useQuery();
+  const { data: sentShipments } = trpc.shipment.listSent.useQuery(undefined, {
+    enabled: user?.franchise?.isWarehouse === 1 && user?.username !== "bodega_sabana",
+  });
 
   const isWarehouse = user?.franchise?.isWarehouse === 1;
   const isReceivingWarehouse = user?.username === "bodega_sabana";
@@ -144,16 +151,29 @@ export default function Dashboard() {
   }, [shipments, isBodega]);
 
   const warehouseInWarehouse = useMemo(() => {
-    if (!isBodega || !shipments) return [];
-    return shipments.filter((s) => s.status === "RECIBIDO_EN_BODEGA");
-  }, [shipments, isBodega]);
+    if (!isBodega || isReceivingWarehouse || !shipments) return [];
+    return shipments.filter((s) => {
+      if (s.destinationFranchiseId === myFranchiseId && s.status === "RECIBIDO_EN_BODEGA") return false;
+      if (isRouteDestinationName(s.destinationName) && s.warehouseLocation === "Bodega Cedi") return false;
+      if (s.status === "RECIBIDO_EN_BODEGA") return true;
+      return s.status === "CREADO" && (s.originName || "").toLowerCase().includes("bodega");
+    });
+  }, [shipments, isBodega, isReceivingWarehouse, myFranchiseId]);
+
+  const warehouseCustomerPickup = useMemo(() => {
+    if (!isBodega || isReceivingWarehouse || !shipments) return [];
+    return shipments.filter((s) => s.status === "RECIBIDO_EN_BODEGA" && s.destinationFranchiseId === myFranchiseId);
+  }, [shipments, isBodega, isReceivingWarehouse, myFranchiseId]);
 
   const warehouseInRoute = useMemo(() => {
-    if (!isBodega || !shipments) return [];
-    return shipments.filter((s) =>
+    if (!isBodega || isReceivingWarehouse || !shipments) return [];
+    const here = shipments.filter((s) =>
       ["EN_RUTA", "EN_PARADA", "ENVIADO_A_DESTINO"].includes(s.status)
     );
-  }, [shipments, isBodega]);
+    const forwarded = (sentShipments || []).filter((s) => s.status === "ENVIADO_A_BODEGA");
+    const seen = new Set(here.map((s) => s.id));
+    return [...here, ...forwarded.filter((s) => !seen.has(s.id))];
+  }, [shipments, sentShipments, isBodega, isReceivingWarehouse]);
 
   const warehouseDelivered = useMemo(() => {
     if (!isBodega || !shipments) return [];
@@ -196,6 +216,25 @@ export default function Dashboard() {
     );
   }, [shipments, isBodega, myFranchiseId]);
 
+  const storeSent = useMemo(() => {
+    if (isBodega || !shipments) return [];
+    return shipments.filter(
+      (s) =>
+        s.originFranchiseId === myFranchiseId &&
+        ["ENVIADO_A_BODEGA", "RECIBIDO_EN_BODEGA", "ENVIADO_A_DESTINO", "EN_RUTA", "EN_PARADA", "NO_RECOGIDO"].includes(s.status)
+    );
+  }, [shipments, isBodega, myFranchiseId]);
+
+  const storeInStore = useMemo(() => {
+    if (isBodega || !shipments) return [];
+    return shipments.filter((s) => s.destinationFranchiseId === myFranchiseId && s.status === "RECIBIDO_EN_DESTINO");
+  }, [shipments, isBodega, myFranchiseId]);
+
+  const storeCompleted = useMemo(() => {
+    if (isBodega || !shipments) return [];
+    return shipments.filter((s) => s.originFranchiseId === myFranchiseId && s.status === "RECIBIDO_EN_DESTINO");
+  }, [shipments, isBodega, myFranchiseId]);
+
   const storeHistory = useMemo(() => {
     if (isBodega || !shipments) return [];
     return shipments.filter(
@@ -228,59 +267,20 @@ export default function Dashboard() {
     },
   ];
 
-  const statCards = isReceivingWarehouse ? receivingStats : [
-    {
-      label: "Por Enviar",
-      value: isBodega
-        ? warehouseInWarehouse.length
-        : storeCreated.length,
-      icon: Send,
-      color: "text-[#C8102E]",
-      bg: "bg-[#FFF5F5]",
-      border: "border-[#C8102E]/10",
-    },
-    {
-      label: "Por Recibir",
-      value: isBodega
-        ? warehousePendingReception.length
-        : storeToReceive.length,
-      icon: Inbox,
-      color: "text-[#B8860B]",
-      bg: "bg-amber-50",
-      border: "border-amber-200/50",
-    },
-    {
-      label: "En Transito",
-      value: stats?.inTransit || 0,
-      icon: Truck,
-      color: "text-[#D4730E]",
-      bg: "bg-orange-50",
-      border: "border-orange-200/50",
-    },
-    {
-      label: "En Bodega",
-      value: stats?.inWarehouse || 0,
-      icon: ClipboardCheck,
-      color: "text-purple-600",
-      bg: "bg-purple-50",
-      border: "border-purple-200/50",
-    },
-    {
-      label: "Entregados",
-      value: stats?.delivered || 0,
-      icon: CheckCircle,
-      color: "text-[#1B6B3E]",
-      bg: "bg-emerald-50",
-      border: "border-emerald-200/50",
-    },
-    {
-      label: "Total",
-      value: stats?.total || 0,
-      icon: Package,
-      color: "text-[#1A1A1A]",
-      bg: "bg-gray-50",
-      border: "border-gray-200/50",
-    },
+  const statCards = isReceivingWarehouse ? receivingStats : isBodega ? [
+    { label: "Por Recibir", value: warehousePendingReception.length, icon: Inbox, color: "text-[#B8860B]", bg: "bg-amber-50", border: "border-amber-200/50" },
+    { label: "En Bodega", value: warehouseInWarehouse.length, icon: ClipboardCheck, color: "text-purple-600", bg: "bg-purple-50", border: "border-purple-200/50" },
+    { label: "Entrega a cliente", value: warehouseCustomerPickup.length, icon: User, color: "text-teal-700", bg: "bg-teal-50", border: "border-teal-200/50" },
+    { label: "En camino", value: warehouseInRoute.length, icon: Truck, color: "text-[#D4730E]", bg: "bg-orange-50", border: "border-orange-200/50" },
+    { label: "Entregados", value: warehouseDelivered.length, icon: CheckCircle, color: "text-[#1B6B3E]", bg: "bg-emerald-50", border: "border-emerald-200/50" },
+    { label: "Total", value: shipments?.length || 0, icon: Package, color: "text-[#1A1A1A]", bg: "bg-gray-50", border: "border-gray-200/50" },
+  ] : [
+    { label: "Por Enviar", value: storeCreated.length, icon: Send, color: "text-[#C8102E]", bg: "bg-[#FFF5F5]", border: "border-[#C8102E]/10" },
+    { label: "Enviados", value: storeSent.length, icon: Truck, color: "text-[#D4730E]", bg: "bg-orange-50", border: "border-orange-200/50" },
+    { label: "Por Recibir", value: storeToReceive.length, icon: Inbox, color: "text-[#B8860B]", bg: "bg-amber-50", border: "border-amber-200/50" },
+    { label: "En Tienda", value: storeInStore.length, icon: Store, color: "text-[#1B6B3E]", bg: "bg-emerald-50", border: "border-emerald-200/50" },
+    { label: "Completados", value: storeCompleted.length, icon: CheckCircle, color: "text-blue-700", bg: "bg-blue-50", border: "border-blue-200/50" },
+    { label: "Total", value: shipments?.length || 0, icon: Package, color: "text-[#1A1A1A]", bg: "bg-gray-50", border: "border-gray-200/50" },
   ];
 
   return (
@@ -462,12 +462,29 @@ export default function Dashboard() {
               </div>
             )}
 
-            {/* IN ROUTE - EN RUTA DE CAMION */}
+            {warehouseCustomerPickup.length > 0 && (
+              <div className="space-y-3">
+                <SectionHeader
+                  icon={User}
+                  title="Entrega a cliente"
+                  count={warehouseCustomerPickup.length}
+                  iconColor="text-teal-700"
+                  badgeColor="bg-teal-50 text-teal-700"
+                />
+                <div className="space-y-3">
+                  {warehouseCustomerPickup.map((s) => (
+                    <ShipmentCard key={s.id} shipment={s} />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* IN ROUTE - YA SALIERON DE BODEGA */}
             {warehouseInRoute.length > 0 && (
               <div className="space-y-3">
                 <SectionHeader
                   icon={Route}
-                  title="En Ruta de Camion"
+                  title="Ya salieron de bodega"
                   count={warehouseInRoute.length}
                   iconColor="text-blue-600"
                   badgeColor="bg-blue-50 text-blue-600"
