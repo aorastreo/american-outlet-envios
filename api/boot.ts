@@ -1328,10 +1328,58 @@ app.all("/api/*", (c) => c.json({ error: "Not Found" }, 404));
 
 export default app;
 
+async function clearShipmentsOnce() {
+  const flag = "clear-shipments-2026-10-25";
+  const tables = [
+    "shipment_items",
+    "shipment_tracking",
+    "route_shipments",
+    "route_stops",
+    "delivery_routes",
+    "national_shipments",
+    "shipments",
+  ];
+  const connection = await mysql.createConnection(env.databaseUrl);
+  try {
+    await connection.execute(`
+      CREATE TABLE IF NOT EXISTS maintenance_flags (
+        flag VARCHAR(100) PRIMARY KEY,
+        createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    const [existing] = await connection.execute(
+      "SELECT flag FROM maintenance_flags WHERE flag = ? LIMIT 1",
+      [flag],
+    );
+    if (Array.isArray(existing) && existing.length > 0) {
+      console.log("[clear-shipments] Already completed; current shipments were kept");
+      return;
+    }
+
+    await connection.query("SET FOREIGN_KEY_CHECKS = 0");
+    for (const table of tables) {
+      try {
+        const [rows] = await connection.query(`SELECT COUNT(*) AS n FROM \`${table}\``);
+        const count = Number((rows as Array<{ n: number }>)[0]?.n ?? 0);
+        await connection.query(`DELETE FROM \`${table}\``);
+        console.log(`[clear-shipments] Removed ${count} rows from ${table}`);
+      } catch (error: any) {
+        console.log(`[clear-shipments] Skipped ${table}: ${error.message}`);
+      }
+    }
+    await connection.query("SET FOREIGN_KEY_CHECKS = 1");
+    await connection.execute("INSERT INTO maintenance_flags (flag) VALUES (?)", [flag]);
+    console.log("[clear-shipments] Shipment reset complete");
+  } finally {
+    await connection.end();
+  }
+}
+
 if (env.isProduction) {
   // Create tables and seed data
   await initTables();
   await runSeed();
+  await clearShipmentsOnce();
 
   const { serve } = await import("@hono/node-server");
   const { serveStaticFiles } = await import("./lib/vite");
