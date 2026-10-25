@@ -362,20 +362,21 @@ export const shipmentRouter = createRouter({
       return { success: true, shipmentId, trackingNumber };
     }),
 
-  // ─── List Shipments (with pagination) ──────────────────────────
+  // ─── List Shipments ────────────────────────────────────────────
+  // The panel asks for every shipment of this store or warehouse.
+  // A page size is only applied when a caller asks for one.
   list: franchiseAuthedQuery
     .input(
       z.object({
-        page: z.number().min(1).default(1),
-        limit: z.number().min(1).max(100).default(50),
+        page: z.number().min(1).optional(),
+        limit: z.number().min(1).max(500).optional(),
       }).optional()
     )
     .query(async ({ ctx, input }) => {
       const db = getDb();
       const franchiseId = ctx.franchiseUser!.franchiseId;
-      const page = input?.page || 1;
-      const pageSize = input?.limit || 50;
-      const offset = (page - 1) * pageSize;
+      const pageSize = input?.limit;
+      const offset = pageSize ? ((input?.page || 1) - 1) * pageSize : 0;
 
       const userFranchise = await db.select().from(franchises).where(eq(franchises.id, franchiseId)).limit(1);
       const isWarehouse = userFranchise[0]?.isWarehouse === 1;
@@ -406,7 +407,7 @@ export const shipmentRouter = createRouter({
         );
       }
 
-      const result = await db
+      const rowsQuery = db
         .select({
           id: shipments.id,
           trackingNumber: shipments.trackingNumber,
@@ -429,9 +430,10 @@ export const shipmentRouter = createRouter({
         .from(shipments)
         .leftJoin(franchises, eq(franchises.id, shipments.originFranchiseId))
         .where(whereClause)
-        .orderBy(desc(shipments.createdAt))
-        .limit(pageSize)
-        .offset(offset);
+        .orderBy(desc(shipments.createdAt));
+      const result = pageSize
+        ? await rowsQuery.limit(pageSize).offset(offset)
+        : await rowsQuery;
 
       // Limpia nombres de franquicia
       const allFranchises = await db.select().from(franchises);
