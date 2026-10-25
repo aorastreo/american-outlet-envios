@@ -1169,6 +1169,23 @@ export const shipmentRouter = createRouter({
         throw new TRPCError({ code: "BAD_REQUEST", message: `${invalidos.length} envio(s) no estan en estado valido para enviar a otra bodega` });
       }
 
+      const allFranchises = await db.select().from(franchises);
+      const franchiseById = new Map(allFranchises.map((franchise) => [franchise.id, franchise]));
+      const wrongRoute = envios.filter((envio) => {
+        const move = needsInterBodega({
+          originName: franchiseById.get(envio.originFranchiseId)?.displayName,
+          destinationName: franchiseById.get(envio.destinationFranchiseId)?.displayName,
+          warehouseLocation: envio.warehouseLocation,
+        });
+        return !move.needsTransfer || move.targetBodega !== input.targetBodega;
+      });
+      if (wrongRoute.length > 0) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `${wrongRoute.length} envio(s) no deben ir a ${input.targetBodega}. Sepáralos de los que sí siguen hacia esa bodega.`,
+        });
+      }
+
       // Determine this warehouse's name for tracking
       const myBodegaName = userFranchise[0]?.name || "";
       const myName = myBodegaName.toLowerCase().includes("cedi") ? "Bodega Cedi" : "Bodega Pavon";

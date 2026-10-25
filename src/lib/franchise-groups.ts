@@ -42,3 +42,28 @@ export function needsInterBodega(shipment: {
 
   return { needsTransfer: false, targetBodega: "" };
 }
+
+export function mixedShipmentMoveMessage(
+  shipments: Array<{
+    originName?: string | null;
+    destinationName?: string | null;
+    warehouseLocation?: string | null;
+  }>,
+): string | null {
+  if (shipments.length < 2) return null;
+
+  const moves = shipments.map((shipment) => needsInterBodega(shipment));
+  const directCount = moves.filter((move) => !move.needsTransfer).length;
+  const targets = [...new Set(moves.filter((move) => move.needsTransfer).map((move) => move.targetBodega))];
+
+  if (directCount > 0 && targets.length > 0) {
+    const transferCount = moves.length - directCount;
+    return `No se pueden enviar juntos. ${directCount} van directo a la tienda y ${transferCount} deben seguir a ${targets.join(" o ")}. Sepáralos.`;
+  }
+
+  if (targets.length > 1) {
+    return `No se pueden enviar juntos. Unos siguen a ${targets[0]} y otros a ${targets[1]}. Sepáralos.`;
+  }
+
+  return null;
+}

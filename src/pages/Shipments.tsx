@@ -39,7 +39,7 @@ import {
 import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
 import toast from "react-hot-toast";
-import { getFranchiseGroup, needsInterBodega } from "@/lib/franchise-groups";
+import { getFranchiseGroup, mixedShipmentMoveMessage, needsInterBodega } from "@/lib/franchise-groups";
 
 /* ─── tab definitions ─────────────────────────────────────────── */
 
@@ -667,7 +667,9 @@ export default function Shipments() {
                   <p className="text-xs text-[#8A8A8A]">{shipment.currentLocationName}</p>
                   {shipment.warehouseLocation && (
                     <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded bg-teal-50 text-teal-700 border border-teal-200">
-                      📍 {shipment.warehouseLocation}
+                      {shipment.status === "CREADO"
+                        ? `Sale primero a ${shipment.warehouseLocation}`
+                        : shipment.warehouseLocation}
                     </span>
                   )}
                   {/* Inter-bodega badge */}
@@ -802,7 +804,12 @@ export default function Shipments() {
       return;
     }
 
-    // Check if any needs inter-bodega transfer
+    const mixedMove = mixedShipmentMoveMessage(seleccionados);
+    if (mixedMove) {
+      toast.error(mixedMove);
+      return;
+    }
+
     const interBodega = seleccionados.length > 0 ? needsInterBodega(seleccionados[0]) : { needsTransfer: false, targetBodega: "" };
 
     if (interBodega.needsTransfer) {
@@ -925,6 +932,7 @@ export default function Shipments() {
       const selectedShipments = filteredShipments.filter((s) => selectedIds.includes(s.id));
       const interBodega = selectedShipments.length > 0 ? needsInterBodega(selectedShipments[0]) : { needsTransfer: false, targetBodega: "" };
       const hasInterBodega = selectedShipments.some((s) => needsInterBodega(s).needsTransfer);
+      const mixedMove = mixedShipmentMoveMessage(selectedShipments);
 
       return (
         <>
@@ -932,7 +940,9 @@ export default function Shipments() {
             <MapPin className="w-3.5 h-3.5 text-teal-600" />
             <span className="text-sm font-medium text-teal-700">{user?.franchise?.displayName || "Bodega"}</span>
           </div>
-          {hasInterBodega ? (
+          {mixedMove ? (
+            <span className="text-sm text-orange-700 max-w-sm">{mixedMove}</span>
+          ) : hasInterBodega ? (
             <Button
               onClick={enviarADestino}
               disabled={enviarDestinoMutation.isPending || enviarInterBodegaMutation.isPending}
