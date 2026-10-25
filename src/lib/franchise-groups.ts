@@ -121,3 +121,33 @@ export function shipmentPlaceText(shipment: {
 
   return { badge: null, chip: null };
 }
+
+export function historyStepLabel(status: string, notes: string | null | undefined, fallback: string): string {
+  const note = (notes || "").trim();
+  const place = (pattern: RegExp) => note.match(pattern)?.[1]?.trim().replace(/\s+/g, " ") || "";
+
+  if (status === "ENVIADO_A_BODEGA") {
+    const to = place(/hacia\s+(.+)$/i) || place(/Enviado a\s+(.+?)(?:\s+por|\s+desde|$)/i);
+    if (to) return `En camino a ${to}`;
+  }
+  if (status === "RECIBIDO_EN_BODEGA") {
+    const at = place(/Recibido en\s+(.+)$/i);
+    if (at) return `En ${at}`;
+  }
+  if (status === "ENVIADO_A_DESTINO") {
+    const to = place(/hacia\s+(.+)$/i);
+    if (to) return `En camino a ${to}`;
+    if (/sabana/i.test(note)) return "En camino a Bodega Sabana";
+  }
+  if (status === "RECIBIDO_EN_DESTINO" && /cliente/i.test(note)) return "Entregado al cliente";
+  if (status === "EN_RUTA") {
+    const to = place(/hacia\s+(.+)$/i).replace(/^Recogida\s*-\s*/i, "");
+    if (to) return `En ruta a ${to}`;
+  }
+  if (status === "EN_PARADA") {
+    const to = place(/lleg[oó] a\s+(.+?)(?:\s+-|$)/i).replace(/^Recogida\s*-\s*/i, "");
+    if (to) return `En el punto de ${to}`;
+  }
+  if (status === "NO_RECOGIDO") return "No recogido";
+  return fallback;
+}

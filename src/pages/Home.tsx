@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { buildShipmentTimeline, getCurrentStepIndex } from "../lib/timeline";
-import { shipmentPlaceText } from "../lib/franchise-groups";
+import { historyStepLabel, shipmentPlaceText } from "../lib/franchise-groups";
 import { es } from "date-fns/locale";
 
 const logoUrl = "/logo.jpg";
@@ -416,7 +416,7 @@ export default function Home() {
                   <div className="relative pl-6">
                     <div className="absolute left-2 top-0 bottom-0 w-0.5 bg-[#F0F0F0]" />
                     <div className="space-y-5">
-                      {shipment.tracking?.map(
+                      {[...(shipment.tracking || [])].reverse().map(
                         (
                           track: {
                             id: number;
@@ -427,6 +427,7 @@ export default function Home() {
                           index: number
                         ) => {
                           const cfg = getStatusConfig(track.status);
+                          const label = historyStepLabel(track.status, track.notes, cfg?.label || track.status);
                           return (
                             <div key={track.id} className="relative">
                               <div
@@ -444,7 +445,7 @@ export default function Home() {
                                       className={cfg.color}
                                     >
                                       <cfg.icon className="w-3 h-3 mr-1" />
-                                      {cfg.label}
+                                      {label}
                                     </Badge>
                                   )}
                                   <span className="text-xs text-[#A3A3A3]">
@@ -560,7 +561,7 @@ export default function Home() {
                 <div className="relative pl-6">
                   <div className="absolute left-2 top-0 bottom-0 w-0.5 bg-[#F0F0F0]" />
                   <div className="space-y-6">
-                    {warranty.tracking?.map((track: any, index: number) => (
+                    {[...(warranty.tracking || [])].reverse().map((track: any, index: number) => (
                       <div key={track.id} className="relative">
                         <div className={`absolute -left-4 w-3 h-3 rounded-full border-2 ${index === 0 ? "bg-[#C8102E] border-[#C8102E]" : "bg-white border-[#D4D4D4]"}`} />
                         <div className="ml-4">
