@@ -5,6 +5,22 @@ import { getDb } from "./queries/connection";
 import { deliveryRoutes, routeStops, routeShipments, shipments, shipmentItems, shipmentTracking, franchises } from "@db/schema";
 import { TRPCError } from "@trpc/server";
 
+function isPickupFranchise(franchise: { code?: string | null; displayName?: string | null; name?: string | null }) {
+  const code = (franchise.code || "").toLowerCase();
+  const name = `${franchise.displayName || ""} ${franchise.name || ""}`.toLowerCase();
+  return code === "grecia" || code === "palmares" || code === "san_ramon"
+    || name.includes("recogida")
+    || name.includes("grecia")
+    || name.includes("palmares")
+    || name.includes("san ramon");
+}
+
+function readyForDriverRoute(shipment: { status: string; warehouseLocation?: string | null }) {
+  if (shipment.status === "NO_RECOGIDO") return true;
+  return shipment.warehouseLocation === "Bodega Cedi"
+    && (shipment.status === "RECIBIDO_EN_BODEGA" || shipment.status === "CREADO");
+}
+
 export const routeRouter = createRouter({
   // ─── Create Route ──────────────────────────────────────────────
   create: franchiseAuthedQuery
@@ -156,9 +172,7 @@ export const routeRouter = createRouter({
 
       // Get pickup point franchise IDs
       const allFranchises = await db.select().from(franchises);
-      const pickupIds = allFranchises
-        .filter(f => f.displayName?.toLowerCase().includes("recogida"))
-        .map(f => f.id);
+      const pickupIds = allFranchises.filter(isPickupFranchise).map(f => f.id);
 
       for (const shipmentId of input.shipmentIds) {
         // Validate: only pickup point shipments can be assigned to routes
@@ -171,6 +185,12 @@ export const routeRouter = createRouter({
           throw new TRPCError({
             code: "BAD_REQUEST",
             message: `El envio ${shipment[0].trackingNumber} va a ${destFranchise?.displayName || "tienda"} - solo envios a puntos de recogida pueden ir en ruta de camion`
+          });
+        }
+        if (!readyForDriverRoute(shipment[0])) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: `El envio ${shipment[0].trackingNumber} todavia no esta en Bodega Cedi. Primero tiene que llegar ahi.`,
           });
         }
 
@@ -369,14 +389,8 @@ export const routeRouter = createRouter({
     .query(async ({ input }) => {
       const db = getDb();
 
-      // Get all pickup point franchise IDs: by code, name, or hardcoded IDs
       const allFranchises = await db.select().from(franchises);
-      const pickupCodes = ["grecia", "palmares", "san_ramon"];
-      const pickupFranchises = allFranchises.filter(f =>
-        pickupCodes.includes(f.code?.toLowerCase() || "") ||
-        f.displayName?.toLowerCase().includes("recogida") ||
-        [5, 6, 7].includes(f.id)
-      );
+      const pickupFranchises = allFranchises.filter(isPickupFranchise);
       const pickupIds = pickupFranchises.map(f => f.id);
 
       if (pickupIds.length === 0) return [];
@@ -418,7 +432,7 @@ export const routeRouter = createRouter({
         .where(eq(routeShipments.status, "ASIGNADO"));
       const assignedIds = new Set(assigned.map(a => a.shipmentId));
 
-      const available = filteredShipments.filter(s => !assignedIds.has(s.id));
+      const available = filteredShipments.filter(s => !assignedIds.has(s.id) && readyForDriverRoute(s));
       if (available.length === 0) return [];
 
       const shipmentIds = available.map(s => s.id);
@@ -440,12 +454,7 @@ export const routeRouter = createRouter({
       const db = getDb();
       const allFranchises = await db.select().from(franchises);
       // Detect pickup points: by code (grecia, palmares, san_ramon), by name (recogida), or by hardcoded IDs
-      const pickupCodes = ["grecia", "palmares", "san_ramon"];
-      const pickupPoints = allFranchises.filter(f =>
-        pickupCodes.includes(f.code?.toLowerCase() || "") ||
-        f.displayName?.toLowerCase().includes("recogida") ||
-        [5, 6, 7].includes(f.id)
-      );
+      const pickupPoints = allFranchises.filter(isPickupFranchise);
       const pickupIds = pickupPoints.map(f => f.id);
 
       if (pickupIds.length === 0) return [];
@@ -463,7 +472,7 @@ export const routeRouter = createRouter({
       const assigned = await db.select({ shipmentId: routeShipments.shipmentId }).from(routeShipments)
         .where(eq(routeShipments.status, "ASIGNADO"));
       const assignedIds = new Set(assigned.map(a => a.shipmentId));
-      const available = pending.filter(s => !assignedIds.has(s.id));
+      const available = pending.filter(s => !assignedIds.has(s.id) && readyForDriverRoute(s));
 
       if (available.length === 0) return [];
 
@@ -615,14 +624,8 @@ export const routeRouter = createRouter({
     .query(async () => {
       const db = getDb();
 
-      // Find pickup point franchise IDs
       const allFranchises = await db.select().from(franchises);
-      const pickupCodes = ["grecia", "palmares", "san_ramon"];
-      const pickupFranchises = allFranchises.filter(f =>
-        pickupCodes.includes(f.code?.toLowerCase() || "") ||
-        f.displayName?.toLowerCase().includes("recogida") ||
-        [5, 6, 7].includes(f.id)
-      );
+      const pickupFranchises = allFranchises.filter(isPickupFranchise);
       const pickupIds = pickupFranchises.map(f => f.id);
 
       if (pickupIds.length === 0) return [];
