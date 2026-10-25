@@ -325,17 +325,10 @@ export default function Shipments() {
     }
   }, [isBodega, TABS, activeTab, urlTab, defaultTab]);
 
-  // Date filter for "Enviados" tab (stores only) — default to today, recalculated fresh on mount
+  // Date filter for the store "Enviados" tab. Off until the store turns it on.
+  // The date field starts on today, and keeps whatever day the store picks.
   const [dateFilter, setDateFilter] = useState<string>(() => format(new Date(), "yyyy-MM-dd"));
-  const [dateFilterEnabled, setDateFilterEnabled] = useState<boolean>(true);
-
-  // Reset date to today whenever entering ENVIADOS tab
-  useEffect(() => {
-    if (activeTab === "ENVIADOS" && dateFilterEnabled) {
-      const today = format(new Date(), "yyyy-MM-dd");
-      setDateFilter((prev) => (prev !== today ? today : prev));
-    }
-  }, [activeTab, dateFilterEnabled]);
+  const [dateFilterEnabled, setDateFilterEnabled] = useState<boolean>(false);
 
   // Sync tab with URL
   useEffect(() => {
