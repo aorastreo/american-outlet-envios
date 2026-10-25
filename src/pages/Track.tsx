@@ -13,6 +13,7 @@ import {
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { buildShipmentTimeline, getCurrentStepIndex } from "../lib/timeline";
+import { shipmentPlaceText } from "../lib/franchise-groups";
 
 function cleanName(name: string | undefined): string {
   if (!name) return "";
@@ -157,7 +158,16 @@ export default function Track() {
                   <div className="flex-1">
                     <div className="flex items-center gap-3 flex-wrap">
                       {shipment.invoiceNumber && <p className="text-sm text-[#8A8A8A]">Factura: #{shipment.invoiceNumber}</p>}
-                      {(() => { const cfg = getStatusConfig(shipment.status); return cfg ? <Badge variant="secondary" className={cfg.color}><cfg.icon className="w-3 h-3 mr-1" />{cfg.label}</Badge> : null; })()}
+                      {(() => {
+                        const cfg = getStatusConfig(shipment.status);
+                        const place = shipmentPlaceText({
+                          status: shipment.status,
+                          originName: shipment.originFranchise?.displayName,
+                          destinationName: shipment.destinationFranchise?.displayName,
+                          warehouseLocation: (shipment as any).warehouseLocation,
+                        });
+                        return cfg ? <Badge variant="secondary" className={cfg.color}><cfg.icon className="w-3 h-3 mr-1" />{place.badge || cfg.label}</Badge> : null;
+                      })()}
                     </div>
                     <div className="flex items-center gap-4 mt-3 text-sm text-[#525252] flex-wrap">
                       <span className="flex items-center gap-1"><User className="w-4 h-4" />{shipment.senderName}</span>

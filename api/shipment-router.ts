@@ -67,41 +67,55 @@ function buildTimelineSteps(
     const originIsCediClean = originNameClean.includes("cedi");
     const destIsCediClean = destNameClean.includes("cedi");
     steps.push({ status: "CREADO", label: "Creado", desc: originName ? `En ${originName}` : "Envio registrado" });
-    if (isSameBodega) {
+    if (destIsSabana && !isSameBodega) {
+      if (!originIsCediClean) {
+        steps.push({ status: "ENVIADO_A_BODEGA", label: "Enviado a CEDI", desc: "Bodega envia a bodega" });
+        steps.push({ status: "RECIBIDO_EN_BODEGA", label: "En CEDI", desc: "Bodega recibio" });
+      }
+      steps.push({ status: "ENVIADO_A_DESTINO", label: "En camino a Bodega Sabana", desc: "Va hacia Bodega Sabana" });
+      steps.push({ status: "RECIBIDO_EN_DESTINO", label: "En Bodega Sabana", desc: "Sabana recibio el paquete" });
+    } else if (isSameBodega) {
       steps.push({ status: "RECIBIDO_EN_BODEGA", label: `En ${originName || "Bodega"}`, desc: "Listo para retiro en bodega" });
+      steps.push({ status: "RECIBIDO_EN_DESTINO", label: "Entregado al cliente", desc: "El cliente recogio el paquete en bodega" });
     } else if (originIsCediClean || destIsCediClean) {
       const destBodega = destName || "Bodega Destino";
       steps.push({ status: "ENVIADO_A_BODEGA", label: `Enviado a ${destBodega}`, desc: "Bodega envia a bodega destino" });
       steps.push({ status: "RECIBIDO_EN_BODEGA", label: `En ${destBodega}`, desc: "Listo para retiro en bodega" });
+      steps.push({ status: "RECIBIDO_EN_DESTINO", label: "Entregado al cliente", desc: `El cliente recogio el paquete en ${destBodega}` });
     } else {
-      steps.push({ status: "ENVIADO_A_BODEGA", label: `Enviado a Cedi`, desc: "Bodega envia a bodega" });
-      steps.push({ status: "RECIBIDO_EN_BODEGA", label: `En Cedi`, desc: "Bodega recibio" });
+      steps.push({ status: "ENVIADO_A_BODEGA", label: "Enviado a Cedi", desc: "Bodega envia a bodega" });
+      steps.push({ status: "RECIBIDO_EN_BODEGA", label: "En Cedi", desc: "Bodega recibio" });
       const destBodega = destName || "Bodega Destino";
       steps.push({ status: "ENVIADO_A_BODEGA", label: `Enviado a ${destBodega}`, desc: "Bodega envia a bodega destino" });
       steps.push({ status: "RECIBIDO_EN_BODEGA", label: `En ${destBodega}`, desc: "Listo para retiro en bodega" });
+      steps.push({ status: "RECIBIDO_EN_DESTINO", label: "Entregado al cliente", desc: `El cliente recogio el paquete en ${destBodega}` });
     }
   } else if (destIsWarehouse) {
     // Tienda -> Bodega
     const originIsMioStore = originNameLower.includes("chiles") || originNameLower.includes("pavon") || originNameLower.includes("santa rosa") || originNameLower.includes("ganga");
     const originIsVendedorStore = originNameLower.includes("boca arenal") || originNameLower.includes("florencia") || originNameLower.includes("fortuna") || originNameLower.includes("quesada") || originNameLower.includes("puerto viejo");
     const firstBodegaName = originIsMioStore ? "Bodega Pavon" : originIsVendedorStore ? "CEDI" : "Bodega";
-    const destBodegaName = destName || (destIsCedi ? "CEDI" : destIsPavon ? "Bodega Pavon" : destIsSabana ? "Bodega Sabana" : "Bodega");
+    const destBodegaName = destName || (destNameLower.includes("cedi") ? "CEDI" : destNameLower.includes("pavon") ? "Bodega Pavon" : destIsSabana ? "Bodega Sabana" : "Bodega");
 
     steps.push({ status: "CREADO", label: "Creado", desc: "Envio registrado" });
     steps.push({ status: "ENVIADO_A_BODEGA", label: `Enviado a ${firstBodegaName}`, desc: "Tienda envia a bodega" });
     steps.push({ status: "RECIBIDO_EN_BODEGA", label: `En ${firstBodegaName}`, desc: "Bodega recibio" });
 
+    const sameWarehouse = firstBodegaName.toLowerCase().replace("bodega ", "").trim() === destBodegaName.toLowerCase().replace("bodega ", "").trim();
     if (destIsSabana) {
       const firstIsCedi = firstBodegaName.toLowerCase().includes("cedi");
       if (!firstIsCedi) {
         steps.push({ status: "ENVIADO_A_BODEGA", label: "Enviado a CEDI", desc: "Bodega envia a bodega" });
         steps.push({ status: "RECIBIDO_EN_BODEGA", label: "En CEDI", desc: "Bodega recibio" });
       }
-      steps.push({ status: "ENVIADO_A_BODEGA", label: `Enviado a Bodega Sabana`, desc: "Bodega envia a bodega destino" });
-      steps.push({ status: "RECIBIDO_EN_BODEGA", label: `En Bodega Sabana`, desc: "Listo para retiro en bodega" });
-    } else if (firstBodegaName !== destBodegaName) {
+      steps.push({ status: "ENVIADO_A_DESTINO", label: "En camino a Bodega Sabana", desc: "Va hacia Bodega Sabana" });
+      steps.push({ status: "RECIBIDO_EN_DESTINO", label: "En Bodega Sabana", desc: "Sabana recibio el paquete" });
+    } else if (!sameWarehouse) {
       steps.push({ status: "ENVIADO_A_BODEGA", label: `Enviado a ${destBodegaName}`, desc: "Bodega envia a bodega destino" });
       steps.push({ status: "RECIBIDO_EN_BODEGA", label: `En ${destBodegaName}`, desc: "Listo para retiro en bodega" });
+      steps.push({ status: "RECIBIDO_EN_DESTINO", label: "Entregado al cliente", desc: `El cliente recogio el paquete en ${destBodegaName}` });
+    } else {
+      steps.push({ status: "RECIBIDO_EN_DESTINO", label: "Entregado al cliente", desc: `El cliente recogio el paquete en ${destBodegaName}` });
     }
   } else if (originIsWarehouse) {
     // Bodega -> Tienda
@@ -654,7 +668,7 @@ export const shipmentRouter = createRouter({
         if (input.newStatus === "ENVIADO_A_DESTINO" && transfer.needsTransfer) {
           throw new TRPCError({ code: "BAD_REQUEST", message: `Este envio debe pasar por ${transfer.targetBodega} antes de ir al destino` });
         }
-        if (input.newStatus === "ENVIADO_A_DESTINO" && destFranchise[0]?.isWarehouse === 1) {
+        if (input.newStatus === "ENVIADO_A_DESTINO" && destFranchise[0]?.isWarehouse === 1 && !isSabanaWarehouse(destFranchise[0])) {
           throw new TRPCError({ code: "BAD_REQUEST", message: "Este envio se retira en la bodega. Marcalo como entregado al cliente." });
         }
       }
@@ -1156,6 +1170,13 @@ export const shipmentRouter = createRouter({
       }).needsTransfer);
       if (mustTransfer.length > 0) {
         throw new TRPCError({ code: "BAD_REQUEST", message: `${mustTransfer.length} envio(s) deben pasar por la otra bodega antes de ir al destino` });
+      }
+      const customerPickup = envios.filter((envio) => {
+        const dest = franchiseById.get(envio.destinationFranchiseId);
+        return dest?.isWarehouse === 1 && !isSabanaWarehouse(dest);
+      });
+      if (customerPickup.length > 0) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: `${customerPickup.length} envio(s) se retiran en la bodega. Marcalos como entregado al cliente.` });
       }
 
       // Determine this warehouse's name for tracking

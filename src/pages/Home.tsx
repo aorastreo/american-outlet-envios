@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { buildShipmentTimeline, getCurrentStepIndex } from "../lib/timeline";
+import { shipmentPlaceText } from "../lib/franchise-groups";
 import { es } from "date-fns/locale";
 
 const logoUrl = "/logo.jpg";
@@ -248,13 +249,19 @@ export default function Home() {
                       )}
                       {(() => {
                         const cfg = getStatusConfig(shipment.status);
+                        const place = shipmentPlaceText({
+                          status: shipment.status,
+                          originName: shipment.originFranchise?.displayName,
+                          destinationName: shipment.destinationFranchise?.displayName,
+                          warehouseLocation: (shipment as any).warehouseLocation,
+                        });
                         return cfg ? (
                           <Badge
                             variant="secondary"
                             className={cfg.color}
                           >
                             <cfg.icon className="w-3 h-3 mr-1" />
-                            {cfg.label}
+                            {place.badge || cfg.label}
                           </Badge>
                         ) : null;
                       })()}

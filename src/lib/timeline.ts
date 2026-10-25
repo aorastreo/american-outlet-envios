@@ -89,18 +89,28 @@ export function buildShipmentTimeline(
     steps = [
       { status: "CREADO", label: "Creado", desc: originName ? `En ${originName}` : "Envio registrado" },
     ];
-    if (isSameBodega) {
+    if (destIsSabana && !isSameBodega) {
+      if (!originIsCediClean) {
+        steps.push({ status: "ENVIADO_A_BODEGA", label: "Enviado a CEDI", desc: "Bodega envia a bodega" });
+        steps.push({ status: "RECIBIDO_EN_BODEGA", label: "En CEDI", desc: "Bodega recibio" });
+      }
+      steps.push({ status: "ENVIADO_A_DESTINO", label: "En camino a Bodega Sabana", desc: "Va hacia Bodega Sabana" });
+      steps.push({ status: "RECIBIDO_EN_DESTINO", label: "En Bodega Sabana", desc: "Sabana recibio el paquete" });
+    } else if (isSameBodega) {
       steps.push({ status: "RECIBIDO_EN_BODEGA", label: `En ${originName || "Bodega"}`, desc: "Listo para retiro en bodega" });
+      steps.push({ status: "RECIBIDO_EN_DESTINO", label: "Entregado al cliente", desc: "El cliente recogio el paquete en bodega" });
     } else if (originIsCediClean || destIsCediClean) {
       const destBodega = destName || "Bodega Destino";
       steps.push({ status: "ENVIADO_A_BODEGA", label: `Enviado a ${destBodega}`, desc: "Bodega envia a bodega destino" });
       steps.push({ status: "RECIBIDO_EN_BODEGA", label: `En ${destBodega}`, desc: "Listo para retiro en bodega" });
+      steps.push({ status: "RECIBIDO_EN_DESTINO", label: "Entregado al cliente", desc: `El cliente recogio el paquete en ${destBodega}` });
     } else {
-      steps.push({ status: "ENVIADO_A_BODEGA", label: `Enviado a Cedi`, desc: "Bodega envia a bodega" });
-      steps.push({ status: "RECIBIDO_EN_BODEGA", label: `En Cedi`, desc: "Bodega recibio" });
+      steps.push({ status: "ENVIADO_A_BODEGA", label: "Enviado a Cedi", desc: "Bodega envia a bodega" });
+      steps.push({ status: "RECIBIDO_EN_BODEGA", label: "En Cedi", desc: "Bodega recibio" });
       const destBodega = destName || "Bodega Destino";
       steps.push({ status: "ENVIADO_A_BODEGA", label: `Enviado a ${destBodega}`, desc: "Bodega envia a bodega destino" });
       steps.push({ status: "RECIBIDO_EN_BODEGA", label: `En ${destBodega}`, desc: "Listo para retiro en bodega" });
+      steps.push({ status: "RECIBIDO_EN_DESTINO", label: "Entregado al cliente", desc: `El cliente recogio el paquete en ${destBodega}` });
     }
   }
   // --- TIENDA → BODEGA ---
@@ -114,17 +124,21 @@ export function buildShipmentTimeline(
     steps.push({ status: "ENVIADO_A_BODEGA", label: `Enviado a ${firstBodegaName}`, desc: "Tienda envia a bodega" });
     steps.push({ status: "RECIBIDO_EN_BODEGA", label: `En ${firstBodegaName}`, desc: "Bodega recibio" });
 
+    const sameWarehouse = firstBodegaName.toLowerCase().replace("bodega ", "").trim() === destBodegaName.toLowerCase().replace("bodega ", "").trim();
     if (destIsSabana) {
       const firstIsCedi = firstBodegaName.toLowerCase().includes("cedi");
       if (!firstIsCedi) {
         steps.push({ status: "ENVIADO_A_BODEGA", label: "Enviado a CEDI", desc: "Bodega envia a bodega" });
         steps.push({ status: "RECIBIDO_EN_BODEGA", label: "En CEDI", desc: "Bodega recibio" });
       }
-      steps.push({ status: "ENVIADO_A_BODEGA", label: `Enviado a Bodega Sabana`, desc: "Bodega envia a bodega destino" });
-      steps.push({ status: "RECIBIDO_EN_BODEGA", label: `En Bodega Sabana`, desc: "Listo para retiro en bodega" });
-    } else if (firstBodegaName !== destBodegaName) {
+      steps.push({ status: "ENVIADO_A_DESTINO", label: "En camino a Bodega Sabana", desc: "Va hacia Bodega Sabana" });
+      steps.push({ status: "RECIBIDO_EN_DESTINO", label: "En Bodega Sabana", desc: "Sabana recibio el paquete" });
+    } else if (!sameWarehouse) {
       steps.push({ status: "ENVIADO_A_BODEGA", label: `Enviado a ${destBodegaName}`, desc: "Bodega envia a bodega destino" });
       steps.push({ status: "RECIBIDO_EN_BODEGA", label: `En ${destBodegaName}`, desc: "Listo para retiro en bodega" });
+      steps.push({ status: "RECIBIDO_EN_DESTINO", label: "Entregado al cliente", desc: `El cliente recogio el paquete en ${destBodegaName}` });
+    } else {
+      steps.push({ status: "RECIBIDO_EN_DESTINO", label: "Entregado al cliente", desc: `El cliente recogio el paquete en ${destBodegaName}` });
     }
   }
   // --- BODEGA → TIENDA ---
