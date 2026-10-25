@@ -18,7 +18,7 @@ import { useState } from "react";
 import { useFranchiseAuth } from "@/hooks/useFranchiseAuth";
 import toast from "react-hot-toast";
 import { buildShipmentTimeline, getCurrentStepIndex } from "../lib/timeline";
-import { historyStepLabel, needsInterBodega, shipmentPlaceText } from "../lib/franchise-groups";
+import { getFranchiseGroup, historyStepLabel, needsInterBodega, shipmentPlaceText } from "../lib/franchise-groups";
 
 // Safe helper to get status config - never returns undefined
 function getStatusConfig(status: string) {
@@ -134,6 +134,32 @@ export default function ShipmentDetail() {
         newStatus: "RECIBIDO_EN_BODEGA",
         warehouseLocation: myWarehouse,
         notes: `Recibido en ${myWarehouse}`,
+      });
+      return;
+    }
+
+    if (newStatus === "ENVIADO_A_BODEGA") {
+      const place = (shipment as any)?.warehouseLocation
+        || (getFranchiseGroup(shipment?.originFranchise?.displayName) === "vendedor" ? "Bodega Cedi" : "Bodega Pavon");
+      updateStatusMutation.mutate({
+        id: shipmentId,
+        newStatus: "ENVIADO_A_BODEGA",
+        warehouseLocation: place,
+        notes: `Enviado hacia ${place}`,
+      });
+      return;
+    }
+
+    if (newStatus === "ENVIADO_A_DESTINO") {
+      const dest = (shipment?.destinationFranchise?.displayName || shipment?.destinationName || "la tienda")
+        .replace(/AMERICAN OUTLET\s*/i, "")
+        .replace(/^Recogida\s*-\s*/i, "")
+        .trim();
+      updateStatusMutation.mutate({
+        id: shipmentId,
+        newStatus: "ENVIADO_A_DESTINO",
+        notes: actionNotes.trim() || `Enviado hacia ${dest}`,
+        receiverName: undefined,
       });
       return;
     }

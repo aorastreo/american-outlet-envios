@@ -1193,7 +1193,7 @@ export const shipmentRouter = createRouter({
           shipmentId: envio.id,
           status: "ENVIADO_A_DESTINO",
           locationId: franchiseId,
-          notes: `Enviado a destino desde ${normalizedName} (${envios.length} envios en lote)`,
+          notes: `Enviado hacia ${cleanFranchiseName(franchiseById.get(envio.destinationFranchiseId)?.displayName || franchiseById.get(envio.destinationFranchiseId)?.name).replace(/^Recogida\s*-\s*/i, "")}`,
           createdBy: ctx.franchiseUser!.id,
         });
       }
@@ -1295,7 +1295,7 @@ export const shipmentRouter = createRouter({
           shipmentId: envio.id,
           status: "RECIBIDO_EN_DESTINO",
           locationId: franchiseId,
-          notes: `Recibido en tienda destino (${envios.length} envios en lote)`,
+          notes: `Recibido en ${cleanFranchiseName(userFranchise[0]?.displayName || userFranchise[0]?.name)}`,
           createdBy: ctx.franchiseUser!.id,
         });
       }

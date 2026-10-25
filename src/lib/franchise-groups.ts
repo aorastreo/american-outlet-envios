@@ -124,7 +124,11 @@ export function shipmentPlaceText(shipment: {
 
 export function historyStepLabel(status: string, notes: string | null | undefined, fallback: string): string {
   const note = (notes || "").trim();
-  const place = (pattern: RegExp) => note.match(pattern)?.[1]?.trim().replace(/\s+/g, " ") || "";
+  const place = (pattern: RegExp) =>
+    (note.match(pattern)?.[1] || "")
+      .replace(/\s*\(\d+\s+envios en lote\)\s*$/i, "")
+      .trim()
+      .replace(/\s+/g, " ");
 
   if (status === "ENVIADO_A_BODEGA") {
     const to = place(/hacia\s+(.+)$/i) || place(/Enviado a\s+(.+?)(?:\s+por|\s+desde|$)/i);
@@ -139,7 +143,11 @@ export function historyStepLabel(status: string, notes: string | null | undefine
     if (to) return `En camino a ${to}`;
     if (/sabana/i.test(note)) return "En camino a Bodega Sabana";
   }
-  if (status === "RECIBIDO_EN_DESTINO" && /cliente/i.test(note)) return "Entregado al cliente";
+  if (status === "RECIBIDO_EN_DESTINO") {
+    if (/cliente/i.test(note)) return "Entregado al cliente";
+    const at = place(/Recibido en\s+(.+)$/i);
+    if (at && !/^tienda/i.test(at)) return `En ${at}`;
+  }
   if (status === "EN_RUTA") {
     const to = place(/hacia\s+(.+)$/i).replace(/^Recogida\s*-\s*/i, "");
     if (to) return `En ruta a ${to}`;
