@@ -99,6 +99,10 @@ export function shipmentPlaceText(shipment: {
     return { badge: place ? `En ${place}` : null, chip: null };
   }
 
+  if (shipment.status === "ENVIADO_A_DESTINO") {
+    return { badge: destination ? `En camino a ${destination}` : "En camino a la tienda", chip: null };
+  }
+
   if (shipment.status === "EN_RUTA") {
     return { badge: destination ? `En ruta a ${destination}` : "En ruta", chip: null };
   }
