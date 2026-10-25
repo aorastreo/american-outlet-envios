@@ -26,7 +26,7 @@ export const FRANCHISE_USERS = [
   { id: 8, username: "bodega", displayName: "Administrador Bodega", franchiseId: 8, role: "admin" },
 ];
 
-export const DEFAULT_PASSWORD = "american2025";
+export const DEFAULT_PASSWORD = "";
 
 export interface DemoShipment {
   id: number;
@@ -207,7 +207,7 @@ export function getUserForFranchise(franchiseId: number) {
 }
 
 export function loginFranchise(username: string, password: string) {
-  if (password !== DEFAULT_PASSWORD) return null;
+  if (!DEFAULT_PASSWORD || password !== DEFAULT_PASSWORD) return null;
   const user = FRANCHISE_USERS.find((u) => u.username === username);
   if (!user) return null;
   const franchise = FRANCHISES.find((f) => f.id === user.franchiseId);

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { eq, or, and, desc, sql, inArray } from "drizzle-orm";
 import { createRouter, publicQuery, franchiseAuthedQuery } from "./middleware";
+import { needsInterBodega } from "../src/lib/franchise-groups";
 import { getDb } from "./queries/connection";
 import {
   shipments,
@@ -623,22 +624,34 @@ export const shipmentRouter = createRouter({
 
       // Validate transitions
       const validTransitions: Record<string, string[]> = originIsWarehouse
-        ? { CREADO: ["ENVIADO_A_DESTINO", "CANCELADO"], ENVIADO_A_DESTINO: ["RECIBIDO_EN_DESTINO"], RECIBIDO_EN_DESTINO: [], CANCELADO: [], ENVIADO_A_BODEGA: [], RECIBIDO_EN_BODEGA: [] }
-        : { CREADO: ["ENVIADO_A_BODEGA", "CANCELADO"], ENVIADO_A_BODEGA: ["RECIBIDO_EN_BODEGA"], RECIBIDO_EN_BODEGA: ["ENVIADO_A_DESTINO"], ENVIADO_A_DESTINO: ["RECIBIDO_EN_DESTINO"], RECIBIDO_EN_DESTINO: [], CANCELADO: [] };
+        ? { CREADO: ["ENVIADO_A_DESTINO", "ENVIADO_A_BODEGA", "CANCELADO"], ENVIADO_A_DESTINO: ["RECIBIDO_EN_DESTINO"], RECIBIDO_EN_DESTINO: [], CANCELADO: [], ENVIADO_A_BODEGA: ["RECIBIDO_EN_BODEGA"], RECIBIDO_EN_BODEGA: ["ENVIADO_A_DESTINO", "ENVIADO_A_BODEGA"] }
+        : { CREADO: ["ENVIADO_A_BODEGA", "CANCELADO"], ENVIADO_A_BODEGA: ["RECIBIDO_EN_BODEGA"], RECIBIDO_EN_BODEGA: ["ENVIADO_A_DESTINO", "ENVIADO_A_BODEGA"], ENVIADO_A_DESTINO: ["RECIBIDO_EN_DESTINO"], RECIBIDO_EN_DESTINO: [], CANCELADO: [] };
 
       const allowed = validTransitions[shipment.status] || [];
       if (!allowed.includes(input.newStatus)) {
         throw new TRPCError({ code: "BAD_REQUEST", message: `No se puede cambiar de ${shipment.status} a ${input.newStatus}` });
       }
 
+      if (input.newStatus === "ENVIADO_A_DESTINO" || input.newStatus === "ENVIADO_A_BODEGA") {
+        const originFranchise = await db.select().from(franchises).where(eq(franchises.id, shipment.originFranchiseId)).limit(1);
+        const destFranchise = await db.select().from(franchises).where(eq(franchises.id, shipment.destinationFranchiseId)).limit(1);
+        const transfer = needsInterBodega({
+          originName: originFranchise[0]?.displayName,
+          destinationName: destFranchise[0]?.displayName,
+          warehouseLocation: shipment.warehouseLocation,
+        });
+        if (input.newStatus === "ENVIADO_A_DESTINO" && transfer.needsTransfer) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: `Este envio debe pasar por ${transfer.targetBodega} antes de ir al destino` });
+        }
+      }
+
       // Validate permissions
-      if (input.newStatus === "ENVIADO_A_BODEGA" && shipment.originFranchiseId !== franchiseId) {
-        throw new TRPCError({ code: "FORBIDDEN", message: "Solo la tienda de origen puede marcar como enviado a bodega" });
+      if (input.newStatus === "ENVIADO_A_BODEGA" && shipment.originFranchiseId !== franchiseId && !isWarehouse) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Solo la tienda de origen o la bodega puede marcar como enviado a bodega" });
       } else if (input.newStatus === "RECIBIDO_EN_BODEGA" && !isWarehouse) {
         throw new TRPCError({ code: "FORBIDDEN", message: "Solo la bodega puede marcar como recibido" });
       } else if (input.newStatus === "ENVIADO_A_DESTINO") {
-        const canConfirm = originIsWarehouse ? (shipment.originFranchiseId === franchiseId) : isWarehouse;
-        if (!canConfirm) throw new TRPCError({ code: "FORBIDDEN", message: "Solo la bodega puede marcar como enviado a destino" });
+        if (!isWarehouse) throw new TRPCError({ code: "FORBIDDEN", message: "Solo la bodega puede marcar como enviado a destino" });
       } else if (input.newStatus === "RECIBIDO_EN_DESTINO" && shipment.destinationFranchiseId !== franchiseId) {
         throw new TRPCError({ code: "FORBIDDEN", message: "Solo la tienda de destino puede marcar como recibido" });
       }
@@ -654,6 +667,9 @@ export const shipmentRouter = createRouter({
         status: input.newStatus,
         currentLocationId: newLocationId,
       };
+      if (input.newStatus === "ENVIADO_A_BODEGA" && input.warehouseLocation) {
+        updateData.warehouseLocation = input.warehouseLocation;
+      }
       if (input.newStatus === "RECIBIDO_EN_BODEGA" && input.warehouseLocation) {
         updateData.warehouseLocation = input.warehouseLocation;
       }
@@ -833,12 +849,15 @@ export const shipmentRouter = createRouter({
       // Warehouse: count ENVIADO_A_BODEGA assigned to this warehouse
       const myBodegaName = userFranchise[0]?.name || "";
       const normalizedName = myBodegaName.toLowerCase().includes("cedi") ? "Bodega Cedi" : "Bodega Pavon";
+      const locationFilter = normalizedName === "Bodega Pavon"
+        ? or(eq(shipments.warehouseLocation, normalizedName), sql`${shipments.warehouseLocation} IS NULL`)
+        : eq(shipments.warehouseLocation, normalizedName);
       const countResult = await db
         .select({ count: sql<number>`COUNT(*)` })
         .from(shipments)
         .where(and(
           eq(shipments.status, "ENVIADO_A_BODEGA"),
-          or(eq(shipments.warehouseLocation, normalizedName), sql`${shipments.warehouseLocation} IS NULL`)
+          locationFilter,
         ));
       return countResult[0]?.count || 0;
     } else {
@@ -855,7 +874,7 @@ export const shipmentRouter = createRouter({
   }),
 
   // ─── Get Boleta (printable receipt for package) ────────────────
-  getBoleta: publicQuery
+  getBoleta: franchiseAuthedQuery
     .input(z.object({ id: z.number() }))
     .query(async ({ input }) => {
       const db = getDb();
@@ -1094,6 +1113,17 @@ export const shipmentRouter = createRouter({
         throw new TRPCError({ code: "BAD_REQUEST", message: `${invalidos.length} envio(s) no estan en estado valido para enviar a destino` });
       }
 
+      const allFranchises = await db.select().from(franchises);
+      const franchiseById = new Map(allFranchises.map((franchise) => [franchise.id, franchise]));
+      const mustTransfer = envios.filter((envio) => needsInterBodega({
+        originName: franchiseById.get(envio.originFranchiseId)?.displayName,
+        destinationName: franchiseById.get(envio.destinationFranchiseId)?.displayName,
+        warehouseLocation: envio.warehouseLocation,
+      }).needsTransfer);
+      if (mustTransfer.length > 0) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: `${mustTransfer.length} envio(s) deben pasar por la otra bodega antes de ir al destino` });
+      }
+
       // Determine this warehouse's name for tracking
       const myBodegaName = userFranchise[0]?.name || "";
       const normalizedName = myBodegaName.toLowerCase().includes("cedi") ? "Bodega Cedi" : "Bodega Pavon";
@@ -1202,7 +1232,7 @@ export const shipmentRouter = createRouter({
     }),
 
   // ─── MONTHLY REPORT BY FRANCHISE ──────────────────────────────
-  monthlyReport: publicQuery
+  monthlyReport: franchiseAuthedQuery
     .input(z.object({
       year: z.number().optional(),
       month: z.number().min(1).max(12).optional(),

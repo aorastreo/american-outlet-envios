@@ -62,7 +62,6 @@ export default function DemoLogin() {
               <div className="space-y-2">
                 <label className="text-sm font-medium text-[#1A1A1A]">Contrasena</label>
                 <input type="password" placeholder="Ingrese su contrasena" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full h-11 px-3 rounded-lg border border-[#D4D4D4] text-sm focus:ring-[#C8102E] focus:border-[#C8102E] outline-none" />
-                <p className="text-xs text-[#A3A3A3]">Contrasena por defecto: <code className="bg-[#F0F0F0] px-1.5 py-0.5 rounded">american2025</code></p>
               </div>
               <button type="submit" disabled={isPending} className="w-full h-11 bg-[#C8102E] hover:bg-[#9B0B22] text-white font-medium rounded-lg flex items-center justify-center gap-2 disabled:opacity-50">
                 {isPending ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <><LogIn className="w-4 h-4" />Iniciar Sesion</>}

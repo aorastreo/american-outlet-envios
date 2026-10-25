@@ -1,4 +1,5 @@
 import { useParams, useNavigate } from "react-router";
+import FranchiseLayout from "@/components/FranchiseLayout";
 import { trpc } from "@/providers/trpc";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -38,9 +39,9 @@ export default function WarrantyDetail() {
   if (!warranty) {
     return (
       <div className="flex flex-col items-center justify-center h-screen">
-        <p className="text-[#8A8A8A] text-lg">Garantia no encontrada</p>
+        <p className="text-[#8A8A8A] text-lg">Garantía no encontrada</p>
         <Button variant="outline" className="mt-4" onClick={() => navigate("/garantias")}>
-          <ArrowLeft className="w-4 h-4 mr-2" /> Volver a Garantias
+          <ArrowLeft className="w-4 h-4 mr-2" /> Volver a Garantías
         </Button>
       </div>
     );
@@ -49,6 +50,7 @@ export default function WarrantyDetail() {
   const cfg = statusConfig[warranty.status] || statusConfig.CREADA;
 
   return (
+    <FranchiseLayout>
     <div className="space-y-6">
       {/* Header with back button */}
       <div className="flex items-center justify-between">
@@ -57,7 +59,7 @@ export default function WarrantyDetail() {
             <ArrowLeft className="w-4 h-4 mr-1" /> Regresar
           </Button>
           <div>
-            <h1 className="text-2xl font-bold text-[#1A1A1A]">Detalle de Garantia</h1>
+            <h1 className="text-2xl font-bold text-[#1A1A1A]">Detalle de Garantía</h1>
             <p className="text-sm text-[#737373]">Numero: <span className="font-mono font-medium">{warranty.trackingNumber}</span></p>
           </div>
         </div>
@@ -176,5 +178,6 @@ export default function WarrantyDetail() {
         </CardContent>
       </Card>
     </div>
+    </FranchiseLayout>
   );
 }

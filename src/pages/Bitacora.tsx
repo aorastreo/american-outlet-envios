@@ -1,4 +1,4 @@
-import { useSearchParams } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import { trpc } from "@/providers/trpc";
 import { useFranchiseAuth } from "@/hooks/useFranchiseAuth";import { Truck, Package, MapPin, Printer, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -67,14 +67,19 @@ export default function Bitacora() {
         <div className="flex items-center gap-3">
           <Truck className="w-5 h-5 text-[#404040]" />
           <div>
-            <h1 className="text-base font-semibold text-[#1A1A1A]">Bitacora de Entrega</h1>
+            <h1 className="text-base font-semibold text-[#1A1A1A]">Bitácora de Entrega</h1>
             <p className="text-xs text-[#404040]">{totalPackages} paquete{totalPackages !== 1 ? "s" : ""}</p>
           </div>
         </div>
-        <Button onClick={handlePrint} className="bg-slate-800 hover:bg-slate-900">
+        <div className="flex items-center gap-2">
+          <Button asChild variant="outline">
+            <Link to="/envios">Volver al panel</Link>
+          </Button>
+          <Button onClick={handlePrint} className="bg-slate-800 hover:bg-slate-900">
           <Printer className="w-4 h-4 mr-2" />
           Imprimir
         </Button>
+        </div>
       </div>
 
       <div className="max-w-[900px] mx-auto p-4 print:p-0">

@@ -39,6 +39,7 @@ import {
 import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
 import toast from "react-hot-toast";
+import { getFranchiseGroup, needsInterBodega } from "@/lib/franchise-groups";
 
 /* ─── tab definitions ─────────────────────────────────────────── */
 
@@ -268,63 +269,6 @@ export default function Shipments() {
 
   // Helper: classify franchise by group (mio, vendedor, route, warehouse, sabana)
   // Note: route pickups (Grecia, Palmares, San Ramon) and Sabana are associated with the vendor group (Cedi)
-  function getFranchiseGroup(name: string | undefined): "mio" | "vendedor" | "route" | "warehouse" | "sabana" | "unknown" {
-    if (!name) return "unknown";
-    const n = name.toLowerCase();
-    // Route pickups and Sabana are associated with the vendor group (Cedi)
-    if (n.includes("sabana")) return "sabana";
-    if (n.includes("grecia") || n.includes("palmares") || n.includes("san ramon")) return "route";
-    // Bodegas have group ownership too
-    if (n.includes("pavon") && n.includes("bodega")) return "mio"; // Bodega Pavon = grupo mio
-    if (n.includes("cedi") && n.includes("bodega")) return "vendedor"; // Bodega Cedi = grupo vendedor
-    // Stores
-    if (n.includes("chiles") || n.includes("pavon") || n.includes("santa rosa") || n.includes("ganga")) return "mio";
-    if (n.includes("boca arenal") || n.includes("florencia") || n.includes("fortuna") || n.includes("quesada") || n.includes("puerto viejo")) return "vendedor";
-    if (n.includes("cedi")) return "vendedor";
-    if (n.includes("bodega")) return "warehouse";
-    return "unknown";
-  }
-
-  // Helper: determine if a shipment in bodega needs inter-bodega transfer
-  // Considers current warehouse location to avoid sending to same bodega again
-  function needsInterBodega(shipment: any): { needsTransfer: boolean; targetBodega: string } {
-    const originGroup = getFranchiseGroup(shipment.originName);
-    const destGroup = getFranchiseGroup(shipment.destinationName);
-    const currentWh = shipment.warehouseLocation as string | undefined;
-
-    // Sabana or Route destinations: always goes through Cedi (associated with vendor group)
-    if (destGroup === "sabana" || destGroup === "route") {
-      if (currentWh === "Bodega Cedi") {
-        return { needsTransfer: false, targetBodega: "" }; // Already at Cedi, send directly to destination
-      }
-      return { needsTransfer: true, targetBodega: "Bodega Cedi" };
-    }
-
-    // Same group: direct delivery (e.g., Los Chiles -> Pavon, or Fortuna -> Florencia)
-    if (originGroup === destGroup) {
-      return { needsTransfer: false, targetBodega: "" };
-    }
-
-    // Cross-group: Mio -> Vendedor (needs to end at Bodega Cedi)
-    if (originGroup === "mio" && destGroup === "vendedor") {
-      if (currentWh === "Bodega Cedi") {
-        return { needsTransfer: false, targetBodega: "" }; // Already at correct bodega
-      }
-      return { needsTransfer: true, targetBodega: "Bodega Cedi" };
-    }
-
-    // Cross-group: Vendedor -> Mio (needs to end at Bodega Pavon)
-    if (originGroup === "vendedor" && destGroup === "mio") {
-      if (currentWh === "Bodega Pavon") {
-        return { needsTransfer: false, targetBodega: "" }; // Already at correct bodega
-      }
-      return { needsTransfer: true, targetBodega: "Bodega Pavon" };
-    }
-
-    return { needsTransfer: false, targetBodega: "" };
-  }
-
-  // Route destinations (Grecia, Palmares, San Ramon) — excluded from normal shipment filters
   const routeCodes = ["grecia", "palmares", "san_ramon"];
   const isRouteFranchise = (f: { code?: string | null; displayName?: string | null }) =>
     routeCodes.includes(f.code?.toLowerCase() || "") ||

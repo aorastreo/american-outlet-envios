@@ -10,8 +10,14 @@ if (!DATABASE_URL) {
   process.exit(1);
 }
 
-function hashPassword(password) {
-  return createHash("sha256").update(password).digest("hex");
+const password = process.env.FRANCHISE_SEED_PASSWORD;
+if (!password) {
+  console.error("FRANCHISE_SEED_PASSWORD is not set; new franchise users were not created");
+  process.exit(1);
+}
+
+function hashPassword(value) {
+  return createHash("sha256").update(value).digest("hex");
 }
 
 const franchiseData = [
@@ -71,10 +77,10 @@ async function seed() {
       
       await connection.execute(
         "INSERT INTO franchise_users (franchise_id, username, password_hash, display_name, role, is_active) VALUES (?, ?, ?, ?, ?, ?)",
-        [franchiseId, f.code, hashPassword("american2025"), f.displayName, f.isWarehouse ? "admin" : "staff", 1]
+        [franchiseId, f.code, hashPassword(password), f.displayName, f.isWarehouse ? "admin" : "staff", 1]
       );
       
-      console.log(`Created: ${f.displayName} (user: ${f.code} / pass: american2025)`);
+      console.log(`Created: ${f.displayName} (user: ${f.code})`);
     } else {
       console.log(`Already exists: ${f.displayName}`);
     }

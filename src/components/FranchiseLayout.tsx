@@ -17,6 +17,7 @@ import {
 
 export function RequireFranchise() {
   const { user, isLoading } = useFranchiseAuth();
+  const location = useLocation();
 
   if (isLoading) {
     return (
@@ -28,6 +29,29 @@ export function RequireFranchise() {
 
   if (!user) {
     return <Navigate to="/login" replace />;
+  }
+
+  const path = location.pathname;
+  const isDriver = user.username === "chofer";
+  const isReceivingOnly = user.username === "bodega_sabana";
+  const isWarehouse = user.franchise?.isWarehouse === 1;
+  const blockedForReceiving = path === "/enviar"
+    || path.startsWith("/envios-nacionales")
+    || path.startsWith("/rutas")
+    || path.startsWith("/garantias")
+    || path.startsWith("/boleta-garantia")
+    || path.startsWith("/bitacora-garantia");
+
+  if (isDriver && !path.startsWith("/rutas")) {
+    return <Navigate to="/rutas" replace />;
+  }
+
+  if (isReceivingOnly && blockedForReceiving) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  if (!isDriver && !isWarehouse && path.startsWith("/rutas")) {
+    return <Navigate to="/dashboard" replace />;
   }
 
   return <Outlet />;
@@ -45,21 +69,21 @@ function cleanName(name: string | undefined): string {
 // Menu para tiendas normales (sin acceso a Rutas)
 const storeNavItems = [
   { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { path: "/envios", label: "Mis Envios", icon: Package },
-  { path: "/enviar", label: "Crear Envio", icon: Plus },
-  { path: "/envios-nacionales", label: "Envios Nacionales", icon: Globe },
-  { path: "/garantias", label: "Garantias", icon: ShieldCheck },
+  { path: "/envios", label: "Mis Envíos", icon: Package },
+  { path: "/enviar", label: "Crear Envío", icon: Plus },
+  { path: "/envios-nacionales", label: "Envíos Nacionales", icon: Globe },
+  { path: "/garantias", label: "Garantías", icon: ShieldCheck },
   { path: "/rastrear", label: "Rastrear", icon: Search },
 ];
 
 // Menu para Bodega (acceso a todo incluyendo Rutas)
 const warehouseNavItems = [
   { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { path: "/envios", label: "Mis Envios", icon: Package },
-  { path: "/enviar", label: "Crear Envio", icon: Plus },
-  { path: "/envios-nacionales", label: "Envios Nacionales", icon: Globe },
+  { path: "/envios", label: "Mis Envíos", icon: Package },
+  { path: "/enviar", label: "Crear Envío", icon: Plus },
+  { path: "/envios-nacionales", label: "Envíos Nacionales", icon: Globe },
   { path: "/rutas", label: "Rutas", icon: Truck },
-  { path: "/garantias", label: "Garantias", icon: ShieldCheck },
+  { path: "/garantias", label: "Garantías", icon: ShieldCheck },
   { path: "/rastrear", label: "Rastrear", icon: Search },
 ];
 
@@ -71,7 +95,7 @@ const driverNavItems = [
 // Menu para Bodega de recepcion (ej: Sabana) — solo recibe, no crea envios
 const receivingWarehouseNavItems = [
   { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { path: "/envios", label: "Mis Envios", icon: Package },
+  { path: "/envios", label: "Mis Envíos", icon: Package },
   { path: "/rastrear", label: "Rastrear", icon: Search },
 ];
 
@@ -123,7 +147,7 @@ export default function FranchiseLayout({
                 {brandName}
               </h1>
               <p className="text-[10px] text-white/50 uppercase tracking-wider">
-                Sistema de Envios
+                Sistema de Envíos
               </p>
             </div>
           </Link>
@@ -193,7 +217,7 @@ export default function FranchiseLayout({
             className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-white/60 hover:bg-white/10 hover:text-red-400 transition-colors w-full disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <LogOut className="w-4.5 h-4.5" />
-            {isLoggingOut ? "Cerrando..." : "Cerrar Sesion"}
+            {isLoggingOut ? "Cerrando..." : "Cerrar Sesión"}
           </button>
         </div>
       </aside>

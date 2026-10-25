@@ -186,6 +186,16 @@ export function buildShipmentTimeline(
     steps.push({ status: "RECIBIDO_EN_DESTINO", label: "Entregado", desc: "Tienda recibio" });
   }
 
+  const lastTrackingEntry = trackingHistory.length > 0 ? trackingHistory[trackingHistory.length - 1] : null;
+  const hasNoRecogido = lastTrackingEntry?.status === "NO_RECOGIDO" || currentShipmentStatus === "NO_RECOGIDO";
+  if (hasNoRecogido && steps.length > 0) {
+    steps[steps.length - 1] = {
+      status: "NO_RECOGIDO",
+      label: "No Recogido",
+      desc: "Cliente no se presento a recoger el paquete",
+    };
+  }
+
   return steps;
 }
 

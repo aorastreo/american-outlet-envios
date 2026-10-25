@@ -17,7 +17,8 @@ import { es } from "date-fns/locale";
 import { useState } from "react";
 import { useFranchiseAuth } from "@/hooks/useFranchiseAuth";
 import toast from "react-hot-toast";
-import { buildShipmentTimeline, extractBodegaNames, getCurrentStepIndex } from "../lib/timeline";
+import { buildShipmentTimeline, getCurrentStepIndex } from "../lib/timeline";
+import { needsInterBodega } from "../lib/franchise-groups";
 
 // Safe helper to get status config - never returns undefined
 function getStatusConfig(status: string) {
@@ -104,6 +105,39 @@ export default function ShipmentDetail() {
   });
 
   const handleStatusUpdate = (newStatus: string) => {
+    const myName = (user?.franchise?.displayName || user?.franchise?.name || "").toLowerCase();
+    const myWarehouse = myName.includes("cedi")
+      ? "Bodega Cedi"
+      : myName.includes("sabana")
+        ? "Bodega Sabana"
+        : "Bodega Pavon";
+    const transfer = needsInterBodega({
+      originName: shipment?.originFranchise?.displayName,
+      destinationName: shipment?.destinationFranchise?.displayName || shipment?.destinationName,
+      warehouseLocation: (shipment as any)?.warehouseLocation,
+    });
+
+    const alreadyInNetwork = shipment?.originFranchise?.isWarehouse === 1 || shipment?.status === "RECIBIDO_EN_BODEGA";
+    if (newStatus === "ENVIADO_A_BODEGA" && alreadyInNetwork && transfer.needsTransfer) {
+      updateStatusMutation.mutate({
+        id: shipmentId,
+        newStatus: "ENVIADO_A_BODEGA",
+        warehouseLocation: transfer.targetBodega,
+        notes: `Enviado hacia ${transfer.targetBodega}`,
+      });
+      return;
+    }
+
+    if (newStatus === "RECIBIDO_EN_BODEGA") {
+      updateStatusMutation.mutate({
+        id: shipmentId,
+        newStatus: "RECIBIDO_EN_BODEGA",
+        warehouseLocation: myWarehouse,
+        notes: `Recibido en ${myWarehouse}`,
+      });
+      return;
+    }
+
     updateStatusMutation.mutate({
       id: shipmentId,
       newStatus: newStatus as any,
@@ -151,11 +185,34 @@ export default function ShipmentDetail() {
   const availableActions: { label: string; status: string; icon: React.ReactNode; color: string; desc: string; needsReceiver?: boolean }[] = [];
 
   if (!isCancelled && !isDelivered) {
-    if (originIsWarehouse) {
-      if (shipment.status === "CREADO" && isOrigin) {
-        availableActions.push({ label: "Confirmar Envio Directo", status: "ENVIADO_A_DESTINO", icon: <Zap className="w-4 h-4" />, color: "bg-[#C8102E] hover:bg-[#9B0B22]", desc: "Confirmar envio directo desde bodega" });
+    const transfer = needsInterBodega({
+      originName: shipment.originFranchise?.displayName,
+      destinationName: shipment.destinationFranchise?.displayName || shipment.destinationName,
+      warehouseLocation: (shipment as any).warehouseLocation,
+    });
+    const myName = (user?.franchise?.displayName || user?.franchise?.name || "").toLowerCase();
+    const myWarehouse = myName.includes("cedi")
+      ? "Bodega Cedi"
+      : myName.includes("sabana")
+        ? "Bodega Sabana"
+        : "Bodega Pavon";
+    const assignedWarehouse = (shipment as any).warehouseLocation as string | null | undefined;
+    const packageIsHere = assignedWarehouse
+      ? assignedWarehouse === myWarehouse
+      : myWarehouse === "Bodega Pavon";
+
+    if (originIsWarehouse && isWarehouseUser && !isPickup) {
+      if ((shipment.status === "CREADO" && isOrigin) || (shipment.status === "RECIBIDO_EN_BODEGA" && packageIsHere)) {
+        if (transfer.needsTransfer) {
+          availableActions.push({ label: `Enviar a ${transfer.targetBodega}`, status: "ENVIADO_A_BODEGA", icon: <Send className="w-4 h-4" />, color: "bg-amber-600 hover:bg-amber-700", desc: `El paquete sigue hacia ${transfer.targetBodega}` });
+        } else {
+          availableActions.push({ label: "Enviar a Destino", status: "ENVIADO_A_DESTINO", icon: <Truck className="w-4 h-4" />, color: "bg-[#C8102E] hover:bg-[#9B0B22]", desc: "Confirmar envio a la tienda de destino" });
+        }
       }
-    } else {
+      if (shipment.status === "ENVIADO_A_BODEGA" && packageIsHere) {
+        availableActions.push({ label: "Confirmar Recepcion", status: "RECIBIDO_EN_BODEGA", icon: <ClipboardCheck className="w-4 h-4" />, color: "bg-purple-600 hover:bg-purple-700", desc: "Confirmar recepcion en esta bodega" });
+      }
+    } else if (!originIsWarehouse) {
       if (shipment.status === "CREADO" && isOrigin) {
         availableActions.push({ label: "Confirmar Envio a Bodega", status: "ENVIADO_A_BODEGA", icon: <Send className="w-4 h-4" />, color: "bg-amber-600 hover:bg-amber-700", desc: "Confirmar que el paquete fue enviado a bodega" });
       }
@@ -163,8 +220,12 @@ export default function ShipmentDetail() {
         availableActions.push({ label: "Confirmar Recepcion", status: "RECIBIDO_EN_BODEGA", icon: <ClipboardCheck className="w-4 h-4" />, color: "bg-purple-600 hover:bg-purple-700", desc: "Confirmar recepcion en bodega" });
       }
       if (shipment.status === "RECIBIDO_EN_BODEGA" && isWarehouseUser && !isPickup) {
-  availableActions.push({ label: "Enviar a Destino", status: "ENVIADO_A_DESTINO", icon: <Truck className="w-4 h-4" />, color: "bg-[#C8102E] hover:bg-[#9B0B22]", desc: "Confirmar envio a tienda de destino" });
-}
+        if (transfer.needsTransfer) {
+          availableActions.push({ label: `Enviar a ${transfer.targetBodega}`, status: "ENVIADO_A_BODEGA", icon: <Send className="w-4 h-4" />, color: "bg-amber-600 hover:bg-amber-700", desc: `El paquete sigue hacia ${transfer.targetBodega}` });
+        } else {
+          availableActions.push({ label: "Enviar a Destino", status: "ENVIADO_A_DESTINO", icon: <Truck className="w-4 h-4" />, color: "bg-[#C8102E] hover:bg-[#9B0B22]", desc: "Confirmar envio a tienda de destino" });
+        }
+      }
     }
     if (shipment.status === "ENVIADO_A_DESTINO" && isDestination) {
       availableActions.push({ label: "Confirmar Recepcion", status: "RECIBIDO_EN_DESTINO", icon: <CheckCircle className="w-4 h-4" />, color: "bg-emerald-600 hover:bg-emerald-700", desc: "Confirmar recepcion en destino", needsReceiver: true });
@@ -245,7 +306,11 @@ export default function ShipmentDetail() {
         </div>
 
         {/* Direct flow badge */}
-        {originIsWarehouse && !isCancelled && (
+        {originIsWarehouse && !isCancelled && !needsInterBodega({
+          originName: shipment.originFranchise?.displayName,
+          destinationName: shipment.destinationFranchise?.displayName || shipment.destinationName,
+          warehouseLocation: (shipment as any).warehouseLocation,
+        }).needsTransfer && (
           <Card className="bg-[#FFF5F5] border-[#C8102E]/20"><CardContent className="p-3 flex items-center gap-2"><Zap className="w-4 h-4 text-[#C8102E]" /><span className="text-sm text-[#C8102E] font-medium">Envio Directo desde Bodega - Flujo acelerado</span></CardContent></Card>
         )}
         {isCancelled && (

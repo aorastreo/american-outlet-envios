@@ -17,6 +17,18 @@ function hashPassword(password: string): string {
   return createHash("sha256").update(password).digest("hex");
 }
 
+function seedPasswordHash(): string | null {
+  const password = process.env.FRANCHISE_SEED_PASSWORD?.trim();
+  if (!password) return null;
+  return hashPassword(password);
+}
+
+function denyMaintenance(c: { req: { query: (name: string) => string | undefined } }): boolean {
+  const expected = process.env.INIT_TABLES_SECRET;
+  if (!expected) return true;
+  return c.req.query("token") !== expected;
+}
+
 // Todas las franquicias (incluye puntos de recogida para envios)
 const franchiseData = [
   { name: "Los Chiles", displayName: "American Outlet Los Chiles", code: "los_chiles", isWarehouse: 0 },
@@ -206,15 +218,20 @@ async function runSeed() {
 
       const existingUser = await db.select().from(franchiseUsers).where(eq(franchiseUsers.username, f.code)).limit(1);
       if (existingUser.length === 0) {
-        await db.insert(franchiseUsers).values({
-          franchiseId,
-          username: f.code,
-          passwordHash: hashPassword("american2025"),
-          displayName: f.displayName,
-          role: f.isWarehouse ? "admin" : "staff",
-          isActive: 1,
-        });
-        console.log(`[seed] Created user: ${f.displayName} (user: ${f.code} / pass: american2025)`);
+        const passwordHash = seedPasswordHash();
+        if (!passwordHash) {
+          console.log(`[seed] Skipped new user ${f.code}: FRANCHISE_SEED_PASSWORD is not set`);
+        } else {
+          await db.insert(franchiseUsers).values({
+            franchiseId,
+            username: f.code,
+            passwordHash,
+            displayName: f.displayName,
+            role: f.isWarehouse ? "admin" : "staff",
+            isActive: 1,
+          });
+          console.log(`[seed] Created user: ${f.displayName} (user: ${f.code})`);
+        }
       } else {
         // Update user displayName and franchiseId if changed
         if (existingUser[0].displayName !== f.displayName || existingUser[0].franchiseId !== franchiseId) {
@@ -235,15 +252,20 @@ async function runSeed() {
         const bodegaId = bodegaFranchise[0].id;
         const existingDriver = await db.select().from(franchiseUsers).where(eq(franchiseUsers.username, "chofer")).limit(1);
         if (existingDriver.length === 0) {
-          await db.insert(franchiseUsers).values({
-            franchiseId: bodegaId,
-            username: "chofer",
-            passwordHash: hashPassword("american2025"),
-            displayName: "Chofer - Rutas",
-            role: "admin",
-            isActive: 1,
-          });
-          console.log("[seed] Created: Chofer (user: chofer / pass: american2025)");
+          const passwordHash = seedPasswordHash();
+          if (!passwordHash) {
+            console.log("[seed] Skipped new driver: FRANCHISE_SEED_PASSWORD is not set");
+          } else {
+            await db.insert(franchiseUsers).values({
+              franchiseId: bodegaId,
+              username: "chofer",
+              passwordHash,
+              displayName: "Chofer - Rutas",
+              role: "admin",
+              isActive: 1,
+            });
+            console.log("[seed] Created driver: chofer");
+          }
         }
       }
     } catch (e: any) {
@@ -282,7 +304,7 @@ app.post("/api/auth/login", async (c) => {
     const username = (body.username || "").trim().toLowerCase();
     const password = (body.password || "").trim();
 
-    console.log(`[login] Attempt: username="${username}" password_length=${password.length}`);
+    console.log(`[login] Attempt: username="${username}"`);
 
     if (!username || !password) {
       console.log("[login] Rejected: missing username or password");
@@ -324,15 +346,20 @@ app.post("/api/auth/login", async (c) => {
 
         const existingUser = await db.select().from(franchiseUsers).where(eq(franchiseUsers.username, f.code)).limit(1);
         if (existingUser.length === 0) {
-          await db.insert(franchiseUsers).values({
-            franchiseId,
-            username: f.code,
-            passwordHash: hashPassword("american2025"),
-            displayName: f.displayName,
-            role: f.isWarehouse ? "admin" : "staff",
-            isActive: 1,
-          });
-          console.log(`[login][seed] Created user: ${f.code} (franchiseId=${franchiseId})`);
+          const passwordHash = seedPasswordHash();
+          if (!passwordHash) {
+            console.log(`[login][seed] Skipped new user ${f.code}: FRANCHISE_SEED_PASSWORD is not set`);
+          } else {
+            await db.insert(franchiseUsers).values({
+              franchiseId,
+              username: f.code,
+              passwordHash,
+              displayName: f.displayName,
+              role: f.isWarehouse ? "admin" : "staff",
+              isActive: 1,
+            });
+            console.log(`[login][seed] Created user: ${f.code} (franchiseId=${franchiseId})`);
+          }
         } else {
           if (existingUser[0].displayName !== f.displayName || existingUser[0].franchiseId !== franchiseId) {
             await db.update(franchiseUsers)
@@ -352,15 +379,20 @@ app.post("/api/auth/login", async (c) => {
       if (bodegaFranchise.length > 0) {
         const existingDriver = await db.select().from(franchiseUsers).where(eq(franchiseUsers.username, "chofer")).limit(1);
         if (existingDriver.length === 0) {
-          await db.insert(franchiseUsers).values({
-            franchiseId: bodegaFranchise[0].id,
-            username: "chofer",
-            passwordHash: hashPassword("american2025"),
-            displayName: "Chofer - Rutas",
-            role: "admin",
-            isActive: 1,
-          });
-          console.log("[login][seed] Created driver: chofer");
+          const passwordHash = seedPasswordHash();
+          if (!passwordHash) {
+            console.log("[login][seed] Skipped new driver: FRANCHISE_SEED_PASSWORD is not set");
+          } else {
+            await db.insert(franchiseUsers).values({
+              franchiseId: bodegaFranchise[0].id,
+              username: "chofer",
+              passwordHash,
+              displayName: "Chofer - Rutas",
+              role: "admin",
+              isActive: 1,
+            });
+            console.log("[login][seed] Created driver: chofer");
+          }
         }
       }
     } catch (e: any) {
@@ -378,16 +410,12 @@ app.post("/api/auth/login", async (c) => {
     console.log(`[login] User lookup: found=${users.length}, username="${username}"`);
 
     if (users.length === 0) {
-      // List all existing users for debugging
-      const allUsers = await db.select({ username: franchiseUsers.username, displayName: franchiseUsers.displayName }).from(franchiseUsers);
-      console.log("[login] Available users:", allUsers.map(u => u.username));
       return c.json({ error: "Usuario o contraseña incorrectos" }, 401);
     }
 
     const user = users[0];
-    const expectedHash = hashPassword(password);
-    const passwordMatch = user.passwordHash === expectedHash;
-    console.log(`[login] Password check: match=${passwordMatch}, stored_hash=${user.passwordHash?.slice(0, 16)}..., computed_hash=${expectedHash?.slice(0, 16)}..., isActive=${user.isActive}`);
+    const passwordMatch = user.passwordHash === hashPassword(password);
+    console.log(`[login] Password check: match=${passwordMatch}, isActive=${user.isActive}`);
 
     if (!passwordMatch) {
       return c.json({ error: "Usuario o contraseña incorrectos" }, 401);
@@ -489,10 +517,8 @@ import backupApp from "./backup";
 app.get("/api/init-tables", async (c) => {
   try {
     // Validar token secreto
-    const providedToken = c.req.query("token");
-    const expectedToken = process.env.INIT_TABLES_SECRET;
-    if (expectedToken && providedToken !== expectedToken) {
-      return c.json({ error: "Acceso denegado" }, 403);
+    if (denyMaintenance(c)) {
+      return c.json({ error: "No encontrado" }, 404);
     }
 
     const connection = await mysql.createConnection(env.databaseUrl);
@@ -626,10 +652,8 @@ app.get("/api/init-tables", async (c) => {
 app.get("/api/repair-users", async (c) => {
   try {
     // Validate secret token (skip if not configured)
-    const providedToken = c.req.query("token");
-    const expectedToken = process.env.INIT_TABLES_SECRET;
-    if (expectedToken && providedToken !== expectedToken) {
-      return c.json({ error: "Acceso denegado - token invalido", hint: "Usa ?token=AO2024 o configura INIT_TABLES_SECRET" }, 403);
+    if (denyMaintenance(c)) {
+      return c.json({ error: "No encontrado" }, 404);
     }
 
     const db = getDb();
@@ -660,18 +684,23 @@ app.get("/api/repair-users", async (c) => {
         if (!f.displayName.toLowerCase().includes("recogida")) {
           const existingUser = await db.select().from(franchiseUsers).where(eq(franchiseUsers.username, f.code)).limit(1);
           if (existingUser.length === 0) {
-            await db.insert(franchiseUsers).values({
-              franchiseId,
-              username: f.code,
-              passwordHash: hashPassword("american2025"),
-              displayName: f.displayName,
-              role: f.isWarehouse ? "admin" : "staff",
-              isActive: 1,
-            });
-            results.push({ action: "created_user", code: f.code, details: f.displayName });
+            const passwordHash = seedPasswordHash();
+            if (!passwordHash) {
+              results.push({ action: "skipped_user", code: f.code, details: "FRANCHISE_SEED_PASSWORD is not set" });
+            } else {
+              await db.insert(franchiseUsers).values({
+                franchiseId,
+                username: f.code,
+                passwordHash,
+                displayName: f.displayName,
+                role: f.isWarehouse ? "admin" : "staff",
+                isActive: 1,
+              });
+              results.push({ action: "created_user", code: f.code, details: f.displayName });
+            }
           } else {
             await db.update(franchiseUsers)
-              .set({ passwordHash: hashPassword("american2025"), isActive: 1, displayName: f.displayName, franchiseId })
+              .set({ isActive: 1, displayName: f.displayName, franchiseId })
               .where(eq(franchiseUsers.id, existingUser[0].id));
             results.push({ action: "updated_user", code: f.code, details: f.displayName });
           }
@@ -687,20 +716,25 @@ app.get("/api/repair-users", async (c) => {
       if (bodegaFranchise.length > 0) {
         const existingDriver = await db.select().from(franchiseUsers).where(eq(franchiseUsers.username, "chofer")).limit(1);
         if (existingDriver.length === 0) {
-          await db.insert(franchiseUsers).values({
-            franchiseId: bodegaFranchise[0].id,
-            username: "chofer",
-            passwordHash: hashPassword("american2025"),
-            displayName: "Chofer - Rutas",
-            role: "admin",
-            isActive: 1,
-          });
-          results.push({ action: "created_user", code: "chofer", details: "Chofer - Rutas" });
+          const passwordHash = seedPasswordHash();
+          if (!passwordHash) {
+            results.push({ action: "skipped_user", code: "chofer", details: "FRANCHISE_SEED_PASSWORD is not set" });
+          } else {
+            await db.insert(franchiseUsers).values({
+              franchiseId: bodegaFranchise[0].id,
+              username: "chofer",
+              passwordHash,
+              displayName: "Chofer - Rutas",
+              role: "admin",
+              isActive: 1,
+            });
+            results.push({ action: "created_user", code: "chofer", details: "Chofer - Rutas" });
+          }
         } else {
           await db.update(franchiseUsers)
-            .set({ passwordHash: hashPassword("american2025"), isActive: 1 })
+            .set({ isActive: 1 })
             .where(eq(franchiseUsers.id, existingDriver[0].id));
-          results.push({ action: "updated_password", code: "chofer", details: "Chofer - Rutas" });
+          results.push({ action: "updated_user", code: "chofer", details: "Chofer - Rutas" });
         }
       }
     } catch (e: any) {
@@ -717,10 +751,8 @@ app.get("/api/repair-users", async (c) => {
 app.get("/api/debug/users", async (c) => {
   try {
     // Validate secret token
-    const providedToken = c.req.query("token");
-    const expectedToken = process.env.INIT_TABLES_SECRET;
-    if (expectedToken && providedToken !== expectedToken) {
-      return c.json({ error: "Acceso denegado" }, 403);
+    if (denyMaintenance(c)) {
+      return c.json({ error: "No encontrado" }, 404);
     }
 
     const db = getDb();
@@ -731,22 +763,14 @@ app.get("/api/debug/users", async (c) => {
       franchiseId: franchiseUsers.franchiseId,
       role: franchiseUsers.role,
       isActive: franchiseUsers.isActive,
-      passwordHashPrefix: franchiseUsers.passwordHash,
     }).from(franchiseUsers);
 
     const allFranchises = await db.select().from(franchises);
 
     return c.json({
-      users: allUsers.map(u => ({
-        ...u,
-        passwordHashPrefix: u.passwordHashPrefix ? u.passwordHashPrefix.substring(0, 16) + "..." : null,
-      })),
+      users: allUsers,
       franchises: allFranchises,
       expectedUsers: franchiseData.map(f => f.code),
-      hashTest: {
-        password: "american2025",
-        hash: hashPassword("american2025"),
-      },
     });
   } catch (err: any) {
     return c.json({ error: err.message }, 500);
@@ -756,10 +780,8 @@ app.get("/api/debug/users", async (c) => {
 // ─── REPAIR: Fix shipment_tracking ENUM to include EN_RUTA and EN_PARADA ───
 app.get("/api/fix-tracking-table", async (c) => {
   try {
-    const providedToken = c.req.query("token");
-    const expectedToken = process.env.INIT_TABLES_SECRET;
-    if (expectedToken && providedToken !== expectedToken) {
-      return c.json({ error: "Acceso denegado" }, 403);
+    if (denyMaintenance(c)) {
+      return c.json({ error: "No encontrado" }, 404);
     }
 
     const connection = await mysql.createConnection(env.databaseUrl);
@@ -778,10 +800,8 @@ app.get("/api/fix-tracking-table", async (c) => {
 // ─── REPAIR: Fix EN_RUTA tracking for a specific route ───
 app.get("/api/fix-route-tracking", async (c) => {
   try {
-    const providedToken = c.req.query("token");
-    const expectedToken = process.env.INIT_TABLES_SECRET;
-    if (expectedToken && providedToken !== expectedToken) {
-      return c.json({ error: "Acceso denegado" }, 403);
+    if (denyMaintenance(c)) {
+      return c.json({ error: "No encontrado" }, 404);
     }
 
     const routeId = parseInt(c.req.query("routeId") || "0");
@@ -841,10 +861,8 @@ app.get("/api/fix-route-tracking", async (c) => {
 // ─── FIX: Fix shipments table ENUM to include EN_RUTA and EN_PARADA ───
 app.get("/api/fix-shipments-table", async (c) => {
   try {
-    const providedToken = c.req.query("token");
-    const expectedToken = process.env.INIT_TABLES_SECRET;
-    if (expectedToken && providedToken !== expectedToken) {
-      return c.json({ error: "Acceso denegado" }, 403);
+    if (denyMaintenance(c)) {
+      return c.json({ error: "No encontrado" }, 404);
     }
 
     const connection = await mysql.createConnection(env.databaseUrl);
@@ -863,10 +881,8 @@ app.get("/api/fix-shipments-table", async (c) => {
 // ─── FIX: Force update shipment status to EN_RUTA for route shipments ───
 app.get("/api/fix-shipment-status", async (c) => {
   try {
-    const providedToken = c.req.query("token");
-    const expectedToken = process.env.INIT_TABLES_SECRET;
-    if (expectedToken && providedToken !== expectedToken) {
-      return c.json({ error: "Acceso denegado" }, 403);
+    if (denyMaintenance(c)) {
+      return c.json({ error: "No encontrado" }, 404);
     }
 
     const routeId = parseInt(c.req.query("routeId") || "0");
@@ -913,10 +929,8 @@ app.get("/api/fix-shipment-status", async (c) => {
 // ─── DIAGNOSTIC: Show full route state with shipment details ───
 app.get("/api/debug/route-state", async (c) => {
   try {
-    const providedToken = c.req.query("token");
-    const expectedToken = process.env.INIT_TABLES_SECRET;
-    if (expectedToken && providedToken !== expectedToken) {
-      return c.json({ error: "Acceso denegado" }, 403);
+    if (denyMaintenance(c)) {
+      return c.json({ error: "No encontrado" }, 404);
     }
 
     const routeId = parseInt(c.req.query("routeId") || "0");
@@ -967,7 +981,7 @@ app.get("/api/debug/route-state", async (c) => {
       },
     });
   } catch (err: any) {
-    return c.json({ success: false, error: err.message, stack: err.stack }, 500);
+    return c.json({ success: false, error: err.message }, 500);
   }
 });
 
@@ -975,10 +989,8 @@ app.get("/api/debug/route-state", async (c) => {
 // Debug: Ver datos completos de un envio por tracking number
 app.get("/api/debug/track-raw", async (c) => {
   try {
-    const providedToken = c.req.query("token");
-    const expectedToken = process.env.INIT_TABLES_SECRET;
-    if (expectedToken && providedToken !== expectedToken) {
-      return c.json({ error: "Acceso denegado" }, 403);
+    if (denyMaintenance(c)) {
+      return c.json({ error: "No encontrado" }, 404);
     }
 
     const db = getDb();
@@ -1014,10 +1026,8 @@ app.get("/api/debug/track-raw", async (c) => {
 // Debug: Ver estados reales de un envio
 app.get("/api/debug/shipment-tracking", async (c) => {
   try {
-    const providedToken = c.req.query("token");
-    const expectedToken = process.env.INIT_TABLES_SECRET;
-    if (expectedToken && providedToken !== expectedToken) {
-      return c.json({ error: "Acceso denegado" }, 403);
+    if (denyMaintenance(c)) {
+      return c.json({ error: "No encontrado" }, 404);
     }
 
     const db = getDb();
@@ -1070,10 +1080,8 @@ app.get("/api/debug/shipment-tracking", async (c) => {
 // Limpia envios a tiendas normales que tienen tracking EN_RUTA o EN_PARADA
 app.get("/api/repair-route-shipments", async (c) => {
   try {
-    const providedToken = c.req.query("token");
-    const expectedToken = process.env.INIT_TABLES_SECRET;
-    if (expectedToken && providedToken !== expectedToken) {
-      return c.json({ error: "Acceso denegado" }, 403);
+    if (denyMaintenance(c)) {
+      return c.json({ error: "No encontrado" }, 404);
     }
 
     const db = getDb();
@@ -1135,10 +1143,8 @@ app.get("/api/repair-route-shipments", async (c) => {
 // ─── FIX: Recreate national_shipments table with correct schema ───
 app.get("/api/fix-national-table", async (c) => {
   try {
-    const providedToken = c.req.query("token");
-    const expectedToken = process.env.INIT_TABLES_SECRET;
-    if (expectedToken && providedToken !== expectedToken) {
-      return c.json({ error: "Acceso denegado" }, 403);
+    if (denyMaintenance(c)) {
+      return c.json({ error: "No encontrado" }, 404);
     }
 
     const connection = await mysql.createConnection(env.databaseUrl);
@@ -1181,6 +1187,9 @@ app.get("/api/trpc/ping", (c) => c.json({ ok: true, pong: true }));
 // Fix warehouse locations with accented names
 app.get("/api/fix-wh", async (c) => {
   try {
+    if (denyMaintenance(c)) {
+      return c.json({ error: "No encontrado" }, 404);
+    }
     const db = getDb();
     const result = await db.execute(sql`
       UPDATE shipments 
@@ -1200,6 +1209,9 @@ app.get("/api/fix-wh", async (c) => {
 // Clear all shipments (for testing)
 app.get("/api/clear-shipments", async (c) => {
   try {
+    if (denyMaintenance(c)) {
+      return c.json({ error: "No encontrado" }, 404);
+    }
     const db = getDb();
     await db.execute(sql`SET FOREIGN_KEY_CHECKS = 0`);
     await db.execute(sql`TRUNCATE TABLE shipment_items`);
@@ -1220,6 +1232,9 @@ app.get("/api/clear-shipments", async (c) => {
 // Public diagnostic endpoint - forces seed without token
 app.get("/api/force-seed", async (c) => {
   try {
+    if (denyMaintenance(c)) {
+      return c.json({ error: "No encontrado" }, 404);
+    }
     const db = getDb();
     const results: Array<{ action: string; code: string; details: string }> = [];
 
@@ -1254,18 +1269,23 @@ app.get("/api/force-seed", async (c) => {
       // Create/update user for Bodega Cedi
       const existingUser = await db.select().from(franchiseUsers).where(eq(franchiseUsers.username, "bodega_cedi")).limit(1);
       if (existingUser.length === 0) {
-        await db.insert(franchiseUsers).values({
-          franchiseId: cediId,
-          username: "bodega_cedi",
-          passwordHash: hashPassword("american2025"),
-          displayName: bodegaCediData.displayName,
-          role: "admin",
-          isActive: 1,
-        });
-        results.push({ action: "created_user", code: "bodega_cedi", details: "User created" });
+        const passwordHash = seedPasswordHash();
+        if (!passwordHash) {
+          results.push({ action: "skipped_user", code: "bodega_cedi", details: "FRANCHISE_SEED_PASSWORD is not set" });
+        } else {
+          await db.insert(franchiseUsers).values({
+            franchiseId: cediId,
+            username: "bodega_cedi",
+            passwordHash,
+            displayName: bodegaCediData.displayName,
+            role: "admin",
+            isActive: 1,
+          });
+          results.push({ action: "created_user", code: "bodega_cedi", details: "User created" });
+        }
       } else {
         await db.update(franchiseUsers)
-          .set({ franchiseId: cediId, passwordHash: hashPassword("american2025"), isActive: 1 })
+          .set({ franchiseId: cediId, isActive: 1 })
           .where(eq(franchiseUsers.id, existingUser[0].id));
         results.push({ action: "updated_user", code: "bodega_cedi", details: "User updated" });
       }
@@ -1291,7 +1311,7 @@ app.get("/api/force-seed", async (c) => {
     return c.json({ success: true, count: results.length, details: results });
   } catch (err: any) {
     console.error("[force-seed] ERROR:", err);
-    return c.json({ success: false, error: err.message, stack: err.stack }, 500);
+    return c.json({ success: false, error: err.message }, 500);
   }
 });
 

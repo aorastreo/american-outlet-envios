@@ -1,4 +1,4 @@
-import { useParams } from "react-router";
+import { Link, useParams } from "react-router";
 import { trpc } from "@/providers/trpc";
 import { useFranchiseAuth } from "@/hooks/useFranchiseAuth";import { Printer, Package, ArrowRight } from "lucide-react";
 import { format } from "date-fns";
@@ -68,20 +68,25 @@ export default function Boleta() {
           <Package className="w-5 h-5 text-[#404040]" />
           <div>
             <h1 className="text-base font-semibold text-[#1A1A1A]">
-              Boleta de Envio
+              Boleta de Envío
             </h1>
             <p className="text-xs text-[#404040]">
               {shipment.trackingNumber}
             </p>
           </div>
         </div>
-        <Button
-          onClick={handlePrint}
-          className="bg-slate-800 hover:bg-slate-900"
-        >
+        <div className="flex items-center gap-2">
+          <Button asChild variant="outline">
+            <Link to="/envios">Volver al panel</Link>
+          </Button>
+          <Button
+            onClick={handlePrint}
+            className="bg-slate-800 hover:bg-slate-900"
+          >
           <Printer className="w-4 h-4 mr-2" />
           Imprimir
         </Button>
+        </div>
       </div>
 
       {/* ===== BOLETA - LANDSCAPE FORM STYLE ===== */}

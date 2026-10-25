@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
+import FranchiseLayout from "@/components/FranchiseLayout";
 import { useFranchiseAuth } from "@/hooks/useFranchiseAuth";
 import { trpc } from "@/providers/trpc";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -142,6 +143,7 @@ export default function WarrantiesPage() {
   };
 
   return (
+    <FranchiseLayout>
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -150,7 +152,7 @@ export default function WarrantiesPage() {
             <ArrowLeft className="w-4 h-4 mr-1" /> Regresar
           </Button>
           <div>
-            <h1 className="text-2xl font-bold text-[#1A1A1A]">Garantias</h1>
+            <h1 className="text-2xl font-bold text-[#1A1A1A]">Garantías</h1>
             <p className="text-sm text-[#737373]">
               {isWarehouse && isCedi
                 ? "Garantias recibidas para reparacion"
@@ -394,5 +396,6 @@ export default function WarrantiesPage() {
         </div>
       )}
     </div>
+    </FranchiseLayout>
   );
 }
