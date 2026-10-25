@@ -35,6 +35,7 @@ import {
   Box,
   Download,
   ChevronDown,
+  AlertTriangle,
 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
@@ -78,7 +79,7 @@ const STORE_TABS: TabDef<StoreTabKey>[] = [
     key: "ENVIADOS",
     label: "Enviados",
     icon: Truck,
-    statuses: ["ENVIADO_A_BODEGA", "RECIBIDO_EN_BODEGA", "ENVIADO_A_DESTINO", "EN_RUTA", "EN_PARADA"],
+    statuses: ["ENVIADO_A_BODEGA", "RECIBIDO_EN_BODEGA", "ENVIADO_A_DESTINO", "EN_RUTA", "EN_PARADA", "NO_RECOGIDO"],
     description: "Ya salieron de la tienda y siguen en camino hasta que el destino los reciba",
     color: "text-[#525252]",
     activeColor: "text-[#C8102E]",
@@ -227,6 +228,7 @@ function getStatusConfig(status: string) {
     EN_PARADA: { color: "bg-orange-50 text-orange-700 hover:bg-orange-100", label: "En Punto de Recogida", icon: MapPin },
     ENVIADO_A_DESTINO: { color: "bg-[#FFF5F5] text-[#C8102E] hover:bg-[#FFE0E0]", label: "Enviado a Destino", icon: Truck },
     RECIBIDO_EN_DESTINO: { color: "bg-emerald-50 text-[#1B6B3E] hover:bg-emerald-100", label: "Recibido en Tienda", icon: CheckCircle },
+    NO_RECOGIDO: { color: "bg-red-50 text-red-700 hover:bg-red-100", label: "No recogido", icon: AlertTriangle },
     CANCELADO: { color: "bg-red-50 text-red-700 hover:bg-red-100", label: "Cancelado", icon: Package },
   };
   return configs[status] || { color: "bg-gray-100 text-gray-500 hover:bg-gray-200", label: status, icon: Package };

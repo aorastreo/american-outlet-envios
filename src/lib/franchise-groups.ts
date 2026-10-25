@@ -111,6 +111,10 @@ export function shipmentPlaceText(shipment: {
     return { badge: destination ? `En ruta a ${destination}` : "En ruta", chip: null };
   }
 
+  if (shipment.status === "NO_RECOGIDO") {
+    return { badge: destination ? `No recogido en ${destination}` : "No recogido", chip: null };
+  }
+
   if (shipment.status === "EN_PARADA") {
     return { badge: destination ? `En el punto de ${destination}` : null, chip: null };
   }
