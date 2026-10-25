@@ -1,10 +1,10 @@
 [phases.setup]
-cmds = ["npm install --force --no-audit --no-fund"]
+cmds = ["npm install --include=dev --force --no-audit --no-fund"]
 
 [phases.build]
 cmds = [
   "npm run build:backend",
-  "npm run build:frontend || echo 'Frontend build failed, using cached'"
+  "npm run build:frontend"
 ]
 
 [start]

@@ -1,5 +1,6 @@
 // v7-fix-statusConfig-call
 import { Routes, Route } from "react-router";
+import { RequireFranchise } from "@/components/FranchiseLayout";
 import Home from "./pages/Home";
 import Dashboard from "./pages/Dashboard";
 import Login from "./pages/Login";
@@ -26,23 +27,25 @@ export default function App() {
     <Routes>
       <Route path="/" element={<Home />} />
       <Route path="/login" element={<Login />} />
-      <Route path="/dashboard" element={<Dashboard />} />
-      <Route path="/enviar" element={<CreateShipment />} />
-      <Route path="/envios" element={<Shipments />} />
-      <Route path="/envios/:id" element={<ShipmentDetail />} />
-<Route path="/rastrear/:trackingNumber?" element={<Track />} />
-      <Route path="/boleta/:id" element={<Boleta />} />
-      <Route path="/bitacora" element={<Bitacora />} />
-      <Route path="/rutas" element={<Rutas />} />
-      <Route path="/rutas/:id" element={<RutaDetail />} />
-      <Route path="/envios-nacionales/nuevo" element={<CreateNationalShipment />} />
-      <Route path="/envios-nacionales" element={<NationalShipments />} />
-      <Route path="/boleta-nacional/:id" element={<BoletaNacional />} />
-      <Route path="/bitacora-nacional" element={<BitacoraNacional />} />
-      <Route path="/garantias" element={<Warranties />} />
-      <Route path="/garantias/:id" element={<WarrantyDetail />} />
-      <Route path="/boleta-garantia/:id" element={<BoletaGarantia />} />
-      <Route path="/bitacora-garantia" element={<BitacoraGarantia />} />
+      <Route path="/rastrear/:trackingNumber?" element={<Track />} />
+      <Route element={<RequireFranchise />}>
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/enviar" element={<CreateShipment />} />
+        <Route path="/envios" element={<Shipments />} />
+        <Route path="/envios/:id" element={<ShipmentDetail />} />
+        <Route path="/boleta/:id" element={<Boleta />} />
+        <Route path="/bitacora" element={<Bitacora />} />
+        <Route path="/rutas" element={<Rutas />} />
+        <Route path="/rutas/:id" element={<RutaDetail />} />
+        <Route path="/envios-nacionales/nuevo" element={<CreateNationalShipment />} />
+        <Route path="/envios-nacionales" element={<NationalShipments />} />
+        <Route path="/boleta-nacional/:id" element={<BoletaNacional />} />
+        <Route path="/bitacora-nacional" element={<BitacoraNacional />} />
+        <Route path="/garantias" element={<Warranties />} />
+        <Route path="/garantias/:id" element={<WarrantyDetail />} />
+        <Route path="/boleta-garantia/:id" element={<BoletaGarantia />} />
+        <Route path="/bitacora-garantia" element={<BitacoraGarantia />} />
+      </Route>
       <Route path="*" element={<NotFound />} />
     </Routes>
   );

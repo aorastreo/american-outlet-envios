@@ -1318,7 +1318,7 @@ if (env.isProduction) {
   serveStaticFiles(app);
 
   const port = parseInt(process.env.PORT || "3000");
-  serve({ fetch: app.fetch, port }, () => {
-    console.log(`[server] Running on http://localhost:${port}/`);
+  serve({ fetch: app.fetch, hostname: "0.0.0.0", port }, () => {
+    console.log(`[server] Running on http://0.0.0.0:${port}/`);
   });
 }

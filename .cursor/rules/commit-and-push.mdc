@@ -1,0 +1,17 @@
+---
+description: After each requested code change, commit and push automatically
+alwaysApply: true
+---
+
+# Commit and push after changes
+
+When a requested change to this project is finished, commit it and push it without waiting for another confirmation.
+
+- Commit only the files that belong to that change.
+- Do not commit secrets (`.env`, credentials, keys). Warn instead of committing them.
+- Do not commit `node_modules`.
+- Do not update git config, skip hooks, or force-push.
+- Use a short commit message that says why the change was made.
+- Push the current branch to its remote after the commit succeeds.
+- If Git is not installed, or the push fails, say so in the reply.
+- If there is nothing new to commit, do not create an empty commit.

@@ -1,1 +1,2 @@
-api/
+# The API source must stay available during the build.
+# Do not ignore api/, contracts/ or db/.

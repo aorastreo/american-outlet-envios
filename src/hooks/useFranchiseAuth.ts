@@ -27,7 +27,8 @@ export function useFranchiseAuth() {
     () => ({
       user: user ?? null,
       isAuthenticated: !!user,
-      isLoading: isLoading || logoutMutation.isPending,
+      isLoading,
+      isLoggingOut: logoutMutation.isPending,
       error,
       logout,
       isAdmin: user?.role === "admin",

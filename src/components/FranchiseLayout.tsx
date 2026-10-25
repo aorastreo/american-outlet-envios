@@ -1,4 +1,4 @@
-import { Link, useLocation } from "react-router";
+import { Link, Navigate, Outlet, useLocation } from "react-router";
 import { useState } from "react";
 import { useFranchiseAuth } from "@/hooks/useFranchiseAuth";
 import { trpc } from "@/providers/trpc";
@@ -14,6 +14,24 @@ import {
   Globe,
   ShieldCheck,
 } from "lucide-react";
+
+export function RequireFranchise() {
+  const { user, isLoading } = useFranchiseAuth();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#F7F7F7]">
+        <p className="text-sm text-[#8A8A8A]">Comprobando sesión...</p>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return <Outlet />;
+}
 
 const isGanga = (username: string | undefined) => username === "ganga_santa_rosa";
 
@@ -63,10 +81,11 @@ export default function FranchiseLayout({
   children: React.ReactNode;
 }) {
   const location = useLocation();
-  const { user, logout, isLoading } = useFranchiseAuth();
+  const { user, logout, isLoggingOut } = useFranchiseAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const { data: pendingCount } = trpc.shipment.pendingCount.useQuery(undefined, {
+    enabled: !!user,
     refetchInterval: 30000,
   });
 
@@ -170,11 +189,11 @@ export default function FranchiseLayout({
         <div className="p-3 border-t border-white/10">
           <button
             onClick={logout}
-            disabled={isLoading}
+            disabled={isLoggingOut}
             className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-white/60 hover:bg-white/10 hover:text-red-400 transition-colors w-full disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <LogOut className="w-4.5 h-4.5" />
-            {isLoading ? "Cerrando..." : "Cerrar Sesion"}
+            {isLoggingOut ? "Cerrando..." : "Cerrar Sesion"}
           </button>
         </div>
       </aside>
