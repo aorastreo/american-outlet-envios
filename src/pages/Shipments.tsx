@@ -39,7 +39,7 @@ import {
 import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
 import toast from "react-hot-toast";
-import { getFranchiseGroup, mixedShipmentMoveMessage, needsInterBodega } from "@/lib/franchise-groups";
+import { getFranchiseGroup, mixedShipmentMoveMessage, needsInterBodega, shipmentPlaceText } from "@/lib/franchise-groups";
 
 /* ─── tab definitions ─────────────────────────────────────────── */
 
@@ -593,6 +593,7 @@ export default function Shipments() {
 
   const renderShipmentCard = (shipment: (typeof filteredShipments)[0]) => {
     const cfg = getStatusConfig(shipment.status);
+    const place = shipmentPlaceText(shipment);
     const isSelected = selectedIds.includes(shipment.id);
     return (
       <div key={shipment.id} className="relative group">
@@ -618,7 +619,7 @@ export default function Shipments() {
                     {cfg && (
                       <Badge variant="secondary" className={cfg.color}>
                         <cfg.icon className="w-3 h-3 mr-1" />
-                        {cfg.label}
+                        {place.badge || cfg.label}
                       </Badge>
                     )}
                   </div>
@@ -658,11 +659,9 @@ export default function Shipments() {
                         : "-"}
                   </p>
                   <p className="text-xs text-[#8A8A8A]">{shipment.currentLocationName}</p>
-                  {shipment.warehouseLocation && (
+                  {place.chip && (
                     <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded bg-teal-50 text-teal-700 border border-teal-200">
-                      {shipment.status === "CREADO"
-                        ? `Sale primero a ${shipment.warehouseLocation}`
-                        : shipment.warehouseLocation}
+                      {place.chip}
                     </span>
                   )}
                   {/* Inter-bodega badge */}

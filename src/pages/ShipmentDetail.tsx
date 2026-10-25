@@ -18,7 +18,7 @@ import { useState } from "react";
 import { useFranchiseAuth } from "@/hooks/useFranchiseAuth";
 import toast from "react-hot-toast";
 import { buildShipmentTimeline, getCurrentStepIndex } from "../lib/timeline";
-import { needsInterBodega } from "../lib/franchise-groups";
+import { needsInterBodega, shipmentPlaceText } from "../lib/franchise-groups";
 
 // Safe helper to get status config - never returns undefined
 function getStatusConfig(status: string) {
@@ -266,12 +266,13 @@ export default function ShipmentDetail() {
               <h1 className="text-xl font-bold text-[#1A1A1A] font-mono">{shipment.trackingNumber}</h1>
               {(() => {
                 const cfg = getStatusConfig(shipment.status);
-                const whLoc = (shipment as any).warehouseLocation;
-                // Show specific warehouse in label when applicable
-                let label = cfg.label;
-                if ((shipment.status === "RECIBIDO_EN_BODEGA" || shipment.status === "ENVIADO_A_BODEGA") && whLoc) {
-                  label = shipment.status === "RECIBIDO_EN_BODEGA" ? `En ${whLoc}` : `A ${whLoc}`;
-                }
+                const place = shipmentPlaceText({
+                  status: shipment.status,
+                  originName: shipment.originFranchise?.displayName,
+                  destinationName: shipment.destinationFranchise?.displayName || (shipment as any).destinationName,
+                  warehouseLocation: (shipment as any).warehouseLocation,
+                });
+                const label = place.badge || cfg.label;
                 return <Badge variant="secondary" className={cfg.color}><cfg.icon className="w-3 h-3 mr-1" />{label}</Badge>;
               })()}
             </div>

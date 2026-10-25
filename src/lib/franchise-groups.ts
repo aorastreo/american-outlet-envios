@@ -67,3 +67,45 @@ export function mixedShipmentMoveMessage(
 
   return null;
 }
+
+function stopName(name: string | null | undefined): string {
+  return (name || "").replace(/^Recogida\s*-\s*/i, "").trim();
+}
+
+export function shipmentPlaceText(shipment: {
+  status: string;
+  originName?: string | null;
+  destinationName?: string | null;
+  warehouseLocation?: string | null;
+}): { badge: string | null; chip: string | null } {
+  const place = shipment.warehouseLocation?.trim() || "";
+  const destination = stopName(shipment.destinationName);
+  const firstStop = getFranchiseGroup(shipment.originName) === "vendedor" ? "Bodega Cedi" : "Bodega Pavon";
+
+  if (shipment.status === "CREADO") {
+    return { badge: null, chip: place ? `Sale primero a ${place}` : null };
+  }
+
+  if (shipment.status === "ENVIADO_A_BODEGA") {
+    if (!place) return { badge: null, chip: null };
+    if (place === firstStop) return { badge: null, chip: `En camino a ${place}` };
+    return {
+      badge: place.toLowerCase().includes("cedi") ? "En camino a CEDI" : `En camino a ${place}`,
+      chip: null,
+    };
+  }
+
+  if (shipment.status === "RECIBIDO_EN_BODEGA") {
+    return { badge: place ? `En ${place}` : null, chip: null };
+  }
+
+  if (shipment.status === "EN_RUTA") {
+    return { badge: destination ? `En ruta a ${destination}` : "En ruta", chip: null };
+  }
+
+  if (shipment.status === "EN_PARADA") {
+    return { badge: destination ? `En el punto de ${destination}` : null, chip: null };
+  }
+
+  return { badge: null, chip: null };
+}
