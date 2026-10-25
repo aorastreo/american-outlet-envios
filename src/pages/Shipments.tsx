@@ -130,8 +130,8 @@ const WAREHOUSE_TABS: TabDef<WarehouseTabKey>[] = [
     key: "POR_RECIBIR",
     label: "Por Recibir",
     icon: Download,
-    statuses: ["ENVIADO_A_BODEGA", "CREADO"],
-    description: "Envios de tiendas pendientes de recepcion",
+    statuses: ["ENVIADO_A_BODEGA"],
+    description: "Envios que ya salieron y vienen hacia esta bodega",
     color: "text-[#525252]",
     activeColor: "text-[#B8860B]",
     activeBg: "bg-amber-50",
@@ -467,12 +467,6 @@ export default function Shipments() {
           ? true
           : currentTab.statuses.includes(s.status);
 
-      // Warehouse POR_RECIBIR: exclude CREADO shipments that originate from warehouse
-      if (matchesTab && isBodega && activeTab === "POR_RECIBIR" && s.status === "CREADO") {
-        const originFr = allFranchises?.find((f) => f.id === s.originFranchiseId);
-        if (originFr?.isWarehouse) matchesTab = false;
-      }
-
       // Store-specific filtering by origin/dest
       if (!isBodega && myFranchiseId) {
         // POR_ENVIAR: only show shipments CREATED BY this store
@@ -572,12 +566,7 @@ export default function Shipments() {
             counts[tab.key]++;
           }
         } else {
-          // Warehouse: POR_RECIBIR — CREADO only from stores (not from warehouse)
-          if (isBodega && tab.key === "POR_RECIBIR" && s.status === "CREADO") {
-            const originFr = allFranchises?.find((f) => f.id === s.originFranchiseId);
-            if (originFr?.isWarehouse) continue; // CREADO from warehouse goes to EN_BODEGA
-            counts[tab.key]++;
-          } else if (isBodega && tab.key === "EN_BODEGA") {
+          if (isBodega && tab.key === "EN_BODEGA") {
             const destName = (s.destinationName || "").toLowerCase();
             const isRouteDest = destName.includes("grecia") || destName.includes("palmares") || destName.includes("san ramon");
             // Route shipments in Cedi go to Routes page, hide from EN_BODEGA count
