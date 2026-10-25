@@ -12,6 +12,11 @@ import {
 } from "@db/schema";
 import { TRPCError } from "@trpc/server";
 
+function isSabanaWarehouse(franchise: { name?: string | null; code?: string | null; displayName?: string | null } | undefined) {
+  const text = `${franchise?.code || ""} ${franchise?.name || ""} ${franchise?.displayName || ""}`.toLowerCase();
+  return text.includes("sabana");
+}
+
 // API router loaded
 
 // Helper: replicate frontend's extractBodegaNames logic
@@ -377,7 +382,12 @@ export const shipmentRouter = createRouter({
 
       let whereClause;
 
-      if (isWarehouse) {
+      if (isWarehouse && isSabanaWarehouse(userFranchise[0])) {
+        whereClause = or(
+          eq(shipments.destinationFranchiseId, franchiseId),
+          eq(shipments.currentLocationId, franchiseId),
+        );
+      } else if (isWarehouse) {
         // WAREHOUSE USER: only see shipments assigned to this warehouse
         const myBodegaName = userFranchise[0]?.name || "";
         const normalizedName = myBodegaName.toLowerCase().includes("cedi") ? "Bodega Cedi" : "Bodega Pavon";
@@ -450,7 +460,7 @@ export const shipmentRouter = createRouter({
       const isWarehouse = userFranchise[0]?.isWarehouse === 1;
 
       // Only warehouse users can see sent shipments
-      if (!isWarehouse) {
+      if (!isWarehouse || isSabanaWarehouse(userFranchise[0])) {
         return [];
       }
 
@@ -816,7 +826,12 @@ export const shipmentRouter = createRouter({
     const isWarehouse = userFranchise[0]?.isWarehouse === 1;
 
     let whereClause;
-    if (isWarehouse) {
+    if (isWarehouse && isSabanaWarehouse(userFranchise[0])) {
+      whereClause = or(
+        eq(shipments.destinationFranchiseId, franchiseId),
+        eq(shipments.currentLocationId, franchiseId),
+      );
+    } else if (isWarehouse) {
       const myBodegaName = userFranchise[0]?.name || "";
       const normalizedName = myBodegaName.toLowerCase().includes("cedi") ? "Bodega Cedi" : "Bodega Pavon";
       whereClause = or(
@@ -851,6 +866,17 @@ export const shipmentRouter = createRouter({
     const franchiseId = ctx.franchiseUser!.franchiseId;
     const userFranchise = await db.select().from(franchises).where(eq(franchises.id, franchiseId)).limit(1);
     const isWarehouse = userFranchise[0]?.isWarehouse === 1;
+
+    if (isWarehouse && isSabanaWarehouse(userFranchise[0])) {
+      const countResult = await db
+        .select({ count: sql<number>`COUNT(*)` })
+        .from(shipments)
+        .where(and(
+          eq(shipments.status, "ENVIADO_A_DESTINO"),
+          eq(shipments.destinationFranchiseId, franchiseId),
+        ));
+      return countResult[0]?.count || 0;
+    }
 
     if (isWarehouse) {
       // Warehouse: count ENVIADO_A_BODEGA assigned to this warehouse
@@ -1224,7 +1250,7 @@ export const shipmentRouter = createRouter({
 
       // Verificar que NO sea bodega (solo tiendas)
       const userFranchise = await db.select().from(franchises).where(eq(franchises.id, franchiseId)).limit(1);
-      if (userFranchise[0]?.isWarehouse === 1) {
+      if (userFranchise[0]?.isWarehouse === 1 && !isSabanaWarehouse(userFranchise[0])) {
         throw new TRPCError({ code: "FORBIDDEN", message: "La bodega usa su propio flujo de recepcion" });
       }
 

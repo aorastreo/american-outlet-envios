@@ -481,8 +481,9 @@ export default function Shipments() {
         if (activeTab === "COMPLETADOS" && s.originFranchiseId !== myFranchiseId) return false;
       }
 
-      // Warehouse-specific: EN_BODEGA tab — CREADO only if created FROM warehouse, exclude if dest IS this warehouse
-      if (isBodega && activeTab === "EN_BODEGA") {
+      // Warehouse-specific: EN_BODEGA tab — CREADO only if created FROM warehouse, exclude if dest IS this warehouse.
+      // Sabana uses this tab for packages that already arrived there.
+      if (isBodega && !isReceivingWarehouse && activeTab === "EN_BODEGA") {
         const originFranchise = allFranchises?.find((f) => f.id === s.originFranchiseId);
         if (s.status === "CREADO" && !originFranchise?.isWarehouse) return false;
         if (s.destinationFranchiseId === myFranchiseId) return false; // dest is THIS bodega, goes to ENTREGA_CLIENTE
@@ -566,7 +567,7 @@ export default function Shipments() {
             counts[tab.key]++;
           }
         } else {
-          if (isBodega && tab.key === "EN_BODEGA") {
+          if (isBodega && !isReceivingWarehouse && tab.key === "EN_BODEGA") {
             const destName = (s.destinationName || "").toLowerCase();
             const isRouteDest = destName.includes("grecia") || destName.includes("palmares") || destName.includes("san ramon");
             // Route shipments in Cedi go to Routes page, hide from EN_BODEGA count
@@ -881,6 +882,31 @@ export default function Shipments() {
 
     // STORE: Por Recibir → Confirmar Recepcion Masiva
     if (!isBodega && activeTab === "POR_RECIBIR") {
+      return (
+        <>
+          <Button
+            onClick={recibirEnDestino}
+            disabled={recibirDestinoMutation.isPending}
+            variant="outline"
+            className="border-[#B8860B]/20 text-[#B8860B] hover:bg-amber-50"
+          >
+            <CheckCircle className="w-4 h-4 mr-2" />
+            {recibirDestinoMutation.isPending ? "Procesando..." : "Confirmar Recepcion Masiva"}
+          </Button>
+          <Button
+            onClick={generateBitacora}
+            variant="outline"
+            className="border-[#C8102E]/20 text-[#C8102E] hover:bg-[#FFF5F5]"
+          >
+            <ClipboardList className="w-4 h-4 mr-2" />
+            Generar Bitacora
+          </Button>
+        </>
+      );
+    }
+
+    // SABANA: Por Recibir → the package is already addressed to Sabana
+    if (isReceivingWarehouse && activeTab === "POR_RECIBIR") {
       return (
         <>
           <Button
