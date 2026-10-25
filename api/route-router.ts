@@ -167,7 +167,7 @@ export const routeRouter = createRouter({
       stopId: z.number(),
       shipmentIds: z.array(z.number()).min(1),
     }))
-    .mutation(async ({ input, ctx }) => {
+    .mutation(async ({ input }) => {
       const db = getDb();
 
       // Get pickup point franchise IDs
@@ -199,14 +199,6 @@ export const routeRouter = createRouter({
           stopId: input.stopId,
           shipmentId,
         }).onDuplicateKeyUpdate({ set: { stopId: input.stopId } });
-        // Track: EN_RUTA
-        await db.insert(shipmentTracking).values({
-          shipmentId,
-          status: "EN_RUTA",
-          locationId: 0,
-          notes: "Asignado a ruta de camion",
-          createdBy: ctx.franchiseUser!.id,
-        });
       }
       return { success: true };
     }),
@@ -255,7 +247,7 @@ export const routeRouter = createRouter({
               shipmentId: rs.shipmentId,
               status: "EN_RUTA",
               locationId: 0,
-              notes: `Asignado a ruta de camion - en ruta hacia ${stop.cityName}`,
+              notes: `En ruta hacia ${stop.cityName}`,
               createdBy: ctx.franchiseUser!.id,
             });
             // Update main shipment status to EN_RUTA
@@ -535,7 +527,7 @@ export const routeRouter = createRouter({
               shipmentId: rs.shipmentId,
               status: "EN_RUTA",
               locationId: 0,
-              notes: `Asignado a ruta de camion - en ruta hacia ${stop.cityName}`,
+              notes: `En ruta hacia ${stop.cityName}`,
               createdBy: ctx.franchiseUser!.id,
             });
 

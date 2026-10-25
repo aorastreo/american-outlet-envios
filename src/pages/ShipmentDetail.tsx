@@ -427,7 +427,7 @@ export default function ShipmentDetail() {
                     const isCompleted = index <= currentStepIndex;
                     const isCurrent = index === currentStepIndex;
                     return (
-                      <div key={step.status} className="flex flex-col items-center relative z-10 flex-1">
+                      <div key={`${step.status}-${index}`} className="flex flex-col items-center relative z-10 flex-1">
                         <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-colors ${
                           isCompleted ? "bg-[#C8102E] border-[#C8102E] text-white" : "bg-white border-[#D4D4D4] text-[#A3A3A3]"
                         } ${isCurrent ? "ring-4 ring-[#C8102E]/20" : ""}`}>
@@ -440,7 +440,7 @@ export default function ShipmentDetail() {
                   })}
                 </div>
                 <div className="absolute top-5 left-6 right-6 h-0.5 bg-[#F0F0F0] -z-0">
-                  <div className="h-full bg-[#C8102E]" style={{ width: timelineSteps.length > 1 ? (currentStepIndex / (timelineSteps.length - 1)) * 100 : 0 }} />
+                  <div className="h-full bg-[#C8102E]" style={{ width: timelineSteps.length > 1 ? `${Math.max(0, (currentStepIndex / (timelineSteps.length - 1)) * 100)}%` : "0%" }} />
                 </div>
               </div>
             </CardContent>

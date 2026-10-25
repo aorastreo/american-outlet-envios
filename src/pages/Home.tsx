@@ -317,7 +317,7 @@ export default function Home() {
                       const isCurrent = index === currentStepIndex;
                       return (
                         <div
-                          key={step.status}
+                          key={`${step.status}-${index}`}
                           className="flex flex-col items-center relative z-10 flex-1"
                         >
                           <div
