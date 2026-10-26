@@ -175,7 +175,11 @@ export default function Dashboard() {
     });
   }, [shipments, isBodega, isReceivingWarehouse]);
   const waitingToAssign = useMemo(
-    () => waitingForTruck.filter((s) => !s.reservedOnRoute),
+    () => waitingForTruck.filter((s) => !s.reservedOnRoute && s.status !== "NO_RECOGIDO"),
+    [waitingForTruck],
+  );
+  const notCollectedAgain = useMemo(
+    () => waitingForTruck.filter((s) => !s.reservedOnRoute && s.status === "NO_RECOGIDO"),
     [waitingForTruck],
   );
   const alreadyOnTruckRoute = useMemo(
@@ -548,6 +552,28 @@ export default function Dashboard() {
                 </div>
                 <div className="space-y-3">
                   {waitingToAssign.map((s) => (
+                    <ShipmentCard key={s.id} shipment={s} />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {notCollectedAgain.length > 0 && (
+              <div className="space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <SectionHeader
+                    icon={AlertTriangle}
+                    title="No recogidos, se pueden asignar de nuevo"
+                    count={notCollectedAgain.length}
+                    iconColor="text-red-600"
+                    badgeColor="bg-red-50 text-red-700"
+                  />
+                  <Link to="/rutas?tab=NO_RECOGIDOS" className="text-sm font-semibold text-[#C8102E] hover:underline mb-4">
+                    Abrir Rutas
+                  </Link>
+                </div>
+                <div className="space-y-3">
+                  {notCollectedAgain.map((s) => (
                     <ShipmentCard key={s.id} shipment={s} />
                   ))}
                 </div>

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { Link, useNavigate } from "react-router";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import FranchiseLayout from "@/components/FranchiseLayout";
 import { trpc } from "@/providers/trpc";
 import { useFranchiseAuth } from "@/hooks/useFranchiseAuth";
@@ -147,7 +147,14 @@ export default function Rutas() {
     }
   }, [user, authLoading, navigate]);
 
+  const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<RouteTab>("EN_BODEGA");
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (tab === "EN_BODEGA" || tab === "EN_RUTA" || tab === "NO_RECOGIDOS" || tab === "ENTREGADOS") {
+      setActiveTab(tab);
+    }
+  }, [searchParams]);
   const [createDialog, setCreateDialog] = useState(false);
   const [pendingDialog, setPendingDialog] = useState(false);
   const [showCompletedRoutes, setShowCompletedRoutes] = useState(false);
