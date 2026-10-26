@@ -9,6 +9,8 @@ import {
   shipmentTracking,
   franchises,
   franchiseUsers,
+  routeShipments,
+  deliveryRoutes,
 } from "@db/schema";
 import { TRPCError } from "@trpc/server";
 
@@ -776,6 +778,19 @@ export const shipmentRouter = createRouter({
                          shipment.currentLocationId === franchiseId;
       if (!isInvolved) {
         throw new TRPCError({ code: "FORBIDDEN", message: "Solo las franquicias involucradas pueden cancelar el envio" });
+      }
+
+      const openRouteRows = await db
+        .select({ id: routeShipments.id })
+        .from(routeShipments)
+        .innerJoin(deliveryRoutes, eq(deliveryRoutes.id, routeShipments.routeId))
+        .where(and(
+          eq(routeShipments.shipmentId, input.id),
+          eq(routeShipments.status, "ASIGNADO"),
+          inArray(deliveryRoutes.status, ["PLANIFICADA", "EN_RUTA"]),
+        ));
+      if (openRouteRows.length > 0) {
+        await db.delete(routeShipments).where(inArray(routeShipments.id, openRouteRows.map((row) => row.id)));
       }
 
       await db.update(shipments)

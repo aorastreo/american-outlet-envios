@@ -499,7 +499,7 @@ export default function RutaDetail() {
 
             {route.stops?.map((stop: any, stopIdx: number) => {
               const earlierClosed = route.stops.slice(0, stopIdx).every((earlier: any) => earlier.status === "COMPLETADO");
-              const stopShipments = stop.shipments || [];
+              const stopShipments = (stop.shipments || []).filter((row: any) => row.shipment?.status !== "CANCELADO");
               if (stopShipments.length === 0) {
                 return (
                   <div key={stop.id} className="flex items-center justify-between bg-white rounded-lg border border-gray-200 px-4 py-3">
@@ -625,7 +625,9 @@ export default function RutaDetail() {
                             return next;
                           });
                         } catch (err) {
-                          toast.error("Error al guardar. Intente de nuevo.");
+                          const message = err instanceof Error ? err.message : "";
+                          toast.error(message || "Error al guardar. Intente de nuevo.");
+                          await utils.route.getById.invalidate({ id: routeId });
                           setOptimisticStatuses(prev => {
                             const next = { ...prev };
                             delete next[shipment.id];

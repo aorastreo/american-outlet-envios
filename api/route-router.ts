@@ -336,6 +336,11 @@ export const routeRouter = createRouter({
         const cediId = await bodegaCediId(db);
         for (const rs of allRouteShipments) {
           if (rs.status === "ASIGNADO") {
+            const current = await db.select().from(shipments).where(eq(shipments.id, rs.shipmentId)).limit(1);
+            if (current[0]?.status === "CANCELADO") {
+              await db.delete(routeShipments).where(eq(routeShipments.id, rs.id));
+              continue;
+            }
             const city = cityByStop.get(rs.stopId) || "";
             await db.update(routeShipments).set({ status: "NO_RECOGIDO" }).where(eq(routeShipments.id, rs.id));
             await db.insert(shipmentTracking).values({
@@ -380,7 +385,7 @@ export const routeRouter = createRouter({
         for (const rs of assigned) {
           if (rs.status === "ENTREGADO" || rs.status === "NO_RECOGIDO") continue;
           const current = await db.select().from(shipments).where(eq(shipments.id, rs.shipmentId)).limit(1);
-          if (current[0]?.status === "RECIBIDO_EN_DESTINO" || current[0]?.status === "NO_RECOGIDO") continue;
+          if (current[0]?.status === "RECIBIDO_EN_DESTINO" || current[0]?.status === "NO_RECOGIDO" || current[0]?.status === "CANCELADO") continue;
           await db.insert(shipmentTracking).values({
             shipmentId: rs.shipmentId,
             status: "EN_PARADA",
@@ -398,7 +403,18 @@ export const routeRouter = createRouter({
           eq(routeShipments.stopId, input.stopId),
           eq(routeShipments.status, "ASIGNADO"),
         ));
-        if (stillAssigned.length > 0) {
+        const assignedShipments = stillAssigned.length > 0
+          ? await db.select({ id: shipments.id, status: shipments.status }).from(shipments).where(inArray(shipments.id, stillAssigned.map((row) => row.shipmentId)))
+          : [];
+        const cancelledIds = new Set(assignedShipments.filter((row) => row.status === "CANCELADO").map((row) => row.id));
+        if (cancelledIds.size > 0) {
+          const cancelledRows = stillAssigned.filter((row) => cancelledIds.has(row.shipmentId)).map((row) => row.id);
+          if (cancelledRows.length > 0) {
+            await db.delete(routeShipments).where(inArray(routeShipments.id, cancelledRows));
+          }
+        }
+        const blocking = stillAssigned.filter((row) => !cancelledIds.has(row.shipmentId));
+        if (blocking.length > 0) {
           throw new TRPCError({
             code: "BAD_REQUEST",
             message: "Marque cada envio como entregado o no recogido antes de salir de la parada.",
@@ -427,6 +443,11 @@ export const routeRouter = createRouter({
         const existing = await db.select().from(routeShipments).where(eq(routeShipments.id, input.routeShipmentId)).limit(1);
         if (existing.length === 0) {
           throw new TRPCError({ code: "NOT_FOUND", message: "Route shipment not found" });
+        }
+
+        const shipmentBefore = await db.select().from(shipments).where(eq(shipments.id, existing[0].shipmentId)).limit(1);
+        if (shipmentBefore[0]?.status === "CANCELADO" && input.status !== "ASIGNADO") {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Este envio esta cancelado" });
         }
 
         if (input.status === "ENTREGADO" || input.status === "NO_RECOGIDO") {
