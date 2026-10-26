@@ -281,6 +281,14 @@ export default function Shipments() {
   const listQuery = trpc.shipment.list.useQuery();
   const listSentQuery = trpc.shipment.listSent.useQuery();
   const { data: allFranchises } = trpc.franchise.list.useQuery();
+  const isCediWarehouse = `${user?.franchise?.name || ""} ${user?.franchise?.displayName || ""} ${user?.username || ""}`.toLowerCase().includes("cedi");
+  const { data: routePickupShipments } = trpc.route.getRouteShipments.useQuery(undefined, {
+    enabled: isCediWarehouse,
+  });
+  const stuckIds = useMemo(
+    () => new Set((routePickupShipments || []).filter((s) => s.stuckAfterRoute).map((s) => s.id)),
+    [routePickupShipments],
+  );
 
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
 
@@ -400,6 +408,7 @@ export default function Shipments() {
 
   // Base shipments from list query (always used for tab counts)
   const baseShipments = listQuery.data;
+  const stuckOnList = (baseShipments || []).filter((s) => stuckIds.has(s.id));
   // Inter-bodega shipments in transit (for EN_RUTA tab display only)
   const interBodegaEnRuta = (listSentQuery.data || []).filter(
     (s) => s.status === "ENVIADO_A_BODEGA"
@@ -499,6 +508,9 @@ export default function Shipments() {
   // Filter shipments by tab + search + origin/dest + date
   const filteredShipments = useMemo(() => {
     return (shipments || []).filter((s) => {
+      // A package left on a finished route is not still on the truck.
+      if (activeTab === "EN_RUTA" && stuckIds.has(s.id)) return false;
+
       // Tab filter (statuses)
       // For EN_RUTA in warehouse: also show inter-bodega shipments (ENVIADO_A_BODEGA)
       let matchesTab =
@@ -572,7 +584,7 @@ export default function Shipments() {
 
       return matchesTab && matchesSearch && matchesOrigin && matchesDest && matchesDate && !isRouteShipment;
     });
-  }, [shipments, activeTab, currentTab, searchQuery, originFilter, destFilter, dateFilter, dateFilterEnabled, isBodega, myFranchiseId, interBodegaIds]);
+  }, [shipments, activeTab, currentTab, searchQuery, originFilter, destFilter, dateFilter, dateFilterEnabled, isBodega, myFranchiseId, interBodegaIds, stuckIds]);
 
   // Count per tab
   const tabCounts = useMemo(() => {
@@ -583,6 +595,7 @@ export default function Shipments() {
     for (const s of baseShipments || []) {
       for (const tab of TABS) {
         if (!tab.statuses.includes(s.status)) continue;
+        if (tab.key === "EN_RUTA" && stuckIds.has(s.id)) continue;
 
         // Store-specific counting with origin/dest logic
         if (!isBodega && myFranchiseId) {
@@ -629,7 +642,7 @@ export default function Shipments() {
     // Add inter-bodega in-transit count to EN_RUTA
     counts["EN_RUTA"] = (counts["EN_RUTA"] || 0) + interBodegaEnRuta.length;
     return counts;
-  }, [baseShipments, interBodegaEnRuta, TABS, isBodega, myFranchiseId, allFranchises]);
+  }, [baseShipments, interBodegaEnRuta, TABS, isBodega, myFranchiseId, allFranchises, stuckIds]);
 
   const renderShipmentCard = (shipment: (typeof filteredShipments)[0]) => {
     const cfg = getStatusConfig(shipment.status);
@@ -1399,6 +1412,22 @@ export default function Shipments() {
             </div>
           )}
         </div>
+
+        {isBodega && activeTab === "EN_RUTA" && stuckOnList.length > 0 && (
+          <div className="flex items-start gap-2 px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-medium">
+                {stuckOnList.length === 1
+                  ? "1 paquete quedo en una ruta cerrada."
+                  : `${stuckOnList.length} paquetes quedaron en una ruta cerrada.`}
+              </p>
+              <Link to="/rutas" className="font-semibold underline">
+                Corregir en Rutas
+              </Link>
+            </div>
+          </div>
+        )}
 
         {/* ─── Shipment List ───────────────────────────────────── */}
         {isLoading ? (
