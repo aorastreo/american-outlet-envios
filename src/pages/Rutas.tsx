@@ -242,6 +242,17 @@ export default function Rutas() {
   const currentTab = TABS.find(t => t.key === activeTab) ?? TABS[0];
 
   const totalPending = pendingByCity?.reduce((sum, group) => sum + group.count, 0) || 0;
+  const readyByCity = (pendingByCity || [])
+    .map((group) => ({
+      ...group,
+      readyCount: group.shipments.filter((s) => s.status !== "NO_RECOGIDO").length,
+    }))
+    .filter((group) => group.readyCount > 0);
+  const readyTotal = readyByCity.reduce((sum, group) => sum + group.readyCount, 0);
+  const againTotal = (pendingByCity || []).reduce(
+    (sum, group) => sum + group.shipments.filter((s) => s.status === "NO_RECOGIDO").length,
+    0,
+  );
 
   // ─── Route creation helpers ────────────────────────────────────
   useEffect(() => {
@@ -436,25 +447,40 @@ export default function Rutas() {
         </div>
 
         {/* Pending alert */}
-        {totalPending > 0 && (
+        {(readyTotal > 0 || againTotal > 0) && (
           <Card className="border-amber-300 bg-amber-50">
-            <CardContent className="p-4">
-              <div className="flex items-start gap-3">
-                <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-                <div className="flex-1">
-                  <p className="font-semibold text-amber-800">
-                    Hay {totalPending} envio{totalPending !== 1 ? "s" : ""} en bodega esperando ruta
-                  </p>
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {pendingByCity?.map((group) => (
-                      <Badge key={group.pickupId} variant="secondary" className="bg-orange-100 text-orange-700 border-orange-200">
-                        <MapPin className="w-3 h-3 mr-1" />
-                        {group.cityName}: {group.count}
-                      </Badge>
-                    ))}
+            <CardContent className="p-4 space-y-3">
+              {readyTotal > 0 && (
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <p className="font-semibold text-amber-800">
+                      Hay {readyTotal} envio{readyTotal !== 1 ? "s" : ""} en bodega esperando ruta
+                    </p>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {readyByCity.map((group) => (
+                        <Badge key={group.pickupId} variant="secondary" className="bg-orange-100 text-orange-700 border-orange-200">
+                          <MapPin className="w-3 h-3 mr-1" />
+                          {group.cityName}: {group.readyCount}
+                        </Badge>
+                      ))}
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
+              {againTotal > 0 && (
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+                  <p className="text-sm text-red-800">
+                    {againTotal === 1
+                      ? "1 no recogido se puede asignar de nuevo."
+                      : `${againTotal} no recogidos se pueden asignar de nuevo.`}{" "}
+                    <button type="button" className="font-semibold underline" onClick={() => setActiveTab("NO_RECOGIDOS")}>
+                      Ver No recogidos
+                    </button>
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
