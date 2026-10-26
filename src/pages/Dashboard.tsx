@@ -143,11 +143,14 @@ export default function Dashboard() {
   const { data: sentShipments } = trpc.shipment.listSent.useQuery(undefined, {
     enabled: user?.franchise?.isWarehouse === 1 && user?.username !== "bodega_sabana",
   });
+  const isCediWarehouse = `${user?.franchise?.name || ""} ${user?.franchise?.displayName || ""} ${user?.username || ""}`.toLowerCase().includes("cedi");
+  const { data: routePickupShipments } = trpc.route.getRouteShipments.useQuery(undefined, {
+    enabled: isCediWarehouse,
+  });
 
   const isWarehouse = user?.franchise?.isWarehouse === 1;
   const isReceivingWarehouse = user?.username === "bodega_sabana";
   const isBodega = isWarehouse || isReceivingWarehouse;
-  const isCediWarehouse = `${user?.franchise?.name || ""} ${user?.franchise?.displayName || ""} ${user?.username || ""}`.toLowerCase().includes("cedi");
   const myFranchiseId = user?.franchiseId || 0;
 
   // WAREHOUSE FILTERS (main bodega)
@@ -192,15 +195,24 @@ export default function Dashboard() {
     return shipments.filter((s) => s.status === "RECIBIDO_EN_BODEGA" && s.destinationFranchiseId === myFranchiseId);
   }, [shipments, isBodega, isReceivingWarehouse, myFranchiseId]);
 
+  const stuckHere = useMemo(() => {
+    if (!isCediWarehouse || !shipments) return [];
+    const stuckIds = new Set(
+      (routePickupShipments || []).filter((s) => s.stuckAfterRoute).map((s) => s.id)
+    );
+    return shipments.filter((s) => stuckIds.has(s.id));
+  }, [shipments, routePickupShipments, isCediWarehouse]);
+
   const warehouseInRoute = useMemo(() => {
     if (!isBodega || isReceivingWarehouse || !shipments) return [];
+    const stuckIds = new Set(stuckHere.map((s) => s.id));
     const here = shipments.filter((s) =>
-      ["EN_RUTA", "EN_PARADA", "ENVIADO_A_DESTINO"].includes(s.status)
+      ["EN_RUTA", "EN_PARADA", "ENVIADO_A_DESTINO"].includes(s.status) && !stuckIds.has(s.id)
     );
-    const forwarded = (sentShipments || []).filter((s) => s.status === "ENVIADO_A_BODEGA");
+    const forwarded = (sentShipments || []).filter((s) => s.status === "ENVIADO_A_BODEGA" && !stuckIds.has(s.id));
     const seen = new Set(here.map((s) => s.id));
     return [...here, ...forwarded.filter((s) => !seen.has(s.id))];
-  }, [shipments, sentShipments, isBodega, isReceivingWarehouse]);
+  }, [shipments, sentShipments, stuckHere, isBodega, isReceivingWarehouse]);
 
   const warehouseDelivered = useMemo(() => {
     if (!isBodega || !shipments) return [];
@@ -300,6 +312,7 @@ export default function Dashboard() {
     { label: "En Bodega", value: warehouseInWarehouse.length, icon: ClipboardCheck, color: "text-purple-600", bg: "bg-purple-50", border: "border-purple-200/50" },
     { label: "Entrega a cliente", value: warehouseCustomerPickup.length, icon: User, color: "text-teal-700", bg: "bg-teal-50", border: "border-teal-200/50" },
     ...(isCediWarehouse ? [{ label: "Para el camion", value: waitingForTruck.length, icon: Route, color: "text-[#B8860B]", bg: "bg-amber-50", border: "border-amber-200/50" }] : []),
+    ...(isCediWarehouse && stuckHere.length > 0 ? [{ label: "Por corregir", value: stuckHere.length, icon: AlertTriangle, color: "text-red-600", bg: "bg-red-50", border: "border-red-200/50" }] : []),
     { label: "En camino", value: warehouseInRoute.length, icon: Truck, color: "text-[#D4730E]", bg: "bg-orange-50", border: "border-orange-200/50" },
     { label: "Entregados", value: warehouseDelivered.length, icon: CheckCircle, color: "text-[#1B6B3E]", bg: "bg-emerald-50", border: "border-emerald-200/50" },
     { label: "Total", value: warehouseTotal, icon: Package, color: "text-[#1A1A1A]", bg: "bg-gray-50", border: "border-gray-200/50" },
@@ -596,6 +609,28 @@ export default function Dashboard() {
                 </div>
                 <div className="space-y-3">
                   {alreadyOnTruckRoute.map((s) => (
+                    <ShipmentCard key={s.id} shipment={s} />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {stuckHere.length > 0 && (
+              <div className="space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <SectionHeader
+                    icon={AlertTriangle}
+                    title="Quedaron en una ruta cerrada"
+                    count={stuckHere.length}
+                    iconColor="text-red-600"
+                    badgeColor="bg-red-50 text-red-700"
+                  />
+                  <Link to="/rutas" className="text-sm font-semibold text-[#C8102E] hover:underline mb-4">
+                    Corregir en Rutas
+                  </Link>
+                </div>
+                <div className="space-y-3">
+                  {stuckHere.map((s) => (
                     <ShipmentCard key={s.id} shipment={s} />
                   ))}
                 </div>
