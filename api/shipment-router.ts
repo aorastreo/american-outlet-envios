@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { eq, or, and, desc, sql, inArray } from "drizzle-orm";
 import { createRouter, publicQuery, franchiseAuthedQuery } from "./middleware";
-import { needsInterBodega } from "../src/lib/franchise-groups";
+import { getFranchiseGroup, needsInterBodega } from "../src/lib/franchise-groups";
 import { getDb } from "./queries/connection";
 import {
   shipments,
@@ -673,6 +673,9 @@ export const shipmentRouter = createRouter({
         if (input.newStatus === "ENVIADO_A_DESTINO" && destFranchise[0]?.isWarehouse === 1 && !isSabanaWarehouse(destFranchise[0])) {
           throw new TRPCError({ code: "BAD_REQUEST", message: "Este envio se retira en la bodega. Marcalo como entregado al cliente." });
         }
+        if (input.newStatus === "ENVIADO_A_DESTINO" && getFranchiseGroup(destFranchise[0]?.displayName || destFranchise[0]?.name) === "route") {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Este envio sale en la ruta del camion. No se envia como una tienda." });
+        }
       }
 
       // Validate permissions
@@ -1182,6 +1185,13 @@ export const shipmentRouter = createRouter({
       });
       if (customerPickup.length > 0) {
         throw new TRPCError({ code: "BAD_REQUEST", message: `${customerPickup.length} envio(s) se retiran en la bodega. Marcalos como entregado al cliente.` });
+      }
+      const onTruck = envios.filter((envio) => {
+        const dest = franchiseById.get(envio.destinationFranchiseId);
+        return getFranchiseGroup(dest?.displayName || dest?.name) === "route";
+      });
+      if (onTruck.length > 0) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: `${onTruck.length} envio(s) salen en la ruta del camion. No se envian como una tienda.` });
       }
 
       // Determine this warehouse's name for tracking

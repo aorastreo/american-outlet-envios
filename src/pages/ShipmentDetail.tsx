@@ -209,6 +209,7 @@ export default function ShipmentDetail() {
 
   // ─── AVAILABLE ACTIONS ──────────────────────────────────────
   const availableActions: { label: string; status: string; icon: React.ReactNode; color: string; desc: string; needsReceiver?: boolean }[] = [];
+  let waitingForTruck = false;
 
   if (!isCancelled && !isDelivered) {
     const transfer = needsInterBodega({
@@ -227,13 +228,17 @@ export default function ShipmentDetail() {
       ? assignedWarehouse === myWarehouse
       : myWarehouse === "Bodega Pavon";
 
-    if (originIsWarehouse && isWarehouseUser && !isPickup) {
+    const atThisWarehouse = isWarehouseUser && packageIsHere
+      && (shipment.status === "RECIBIDO_EN_BODEGA" || (shipment.status === "CREADO" && originIsWarehouse && isOrigin));
+    waitingForTruck = isPickup && atThisWarehouse && !transfer.needsTransfer;
+
+    if (originIsWarehouse && isWarehouseUser) {
       if ((shipment.status === "CREADO" && isOrigin) || (shipment.status === "RECIBIDO_EN_BODEGA" && packageIsHere)) {
-        if (shipment.status === "RECIBIDO_EN_BODEGA" && isDestination) {
+        if (shipment.status === "RECIBIDO_EN_BODEGA" && isDestination && !isPickup) {
           availableActions.push({ label: "Entregado al cliente", status: "RECIBIDO_EN_DESTINO", icon: <CheckCircle className="w-4 h-4" />, color: "bg-emerald-600 hover:bg-emerald-700", desc: "El cliente ya retiró el paquete en esta bodega" });
         } else if (transfer.needsTransfer) {
           availableActions.push({ label: `Enviar a ${transfer.targetBodega}`, status: "ENVIADO_A_BODEGA", icon: <Send className="w-4 h-4" />, color: "bg-amber-600 hover:bg-amber-700", desc: `El paquete sigue hacia ${transfer.targetBodega}` });
-        } else {
+        } else if (!isPickup) {
           availableActions.push({ label: "Enviar a Destino", status: "ENVIADO_A_DESTINO", icon: <Truck className="w-4 h-4" />, color: "bg-[#C8102E] hover:bg-[#9B0B22]", desc: "Confirmar envio a la tienda de destino" });
         }
       }
@@ -244,15 +249,15 @@ export default function ShipmentDetail() {
       if (shipment.status === "CREADO" && isOrigin) {
         availableActions.push({ label: "Confirmar Envio a Bodega", status: "ENVIADO_A_BODEGA", icon: <Send className="w-4 h-4" />, color: "bg-amber-600 hover:bg-amber-700", desc: "Confirmar que el paquete fue enviado a bodega" });
       }
-      if (shipment.status === "ENVIADO_A_BODEGA" && isWarehouseUser) {
+      if (shipment.status === "ENVIADO_A_BODEGA" && isWarehouseUser && packageIsHere) {
         availableActions.push({ label: "Confirmar Recepcion", status: "RECIBIDO_EN_BODEGA", icon: <ClipboardCheck className="w-4 h-4" />, color: "bg-purple-600 hover:bg-purple-700", desc: "Confirmar recepcion en bodega" });
       }
-      if (shipment.status === "RECIBIDO_EN_BODEGA" && isWarehouseUser && !isPickup) {
-        if (isDestination) {
+      if (shipment.status === "RECIBIDO_EN_BODEGA" && isWarehouseUser && packageIsHere) {
+        if (isDestination && !isPickup) {
           availableActions.push({ label: "Entregado al cliente", status: "RECIBIDO_EN_DESTINO", icon: <CheckCircle className="w-4 h-4" />, color: "bg-emerald-600 hover:bg-emerald-700", desc: "El cliente ya retiró el paquete en esta bodega" });
         } else if (transfer.needsTransfer) {
           availableActions.push({ label: `Enviar a ${transfer.targetBodega}`, status: "ENVIADO_A_BODEGA", icon: <Send className="w-4 h-4" />, color: "bg-amber-600 hover:bg-amber-700", desc: `El paquete sigue hacia ${transfer.targetBodega}` });
-        } else {
+        } else if (!isPickup) {
           availableActions.push({ label: "Enviar a Destino", status: "ENVIADO_A_DESTINO", icon: <Truck className="w-4 h-4" />, color: "bg-[#C8102E] hover:bg-[#9B0B22]", desc: "Confirmar envio a tienda de destino" });
         }
       }
@@ -337,7 +342,7 @@ export default function ShipmentDetail() {
         </div>
 
         {/* Direct flow badge */}
-        {originIsWarehouse && !isCancelled && !needsInterBodega({
+        {originIsWarehouse && !isPickup && !isCancelled && !needsInterBodega({
           originName: shipment.originFranchise?.displayName,
           destinationName: shipment.destinationFranchise?.displayName || shipment.destinationName,
           warehouseLocation: (shipment as any).warehouseLocation,
@@ -420,6 +425,14 @@ export default function ShipmentDetail() {
             </div>
           </CardContent>
         </Card>
+
+        {waitingForTruck && (
+          <Card className="border-amber-200 bg-amber-50">
+            <CardContent className="p-4">
+              <p className="text-sm font-medium text-amber-900">Este paquete sale en la ruta del camion. Esta en Rutas, no se envia como una tienda.</p>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Actions */}
         {availableActions.length > 0 && (
