@@ -189,11 +189,12 @@ export default function RutaDetail() {
   const { data: allPending } = trpc.route.pendingByPickupPoint.useQuery();
 
   const handleWhatsApp = (phone: string, trackingNumber: string, cityName: string, arrived: boolean) => {
-    const cleanPhone = phone.replace(/\D/g, "");
+    const digits = phone.replace(/\D/g, "");
+    const cleanPhone = digits.startsWith("506") && digits.length > 8 ? digits : `506${digits}`;
     const message = arrived
       ? `Hola! Su pedido con guia ${trackingNumber} ya esta en ${cityName}. El camion esta en el punto de referencia. Por favor pase a recogerlo. Gracias! - American Outlet`
       : `Hola! Su pedido con guia ${trackingNumber} va en camino hacia ${cityName}. Le avisamos cuando pueda pasar a recogerlo. Gracias! - American Outlet`;
-    window.open(`https://wa.me/506${cleanPhone}?text=${encodeURIComponent(message)}`, "_blank");
+    window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`, "_blank");
   };
 
   if (isLoading) {

@@ -366,7 +366,8 @@ export default function ShipmentDetail() {
                     size="sm"
                     variant="outline"
                     onClick={() => {
-                      const phone = shipment.senderPhone!.replace(/\D/g, "");
+                      const digits = shipment.senderPhone!.replace(/\D/g, "");
+                      const phone = digits.startsWith("506") && digits.length > 8 ? digits : `506${digits}`;
                       const destLabel = shipment.destinationFranchise?.displayName || "su destino";
                       const place = destLabel.replace(/^Recogida\s*-\s*/i, "").trim() || "su destino";
                       const destLower = destLabel.toLowerCase();
@@ -377,7 +378,7 @@ export default function ShipmentDetail() {
                       const message = ready
                         ? `Hola! Soy el encargado de American Outlet. Su pedido *${shipment.trackingNumber}* ya esta disponible para retirar en *${place}*. Por favor pasar a recogerlo. Gracias!`
                         : `Hola! Soy el encargado de American Outlet. Su pedido *${shipment.trackingNumber}* va en camino hacia *${place}*. Le avisamos cuando pueda pasar a recogerlo. Gracias!`;
-                      window.open(`https://wa.me/506${phone}?text=${encodeURIComponent(message)}`, "_blank");
+                      window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, "_blank");
                     }}
                     className="h-7 px-2 text-xs bg-[#25D366]/10 border-[#25D366]/30 text-[#25D366] hover:bg-[#25D366] hover:text-white"
                   >

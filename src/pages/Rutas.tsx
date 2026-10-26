@@ -688,7 +688,7 @@ export default function Rutas() {
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   const digits = s.senderPhone.replace(/\D/g, "");
-                                  const phone = digits.startsWith("506") ? digits : `506${digits}`;
+                                  const phone = digits.startsWith("506") && digits.length > 8 ? digits : `506${digits}`;
                                   const message = `Hola! Su pedido con guia ${s.trackingNumber} esta en bodega y saldra hacia ${group.cityName}. Le avisamos cuando pueda pasar a recogerlo. Gracias! - American Outlet`;
                                   window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, "_blank");
                                 }}
