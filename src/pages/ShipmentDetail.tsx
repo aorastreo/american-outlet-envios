@@ -78,6 +78,7 @@ export default function ShipmentDetail() {
     onSuccess: () => {
       utils.shipment.getById.invalidate({ id: shipmentId });
       utils.shipment.list.invalidate();
+      utils.shipment.listSent.invalidate();
       utils.shipment.stats.invalidate();
       utils.shipment.pendingCount.invalidate();
       setDialogOpen(null);

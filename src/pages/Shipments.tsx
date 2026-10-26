@@ -420,6 +420,7 @@ export default function Shipments() {
     onSuccess: (data) => {
       toast.success(`${data.count} envio(s) enviado(s) a otra bodega`);
       utils.shipment.list.invalidate();
+      utils.shipment.listSent.invalidate();
       setSelectedIds([]);
     },
     onError: (error) => {
