@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { eq, and, inArray, asc } from "drizzle-orm";
+import { eq, and, inArray, asc, ne } from "drizzle-orm";
 import { createRouter, franchiseAuthedQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { deliveryRoutes, routeStops, routeShipments, shipments, shipmentItems, shipmentTracking, franchises } from "@db/schema";
@@ -749,15 +749,15 @@ export const routeRouter = createRouter({
 
       if (pickupIds.length === 0) return [];
 
-      const reservedRows = await db
-        .select({ shipmentId: routeShipments.shipmentId })
+      const openRouteRows = await db
+        .select({ shipmentId: routeShipments.shipmentId, status: routeShipments.status })
         .from(routeShipments)
         .innerJoin(deliveryRoutes, eq(deliveryRoutes.id, routeShipments.routeId))
-        .where(and(
-          eq(routeShipments.status, "ASIGNADO"),
-          inArray(deliveryRoutes.status, ["PLANIFICADA", "EN_RUTA"]),
-        ));
-      const reservedIds = new Set(reservedRows.map((row) => row.shipmentId));
+        .where(inArray(deliveryRoutes.status, ["PLANIFICADA", "EN_RUTA"]));
+      const reservedIds = new Set(
+        openRouteRows.filter((row) => row.status === "ASIGNADO").map((row) => row.shipmentId)
+      );
+      const onOpenRoute = new Set(openRouteRows.map((row) => row.shipmentId));
 
       const stuckRows = await db
         .select({ shipmentId: shipments.id })
@@ -767,8 +767,11 @@ export const routeRouter = createRouter({
         .where(and(
           eq(deliveryRoutes.status, "COMPLETADA"),
           eq(shipments.status, "EN_PARADA"),
+          ne(routeShipments.status, "ENTREGADO"),
         ));
-      const stuckIds = new Set(stuckRows.map((row) => row.shipmentId));
+      const stuckIds = new Set(
+        stuckRows.map((row) => row.shipmentId).filter((id) => !onOpenRoute.has(id))
+      );
 
       // Get all route shipments (any status, from any origin)
       const pickupShipments = await db.select().from(shipments)
@@ -809,6 +812,12 @@ export const routeRouter = createRouter({
       if (completedRoutes.length === 0) return { fixed: 0, message: "No rutas completadas" };
 
       const cediId = await bodegaCediId(db);
+      const openRouteRows = await db
+        .select({ shipmentId: routeShipments.shipmentId })
+        .from(routeShipments)
+        .innerJoin(deliveryRoutes, eq(deliveryRoutes.id, routeShipments.routeId))
+        .where(inArray(deliveryRoutes.status, ["PLANIFICADA", "EN_RUTA"]));
+      const onOpenRoute = new Set(openRouteRows.map((row) => row.shipmentId));
       let fixed = 0;
       for (const route of completedRoutes) {
         // Get route shipments for this route
@@ -818,6 +827,7 @@ export const routeRouter = createRouter({
         const cityByStop = new Map(stops.map((stop) => [stop.id, pickupCity(stop.cityName)]));
 
         for (const rs of rsList) {
+          if (rs.status === "ENTREGADO" || onOpenRoute.has(rs.shipmentId)) continue;
           // Check if shipment is still stuck in EN_PARADA
           const shipmentData = await db.select().from(shipments)
             .where(eq(shipments.id, rs.shipmentId))
