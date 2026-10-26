@@ -556,15 +556,20 @@ export default function RutaDetail() {
                         </Button>
                       )}
                       {stop.status === "LLEGADO" && (
-                        <Button
-                          size="sm"
-                          onClick={() => updateStopMutation.mutate({ stopId: stop.id, status: "COMPLETADO" })}
-                          className="bg-[#1B6B3E] hover:bg-[#145a32]"
-                          disabled={updateStopMutation.isPending}
-                        >
-                          <CheckCircle className="w-4 h-4 mr-1.5" />
-                          Salir de {stop.cityName}
-                        </Button>
+                        <div className="flex flex-col items-end gap-1">
+                          <Button
+                            size="sm"
+                            onClick={() => updateStopMutation.mutate({ stopId: stop.id, status: "COMPLETADO" })}
+                            className="bg-[#1B6B3E] hover:bg-[#145a32]"
+                            disabled={updateStopMutation.isPending || pendingCount > 0}
+                          >
+                            <CheckCircle className="w-4 h-4 mr-1.5" />
+                            Salir de {stop.cityName}
+                          </Button>
+                          {pendingCount > 0 && (
+                            <p className="text-[10px] text-amber-700 text-right max-w-[150px]">Marque cada envio antes de salir</p>
+                          )}
+                        </div>
                       )}
                       {stop.status === "COMPLETADO" && (
                         <CheckCircle className="w-5 h-5 text-emerald-500" />

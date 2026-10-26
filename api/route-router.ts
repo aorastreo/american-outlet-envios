@@ -315,6 +315,16 @@ export const routeRouter = createRouter({
           await db.update(shipments).set({ status: "EN_PARADA" }).where(eq(shipments.id, rs.shipmentId));
         }
       } else if (input.status === "COMPLETADO") {
+        const stillAssigned = await db.select().from(routeShipments).where(and(
+          eq(routeShipments.stopId, input.stopId),
+          eq(routeShipments.status, "ASIGNADO"),
+        ));
+        if (stillAssigned.length > 0) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Marque cada envio como entregado o no recogido antes de salir de la parada.",
+          });
+        }
         updateData.departureTime = new Date();
       }
       if (input.notes) updateData.notes = input.notes;
