@@ -377,16 +377,23 @@ export default function ShipmentDetail() {
                       const place = destLabel.replace(/^Recogida\s*-\s*/i, "").trim() || "su destino";
                       const destLower = destLabel.toLowerCase();
                       const isPickup = destLower.includes("recogida") || ["grecia", "palmares", "san ramon"].some((city) => destLower.includes(city));
+                      const isSabana = destLower.includes("sabana");
+                      const collectedAtWarehouse = shipment.status === "RECIBIDO_EN_DESTINO"
+                        && !isPickup
+                        && !isSabana
+                        && (destLower.includes("bodega") || (shipment.destinationFranchise as any)?.isWarehouse === 1);
                       const ready = shipment.status === "EN_PARADA"
-                        || (shipment.status === "RECIBIDO_EN_BODEGA" && (shipment.destinationFranchise as any)?.isWarehouse === 1 && !isPickup)
-                        || (shipment.status === "RECIBIDO_EN_DESTINO" && !isPickup);
+                        || (shipment.status === "RECIBIDO_EN_BODEGA" && (shipment.destinationFranchise as any)?.isWarehouse === 1 && !isPickup && !isSabana)
+                        || (shipment.status === "RECIBIDO_EN_DESTINO" && !isPickup && !isSabana && !collectedAtWarehouse);
                       const message = shipment.status === "NO_RECOGIDO"
                         ? `Hola! Soy el encargado de American Outlet. Su pedido *${shipment.trackingNumber}* no se pudo entregar en *${place}*.`
-                        : shipment.status === "RECIBIDO_EN_DESTINO" && isPickup
+                        : (shipment.status === "RECIBIDO_EN_DESTINO" && isPickup) || collectedAtWarehouse
                           ? `Hola! Soy el encargado de American Outlet. Su pedido *${shipment.trackingNumber}* ya fue entregado en *${place}*. Gracias!`
-                          : ready
-                            ? `Hola! Soy el encargado de American Outlet. Su pedido *${shipment.trackingNumber}* ya esta disponible para retirar en *${place}*. Por favor pasar a recogerlo. Gracias!`
-                            : `Hola! Soy el encargado de American Outlet. Su pedido *${shipment.trackingNumber}* va en camino hacia *${place}*. Le avisamos cuando pueda pasar a recogerlo. Gracias!`;
+                          : shipment.status === "RECIBIDO_EN_DESTINO" && isSabana
+                            ? `Hola! Soy el encargado de American Outlet. Su pedido *${shipment.trackingNumber}* ya esta en *Bodega Sabana*.`
+                            : ready
+                              ? `Hola! Soy el encargado de American Outlet. Su pedido *${shipment.trackingNumber}* ya esta disponible para retirar en *${place}*. Por favor pasar a recogerlo. Gracias!`
+                              : `Hola! Soy el encargado de American Outlet. Su pedido *${shipment.trackingNumber}* va en camino hacia *${place}*. Le avisamos cuando pueda pasar a recogerlo. Gracias!`;
                       window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, "_blank");
                     }}
                     className="h-7 px-2 text-xs bg-[#25D366]/10 border-[#25D366]/30 text-[#25D366] hover:bg-[#25D366] hover:text-white"

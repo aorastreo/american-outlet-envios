@@ -99,6 +99,10 @@ export function shipmentPlaceText(shipment: {
     return { badge: place ? `En ${place}` : null, chip: null };
   }
 
+  if (shipment.status === "RECIBIDO_EN_DESTINO" && getFranchiseGroup(shipment.destinationName) === "sabana") {
+    return { badge: "En Bodega Sabana", chip: null };
+  }
+
   if (shipment.status === "RECIBIDO_EN_DESTINO" && destination.toLowerCase().includes("bodega")) {
     return { badge: "Entregado al cliente", chip: null };
   }
