@@ -243,16 +243,20 @@ export default function Track() {
                     <div className="space-y-6">
                       {[...(shipment.tracking || [])].reverse().map((track, index) => {
                         const cfg = getStatusConfig(track.status);
-                        const label = historyStepLabel(track.status, track.notes, cfg?.label || track.status);
+                        const leftBehind = stuckAfterRoute && index === 0 && track.status === "EN_PARADA";
+                        const label = leftBehind
+                          ? "No recogido. El camion ya salio"
+                          : historyStepLabel(track.status, track.notes, cfg?.label || track.status);
+                        const note = leftBehind ? "El camion ya salio de ese punto" : track.notes;
                         return (
                           <div key={track.id} className="relative">
                             <div className={`absolute -left-4 w-3 h-3 rounded-full border-2 ${index === 0 ? "bg-[#C8102E] border-[#C8102E]" : "bg-white border-[#D4D4D4]"}`} />
                             <div className="ml-4">
                               <div className="flex items-center gap-2 flex-wrap">
-                                {cfg && <Badge variant="secondary" className={cfg.color}><cfg.icon className="w-3 h-3 mr-1" />{label}</Badge>}
+                                {cfg && <Badge variant="secondary" className={leftBehind ? "bg-red-100 text-red-700" : cfg.color}><cfg.icon className="w-3 h-3 mr-1" />{label}</Badge>}
                                 <span className="text-xs text-[#A3A3A3]">{track.createdAt ? format(new Date(track.createdAt), "dd/MM/yyyy HH:mm", { locale: es }) : "-"}</span>
                               </div>
-                              {track.notes && <p className="text-sm text-[#525252] mt-1">{track.notes}</p>}
+                              {note && <p className="text-sm text-[#525252] mt-1">{note}</p>}
                             </div>
                           </div>
                         );

@@ -425,7 +425,11 @@ export default function Home() {
                           index: number
                         ) => {
                           const cfg = getStatusConfig(track.status);
-                          const label = historyStepLabel(track.status, track.notes, cfg?.label || track.status);
+                          const leftBehind = stuckAfterRoute && index === 0 && track.status === "EN_PARADA";
+                          const label = leftBehind
+                            ? "No recogido. El camion ya salio"
+                            : historyStepLabel(track.status, track.notes, cfg?.label || track.status);
+                          const note = leftBehind ? "El camion ya salio de ese punto" : track.notes;
                           return (
                             <div key={track.id} className="relative">
                               <div
@@ -440,7 +444,7 @@ export default function Home() {
                                   {cfg && (
                                     <Badge
                                       variant="secondary"
-                                      className={cfg.color}
+                                      className={leftBehind ? "bg-red-100 text-red-700" : cfg.color}
                                     >
                                       <cfg.icon className="w-3 h-3 mr-1" />
                                       {label}
@@ -456,9 +460,9 @@ export default function Home() {
                                       : "-"}
                                   </span>
                                 </div>
-                                {track.notes && (
+                                {note && (
                                   <p className="text-sm text-[#525252] mt-1">
-                                    {track.notes}
+                                    {note}
                                   </p>
                                 )}
                               </div>
