@@ -22,6 +22,20 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 
+function routeDateLabel(name: string, createdAt: string | Date): string {
+  const match = String(name || "").match(/(\d{2})\/(\d{2})\/(\d{4})/);
+  const when = match
+    ? new Date(Number(match[3]), Number(match[2]) - 1, Number(match[1]))
+    : new Date(createdAt);
+  if (Number.isNaN(when.getTime())) return "";
+  return when.toLocaleDateString("es-CR", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+}
+
 const routeStatusConfig: Record<string, { color: string; label: string }> = {
   PLANIFICADA: { color: "bg-blue-50 text-blue-700", label: "Planificada" },
   EN_RUTA: { color: "bg-amber-50 text-[#B8860B]", label: "En Ruta" },
@@ -316,7 +330,7 @@ export default function RutaDetail() {
             </div>
             <p className="text-sm text-[#8A8A8A] mt-1">
               <Calendar className="w-3.5 h-3.5 inline mr-1" />
-              {new Date(route.createdAt).toLocaleDateString("es-CR", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+              {routeDateLabel(route.name, route.createdAt)}
             </p>
           </div>
         </div>
