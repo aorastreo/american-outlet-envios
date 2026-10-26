@@ -666,7 +666,7 @@ export default function RutaDetail() {
                       return (
                         <Card key={shipment.id} className={`border-l-4 ${visualStatus === "ENTREGADO" ? 'border-l-green-500' : visualStatus === "NO_RECOGIDO" ? 'border-l-red-500' : 'border-l-amber-400'}`}>
                           <CardContent className="p-4">
-                            <div className="flex items-start gap-4">
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:gap-4">
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 mb-1">
                                   <Package className="w-4 h-4 text-[#525252]" />
@@ -679,7 +679,7 @@ export default function RutaDetail() {
                                 )}
 
                                 {shipment.shipment?.senderPhone && (
-                                  <div className="flex items-center gap-2 mt-2">
+                                  <div className="flex flex-wrap items-center gap-2 mt-2">
                                     <Phone className="w-3.5 h-3.5 text-[#C8102E]" />
                                     <span className="text-sm font-medium text-[#1A1A1A]">{shipment.shipment.senderPhone}</span>
                                     <a href={`tel:+${costaRicaNumber(shipment.shipment.senderPhone)}`} className="inline-flex items-center gap-1 text-[10px] bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100 px-2 py-0.5 rounded transition-colors" onClick={(e) => e.stopPropagation()}>
@@ -720,7 +720,7 @@ export default function RutaDetail() {
                                   </div>
                                 )}
                               </div>
-                              <div className={`flex flex-col gap-2 shrink-0 ${markLocked ? "opacity-40 pointer-events-none" : ""}`}>
+                              <div className={`flex flex-col gap-2 sm:shrink-0 ${markLocked ? "opacity-40 pointer-events-none" : ""}`}>
                                 <label className={`flex items-center gap-2 ${isSaving ? 'opacity-50 pointer-events-none' : 'cursor-pointer'}`}>
                                   {isSaving ? (
                                     <div className="w-5 h-5 border-2 border-green-600 border-t-transparent rounded-full animate-spin" />
