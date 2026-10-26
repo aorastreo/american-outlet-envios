@@ -150,9 +150,7 @@ export default function Rutas() {
   // All route shipments (new endpoint)
   const { data: routeShipments, isLoading: shipmentsLoading } = trpc.route.getRouteShipments.useQuery();
   const { data: routes, isLoading: routesLoading } = trpc.route.list.useQuery();
-  const { data: pendingByCity } = trpc.route.pendingByPickupPoint.useQuery(undefined, {
-    enabled: pendingDialog || createDialog,
-  });
+  const { data: pendingByCity } = trpc.route.pendingByPickupPoint.useQuery();
   const fixStuckMutation = trpc.route.fixStuckEnParada.useMutation({
     onSuccess: (data) => {
       utils.route.getRouteShipments.invalidate();
