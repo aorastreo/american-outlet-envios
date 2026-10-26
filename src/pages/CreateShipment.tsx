@@ -12,6 +12,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Plus, Trash2, Send, AlertCircle, Package, Copy, Check, User, FileText, Zap, X } from "lucide-react";
 import { useFranchiseAuth } from "@/hooks/useFranchiseAuth";
+import { needsInterBodega } from "@/lib/franchise-groups";
 
 interface ShipmentItem {
   id: string;
@@ -154,6 +155,17 @@ export default function CreateShipment() {
     if (f.id === user?.franchiseId) return false; // No tienda propia
     return true;
   });
+  const myWarehouseName = (user?.franchise?.displayName || user?.franchise?.name || "").toLowerCase().includes("cedi")
+    ? "Bodega Cedi"
+    : "Bodega Pavon";
+  const selectedDestination = availableFranchises.find((franchise) => franchise.id.toString() === destinationFranchiseId);
+  const warehouseTransfer = selectedDestination
+    ? needsInterBodega({
+        originName: user?.franchise?.displayName || user?.franchise?.name,
+        destinationName: selectedDestination.displayName,
+        warehouseLocation: myWarehouseName,
+      })
+    : null;
 
   return (
     <FranchiseLayout>
@@ -170,8 +182,14 @@ export default function CreateShipment() {
                 <Zap className="w-5 h-5 text-[#C8102E]" />
               </div>
               <div>
-                <p className="font-semibold text-[#9B0B22]">Envio Directo desde Bodega</p>
-                <p className="text-sm text-[#C8102E]">Este envio ira directamente de Bodega a la tienda de destino sin pasar por confirmaciones intermedias.</p>
+                <p className="font-semibold text-[#9B0B22]">Envio creado en esta bodega</p>
+                <p className="text-sm text-[#C8102E]">
+                  {warehouseTransfer?.needsTransfer
+                    ? `Antes de ir al destino, este envio tiene que pasar por ${warehouseTransfer.targetBodega}.`
+                    : selectedDestination
+                      ? "Este envio puede salir directo al destino."
+                      : "Si el destino es del otro grupo, de Sabana o de una recogida, el paquete pasa primero por la otra bodega."}
+                </p>
               </div>
             </CardContent>
           </Card>
