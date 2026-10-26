@@ -373,17 +373,6 @@ export default function RutaDetail() {
             </Button>
           </div>
         )}
-        {route.status === "EN_RUTA" && allStopsCompleted && (
-          <Button
-            onClick={() => updateRouteMutation.mutate({ id: routeId, status: "COMPLETADA" })}
-            className="w-full bg-[#1B6B3E] hover:bg-[#145a32] h-12 text-base"
-            disabled={updateRouteMutation.isPending}
-          >
-            <CheckCircle className="w-5 h-5 mr-2" />
-            {updateRouteMutation.isPending ? "Completando..." : "Completar Ruta"}
-          </Button>
-        )}
-
         {/* Available Shipments — for assignment when route is PLANIFICADA */}
         {route.status === "PLANIFICADA" && matchingAvailableShipments.length > 0 && (
           <div className="space-y-3">
@@ -704,6 +693,19 @@ export default function RutaDetail() {
                 </div>
               );
             })}
+            {allStopsCompleted && (
+              <div className="space-y-2 pt-2">
+                <p className="text-sm text-center text-[#1B6B3E]">Todas las paradas estan cerradas.</p>
+                <Button
+                  onClick={() => updateRouteMutation.mutate({ id: routeId, status: "COMPLETADA" })}
+                  className="w-full bg-[#1B6B3E] hover:bg-[#145a32] h-12 text-base"
+                  disabled={updateRouteMutation.isPending}
+                >
+                  <CheckCircle className="w-5 h-5 mr-2" />
+                  {updateRouteMutation.isPending ? "Completando..." : "Completar Ruta"}
+                </Button>
+              </div>
+            )}
           </div>
         )}
 
