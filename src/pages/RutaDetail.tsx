@@ -773,18 +773,18 @@ export default function RutaDetail() {
           return (
             <div key={stop.id} className="space-y-3">
               {/* City Header with action button */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${
                     stop.status === "COMPLETADO" ? "bg-[#1B6B3E] text-white" :
                     stop.status === "LLEGADO" ? "bg-[#B8860B] text-white" :
                     isCurrent ? "bg-[#C8102E] text-white" : "bg-[#F0F0F0] text-[#8A8A8A]"
                   }`}>
                     {idx + 1}
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <h3 className="text-lg font-semibold text-[#1A1A1A]">{stop.cityName}</h3>
-                    <div className="flex items-center gap-2 text-xs">
+                    <div className="flex flex-wrap items-center gap-2 text-xs">
                       {stopCfg && <Badge variant="secondary" className={stopCfg.color}>{stopCfg.label}</Badge>}
                       <span className="text-[#8A8A8A]">{stopShipments.length} envio{stopShipments.length !== 1 ? "s" : ""}</span>
                     </div>
@@ -806,7 +806,7 @@ export default function RutaDetail() {
                   <Button
                     size="sm"
                     onClick={() => updateStopMutation.mutate({ stopId: stop.id, status: "COMPLETADO" })}
-                    className="bg-[#1B6B3E] hover:bg-[#145a32]"
+                    className="w-full sm:w-auto bg-[#1B6B3E] hover:bg-[#145a32]"
                     disabled={updateStopMutation.isPending}
                   >
                     <CheckCircle className="w-4 h-4 mr-1.5" />
@@ -840,9 +840,9 @@ export default function RutaDetail() {
                                 </span>
                                 {shCfg && <Badge variant="secondary" className={shCfg.color}>{shCfg.label}</Badge>}
                               </div>
-                              <div className="flex items-center gap-3 mt-1.5 text-xs text-[#525252]">
-                                <span className="flex items-center gap-1"><User className="w-3 h-3" />{s.senderName}</span>
-                                <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{s.senderPhone}</span>
+                              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 text-xs text-[#525252]">
+                                <span className="flex items-center gap-1 min-w-0 max-w-full"><User className="w-3 h-3 shrink-0" /><span className="break-words">{s.senderName}</span></span>
+                                <span className="flex items-center gap-1"><Phone className="w-3 h-3 shrink-0" />{s.senderPhone}</span>
                               </div>
                               <p className="text-xs text-[#8A8A8A] mt-0.5 truncate">
                                 {s.items?.map((i: any) => `${i.description} x${i.quantity}`).join(", ")}
