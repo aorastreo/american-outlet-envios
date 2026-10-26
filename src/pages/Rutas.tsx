@@ -682,11 +682,19 @@ export default function Rutas() {
                               <p className="text-sm font-medium text-[#1A1A1A]">{s.senderPhone}</p>
                             </div>
                             {s.senderPhone && (
-                              <a href={`https://wa.me/506${s.senderPhone.replace(/\D/g, "")}`} target="_blank" rel="noopener noreferrer"
+                              <button
+                                type="button"
                                 className="inline-flex items-center gap-1 text-[10px] bg-[#25D366]/10 border border-[#25D366]/30 text-[#25D366] hover:bg-[#25D366] hover:text-white px-2 py-1 rounded transition-colors shrink-0"
-                                onClick={(e) => e.stopPropagation()}>
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const digits = s.senderPhone.replace(/\D/g, "");
+                                  const phone = digits.startsWith("506") ? digits : `506${digits}`;
+                                  const message = `Hola! Su pedido con guia ${s.trackingNumber} esta en bodega y saldra hacia ${group.cityName}. Le avisamos cuando pueda pasar a recogerlo. Gracias! - American Outlet`;
+                                  window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, "_blank");
+                                }}
+                              >
                                 <MessageCircle className="w-3 h-3" />WhatsApp
-                              </a>
+                              </button>
                             )}
                           </div>
                         </div>
