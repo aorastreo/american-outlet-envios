@@ -367,7 +367,16 @@ export default function ShipmentDetail() {
                     variant="outline"
                     onClick={() => {
                       const phone = shipment.senderPhone!.replace(/\D/g, "");
-                      const message = `Hola! Soy el encargado de American Outlet. Su pedido *${shipment.trackingNumber}* ya esta disponible para retirar en *${shipment.destinationName}*. Por favor pasar a recogerlo. Gracias!`;
+                      const destLabel = shipment.destinationFranchise?.displayName || "su destino";
+                      const place = destLabel.replace(/^Recogida\s*-\s*/i, "").trim() || "su destino";
+                      const destLower = destLabel.toLowerCase();
+                      const isPickup = destLower.includes("recogida") || ["grecia", "palmares", "san ramon"].some((city) => destLower.includes(city));
+                      const ready = shipment.status === "EN_PARADA"
+                        || (shipment.status === "RECIBIDO_EN_BODEGA" && (shipment.destinationFranchise as any)?.isWarehouse === 1 && !isPickup)
+                        || (shipment.status === "RECIBIDO_EN_DESTINO" && !isPickup);
+                      const message = ready
+                        ? `Hola! Soy el encargado de American Outlet. Su pedido *${shipment.trackingNumber}* ya esta disponible para retirar en *${place}*. Por favor pasar a recogerlo. Gracias!`
+                        : `Hola! Soy el encargado de American Outlet. Su pedido *${shipment.trackingNumber}* va en camino hacia *${place}*. Le avisamos cuando pueda pasar a recogerlo. Gracias!`;
                       window.open(`https://wa.me/506${phone}?text=${encodeURIComponent(message)}`, "_blank");
                     }}
                     className="h-7 px-2 text-xs bg-[#25D366]/10 border-[#25D366]/30 text-[#25D366] hover:bg-[#25D366] hover:text-white"
