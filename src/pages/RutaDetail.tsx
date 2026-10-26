@@ -341,10 +341,11 @@ export default function RutaDetail() {
         })()}
 
         {/* Summary */}
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: "Asignados", value: route.summary.totalAssigned, color: "text-blue-700", bg: "bg-blue-50" },
+            { label: "Total", value: route.summary.totalAssigned, color: "text-blue-700", bg: "bg-blue-50" },
             { label: "Entregados", value: route.summary.totalDelivered, color: "text-[#1B6B3E]", bg: "bg-emerald-50" },
+            { label: "No recogidos", value: route.summary.totalNotCollected || 0, color: "text-red-700", bg: "bg-red-50" },
             { label: "Pendientes", value: route.summary.totalPending, color: "text-[#B8860B]", bg: "bg-amber-50" },
           ].map((s) => (
             <Card key={s.label}>

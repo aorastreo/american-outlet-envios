@@ -452,6 +452,7 @@ export default function Rutas() {
               const rcfg = getStatusConfig(route.status);
               const total = (route.summary as any)?.total || 0;
               const entregados = (route.summary as any)?.entregados || 0;
+              const noRecogidos = (route.summary as any)?.noRecogidos || 0;
               return (
                 <div key={route.id}>
                   <Link to={`/rutas/${route.id}`}>
@@ -473,6 +474,9 @@ export default function Rutas() {
                             </span>
                             {entregados > 0 && (
                               <span className="text-xs text-emerald-600">{entregados} entregado{entregados !== 1 ? 's' : ''}</span>
+                            )}
+                            {noRecogidos > 0 && (
+                              <span className="text-xs text-red-600">{noRecogidos} no recogido{noRecogidos !== 1 ? "s" : ""}</span>
                             )}
                           </div>
                         </div>
