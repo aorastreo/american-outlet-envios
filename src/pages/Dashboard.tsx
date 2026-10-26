@@ -268,6 +268,14 @@ export default function Dashboard() {
         ["ENVIADO_A_BODEGA", "RECIBIDO_EN_BODEGA", "ENVIADO_A_DESTINO"].includes(s.status)
     );
   }, [shipments, isBodega, myFranchiseId]);
+  const storeComing = useMemo(
+    () => storeToReceive.filter((s) => s.status === "ENVIADO_A_DESTINO"),
+    [storeToReceive],
+  );
+  const storeStillAway = useMemo(
+    () => storeToReceive.filter((s) => s.status !== "ENVIADO_A_DESTINO"),
+    [storeToReceive],
+  );
 
   const storeSent = useMemo(() => {
     if (isBodega || !shipments) return [];
@@ -450,11 +458,24 @@ export default function Dashboard() {
                   iconColor="text-[#B8860B]"
                   badgeColor="bg-amber-50 text-[#B8860B]"
                 />
-                <div className="space-y-3">
-                  {storeToReceive.map((s) => (
-                    <ShipmentCard key={s.id} shipment={s} />
-                  ))}
-                </div>
+                {storeComing.length > 0 && (
+                  <div className="space-y-3">
+                    {storeStillAway.length > 0 && (
+                      <p className="text-sm font-semibold text-amber-800">Ya van hacia la tienda</p>
+                    )}
+                    {storeComing.map((s) => (
+                      <ShipmentCard key={s.id} shipment={s} />
+                    ))}
+                  </div>
+                )}
+                {storeStillAway.length > 0 && (
+                  <div className="space-y-3">
+                    <p className="text-sm font-semibold text-[#8A8A8A]">Todavia no salen hacia la tienda</p>
+                    {storeStillAway.map((s) => (
+                      <ShipmentCard key={s.id} shipment={s} />
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
