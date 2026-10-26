@@ -25,6 +25,42 @@ function pickupCity(name: string | null | undefined): string {
   return (name || "").replace(/^Recogida\s*-\s*/i, "").trim();
 }
 
+function stopIdForDestination(
+  stops: { id: number; cityName: string }[],
+  destinationName: string,
+): number | null {
+  const dest = destinationName.toLowerCase();
+  const ordered = [...stops].sort((a, b) => b.cityName.length - a.cityName.length);
+  for (const stop of ordered) {
+    const city = stop.cityName.toLowerCase().trim();
+    if (city && dest.includes(city)) return stop.id;
+  }
+  return null;
+}
+
+async function placeShipmentOnStop(
+  db: ReturnType<typeof getDb>,
+  shipmentId: number,
+  routeId: number,
+  stopId: number,
+) {
+  const existing = await db.select().from(routeShipments).where(and(
+    eq(routeShipments.shipmentId, shipmentId),
+    eq(routeShipments.status, "ASIGNADO"),
+  ));
+  if (existing.length > 0) {
+    await db.update(routeShipments)
+      .set({ routeId, stopId })
+      .where(eq(routeShipments.id, existing[0].id));
+    const extraIds = existing.slice(1).map((row) => row.id);
+    if (extraIds.length > 0) {
+      await db.delete(routeShipments).where(inArray(routeShipments.id, extraIds));
+    }
+    return;
+  }
+  await db.insert(routeShipments).values({ routeId, stopId, shipmentId });
+}
+
 export const routeRouter = createRouter({
   // ─── Create Route ──────────────────────────────────────────────
   create: franchiseAuthedQuery
@@ -33,6 +69,7 @@ export const routeRouter = createRouter({
       stops: z.array(z.object({
         cityName: z.string().min(1).max(100),
       })).min(1),
+      shipmentIds: z.array(z.number()).optional(),
     }))
     .mutation(async ({ input, ctx }) => {
       const db = getDb();
@@ -51,7 +88,34 @@ export const routeRouter = createRouter({
         });
       }
 
-      return { success: true, routeId };
+      const createdStops = await db.select().from(routeStops).where(eq(routeStops.routeId, routeId));
+      const shipmentIds = input.shipmentIds || [];
+      let assigned = 0;
+      const skipped: string[] = [];
+
+      if (shipmentIds.length > 0) {
+        const allFranchises = await db.select().from(franchises);
+        const pickupIds = allFranchises.filter(isPickupFranchise).map((franchise) => franchise.id);
+        for (const shipmentId of shipmentIds) {
+          const shipment = await db.select().from(shipments).where(eq(shipments.id, shipmentId)).limit(1);
+          if (shipment.length === 0) {
+            skipped.push(String(shipmentId));
+            continue;
+          }
+          const row = shipment[0];
+          const destFranchise = allFranchises.find((franchise) => franchise.id === row.destinationFranchiseId);
+          const destName = destFranchise?.displayName || destFranchise?.name || "";
+          const stopId = stopIdForDestination(createdStops, destName);
+          if (!pickupIds.includes(row.destinationFranchiseId) || !readyForDriverRoute(row) || !stopId) {
+            skipped.push(row.trackingNumber);
+            continue;
+          }
+          await placeShipmentOnStop(db, row.id, routeId, stopId);
+          assigned++;
+        }
+      }
+
+      return { success: true, routeId, assigned, skipped };
     }),
 
   // ─── List Routes ───────────────────────────────────────────────
@@ -198,11 +262,7 @@ export const routeRouter = createRouter({
           });
         }
 
-        await db.insert(routeShipments).values({
-          routeId: input.routeId,
-          stopId: input.stopId,
-          shipmentId,
-        }).onDuplicateKeyUpdate({ set: { stopId: input.stopId } });
+        await placeShipmentOnStop(db, shipmentId, input.routeId, input.stopId);
       }
       return { success: true };
     }),

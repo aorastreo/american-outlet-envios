@@ -217,13 +217,22 @@ export default function Rutas() {
     });
 
   const createMutation = trpc.route.create.useMutation({
-    onSuccess: () => {
+    onSuccess: (data) => {
       utils.route.list.invalidate();
+      utils.route.getRouteShipments.invalidate();
+      utils.route.pendingByPickupPoint.invalidate();
       setCreateDialog(false);
       setRouteName("");
       setRouteDate(format(new Date(), "yyyy-MM-dd"));
       setCities([]);
-      toast.success("Ruta creada exitosamente");
+      setSelectedShipmentIds([]);
+      if (data.skipped.length > 0) {
+        toast.success(`Ruta creada con ${data.assigned} envio(s). ${data.skipped.length} no coinciden con las paradas y se quedaron fuera.`);
+      } else if (data.assigned > 0) {
+        toast.success(`Ruta creada con ${data.assigned} envio(s)`);
+      } else {
+        toast.success("Ruta creada exitosamente");
+      }
     },
     onError: (err) => toast.error(err.message),
   });
@@ -247,7 +256,11 @@ export default function Rutas() {
       toast.error("Seleccione al menos una ciudad");
       return;
     }
-    createMutation.mutate({ name: routeName.trim(), stops: validCities.map(c => ({ cityName: c })) });
+    createMutation.mutate({
+      name: routeName.trim(),
+      stops: validCities.map(c => ({ cityName: c })),
+      shipmentIds: selectedShipmentIds,
+    });
   };
 
   const toggleShipment = (shipmentId: number) => {
@@ -346,7 +359,7 @@ export default function Rutas() {
                 <Badge variant="secondary" className="ml-2 bg-orange-100 text-orange-700">{totalPending}</Badge>
               )}
             </Button>
-            <Button onClick={() => setCreateDialog(true)} className="bg-[#C8102E] hover:bg-[#9B0B22]">
+            <Button onClick={() => { setSelectedShipmentIds([]); setCreateDialog(true); }} className="bg-[#C8102E] hover:bg-[#9B0B22]">
               <Plus className="w-4 h-4 mr-2" />
               Nueva Ruta
             </Button>
@@ -628,7 +641,7 @@ export default function Rutas() {
               </div>
             )}
             <Button onClick={handleCreate} className="w-full bg-[#C8102E] hover:bg-[#9B0B22]" disabled={createMutation.isPending || cities.length === 0}>
-              {createMutation.isPending ? "Creando..." : `Crear Ruta${cities.length > 0 ? ` (${cities.length} parada${cities.length !== 1 ? "s" : ""})` : ""}`}
+              {createMutation.isPending ? "Creando..." : `Crear Ruta${cities.length > 0 ? ` (${cities.length} parada${cities.length !== 1 ? "s" : ""}${selectedShipmentIds.length > 0 ? `, ${selectedShipmentIds.length} envio${selectedShipmentIds.length !== 1 ? "s" : ""}` : ""})` : ""}`}
             </Button>
           </div>
         </DialogContent>
@@ -727,7 +740,27 @@ export default function Rutas() {
               ))}
               {selectedShipmentIds.length > 0 && (
                 <div className="sticky bottom-0 bg-white p-3 border-t border-[#F0F0F0]">
-                  <Button onClick={() => { setPendingDialog(false); setCreateDialog(true); }} className="w-full bg-[#C8102E] hover:bg-[#9B0B22]">
+                  <Button onClick={() => {
+                    const selected = new Set(selectedShipmentIds);
+                    const nextCities = [...cities];
+                    for (const group of pendingByCity || []) {
+                      if (!group.shipments.some((s) => selected.has(s.id))) continue;
+                      if (!nextCities.some((city) => city.toLowerCase() === group.cityName.toLowerCase())) {
+                        nextCities.push(group.cityName);
+                      }
+                    }
+                    nextCities.sort((a, b) => {
+                      const idxA = preferredOrder.indexOf(a);
+                      const idxB = preferredOrder.indexOf(b);
+                      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+                      if (idxA !== -1) return -1;
+                      if (idxB !== -1) return 1;
+                      return a.localeCompare(b);
+                    });
+                    setCities(nextCities);
+                    setPendingDialog(false);
+                    setCreateDialog(true);
+                  }} className="w-full bg-[#C8102E] hover:bg-[#9B0B22]">
                     Crear Ruta con {selectedShipmentIds.length} envio{selectedShipmentIds.length !== 1 ? "s" : ""} seleccionado{selectedShipmentIds.length !== 1 ? "s" : ""}
                   </Button>
                 </div>
