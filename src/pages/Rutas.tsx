@@ -361,6 +361,9 @@ export default function Rutas() {
   // ─── Render shipment card (like Shipments.tsx) ────────────────
   const renderShipmentCard = (shipment: any) => {
     const cfg = getStatusConfig(shipment.status);
+    const stuck = Boolean(shipment.stuckAfterRoute);
+    const badgeLabel = stuck ? "Quedo en una ruta cerrada" : cfg.label;
+    const badgeColor = stuck ? "bg-red-50 text-red-700" : cfg.color;
     return (
       <Link to={`/envios/${shipment.id}`} key={shipment.id} className="block">
         <Card className="hover:shadow-md transition-shadow cursor-pointer border-[#F0F0F0] hover:border-[#C8102E]/20">
@@ -370,9 +373,9 @@ export default function Rutas() {
                 <div className="flex items-center gap-3 flex-wrap">
                   <Barcode className="w-4 h-4 text-[#C8102E]" />
                   <p className="font-semibold font-mono text-[#C8102E] text-lg">{shipment.trackingNumber}</p>
-                  <Badge variant="secondary" className={cfg.color}>
+                  <Badge variant="secondary" className={badgeColor}>
                     <cfg.icon className="w-3 h-3 mr-1" />
-                    {cfg.label}
+                    {badgeLabel}
                   </Badge>
                 </div>
                 <div className="flex items-center gap-2 mt-2 text-sm text-[#8A8A8A]">
