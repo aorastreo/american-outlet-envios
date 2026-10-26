@@ -312,6 +312,20 @@ export default function Rutas() {
   };
   const removeCity = (idx: number) => setCities(cities.filter((_, i) => i !== idx));
 
+  const shipmentsForThisRoute = useMemo(() => {
+    const cityKeys = new Set(
+      cities
+        .map((city) => city.replace(/^Recogida\s*-\s*/i, "").trim().toLowerCase())
+        .filter(Boolean),
+    );
+    if (cityKeys.size === 0) return [];
+    return selectedShipmentIds.filter((id) =>
+      (pendingByCity || []).some(
+        (group) => cityKeys.has(group.cityName.toLowerCase()) && group.shipments.some((s) => s.id === id),
+      ),
+    );
+  }, [cities, selectedShipmentIds, pendingByCity]);
+
   const handleCreate = () => {
     const validCities = cities.filter(Boolean);
     if (!routeName.trim() || validCities.length === 0) {
@@ -321,7 +335,7 @@ export default function Rutas() {
     createMutation.mutate({
       name: routeName.trim(),
       stops: validCities.map(c => ({ cityName: c })),
-      shipmentIds: selectedShipmentIds,
+      shipmentIds: shipmentsForThisRoute,
     });
   };
 
@@ -332,10 +346,14 @@ export default function Rutas() {
   };
 
   const addCityFromPending = (cityName: string) => {
-    const cleanCity = cityName.replace("Recogida - ", "").trim();
+    const cleanCity = cityName.replace(/^Recogida\s*-\s*/i, "").trim();
     if (!cities.filter(Boolean).some(c => c.toLowerCase() === cleanCity.toLowerCase())) {
       setCities([...cities.filter(Boolean), cleanCity]);
     }
+    const cityKey = cleanCity.toLowerCase();
+    const group = (pendingByCity || []).find((item) => item.cityName.toLowerCase() === cityKey);
+    const ids = new Set((group?.shipments || []).map((s) => s.id));
+    setSelectedShipmentIds((prev) => prev.filter((id) => ids.has(id)));
     setPendingDialog(false);
     setCreateDialog(true);
   };
@@ -683,7 +701,7 @@ export default function Rutas() {
       {/* ============ DIALOGS (keep existing) ============ */}
 
       {/* Create Route Dialog */}
-      <Dialog open={createDialog} onOpenChange={(open) => { setCreateDialog(open); if (!open) { setRouteName(""); setRouteDate(format(new Date(), "yyyy-MM-dd")); setCities([]); } }}>
+      <Dialog open={createDialog} onOpenChange={(open) => { setCreateDialog(open); if (!open) { setRouteName(""); setRouteDate(format(new Date(), "yyyy-MM-dd")); setCities([]); setSelectedShipmentIds([]); } }}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -748,7 +766,7 @@ export default function Rutas() {
               </div>
             )}
             <Button onClick={handleCreate} className="w-full bg-[#C8102E] hover:bg-[#9B0B22]" disabled={createMutation.isPending || cities.length === 0}>
-              {createMutation.isPending ? "Creando..." : `Crear Ruta${cities.length > 0 ? ` (${cities.length} parada${cities.length !== 1 ? "s" : ""}${selectedShipmentIds.length > 0 ? `, ${selectedShipmentIds.length} envio${selectedShipmentIds.length !== 1 ? "s" : ""}` : ""})` : ""}`}
+              {createMutation.isPending ? "Creando..." : `Crear Ruta${cities.length > 0 ? ` (${cities.length} parada${cities.length !== 1 ? "s" : ""}${shipmentsForThisRoute.length > 0 ? `, ${shipmentsForThisRoute.length} envio${shipmentsForThisRoute.length !== 1 ? "s" : ""}` : ""})` : ""}`}
             </Button>
           </div>
         </DialogContent>
