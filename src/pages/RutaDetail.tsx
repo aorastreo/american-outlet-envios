@@ -549,6 +549,7 @@ export default function RutaDetail() {
                           {deliveredCount > 0 && <span className="text-emerald-600 font-medium">{deliveredCount} entregado{deliveredCount !== 1 ? "s" : ""}</span>}
                           {noPickupCount > 0 && <span className="text-red-600 font-medium">{noPickupCount} no recogido{noPickupCount !== 1 ? "s" : ""}</span>}
                           {pendingCount > 0 && <span className="text-amber-600 font-medium">{pendingCount} pendiente{pendingCount !== 1 ? "s" : ""}</span>}
+                          {stop.status === "PENDIENTE" && earlierClosed && <span className="text-[#8A8A8A]">Llegue para marcar entregas</span>}
                         </div>
                       </div>
                     </div>
@@ -595,7 +596,9 @@ export default function RutaDetail() {
                       const isSaving = savingShipmentId === shipment.id;
                       const visualStatus = optimisticStatuses[shipment.id] ?? shipment.status;
 
+                      const markLocked = stop.status === "PENDIENTE" && visualStatus !== "ENTREGADO" && visualStatus !== "NO_RECOGIDO";
                       const handleToggle = async (type: "ENTREGADO" | "NO_RECOGIDO") => {
+                        if (stop.status === "PENDIENTE" && visualStatus !== type) return;
                         const currentlyChecked = visualStatus === type;
                         const newStatus = currentlyChecked ? "ASIGNADO" : type;
 
@@ -690,7 +693,7 @@ export default function RutaDetail() {
                                   </div>
                                 )}
                               </div>
-                              <div className="flex flex-col gap-2 shrink-0">
+                              <div className={`flex flex-col gap-2 shrink-0 ${markLocked ? "opacity-40 pointer-events-none" : ""}`}>
                                 <label className={`flex items-center gap-2 ${isSaving ? 'opacity-50 pointer-events-none' : 'cursor-pointer'}`}>
                                   {isSaving ? (
                                     <div className="w-5 h-5 border-2 border-green-600 border-t-transparent rounded-full animate-spin" />

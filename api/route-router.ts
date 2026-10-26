@@ -429,6 +429,16 @@ export const routeRouter = createRouter({
           throw new TRPCError({ code: "NOT_FOUND", message: "Route shipment not found" });
         }
 
+        if (input.status === "ENTREGADO" || input.status === "NO_RECOGIDO") {
+          const stopBeforeMark = existing[0].stopId
+            ? await db.select().from(routeStops).where(eq(routeStops.id, existing[0].stopId)).limit(1)
+            : [];
+          const truckIsHere = stopBeforeMark[0]?.status === "LLEGADO" || stopBeforeMark[0]?.status === "COMPLETADO";
+          if (!truckIsHere) {
+            throw new TRPCError({ code: "BAD_REQUEST", message: "Primero marque que el camion llego a esta parada" });
+          }
+        }
+
         // 1. Update route_shipments status
         const routeUpdate: Record<string, any> = {
           status: input.status,
