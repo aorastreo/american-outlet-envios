@@ -164,6 +164,9 @@ export default function Rutas() {
   const fixStuckMutation = trpc.route.fixStuckEnParada.useMutation({
     onSuccess: (data) => {
       utils.route.getRouteShipments.invalidate();
+      utils.route.list.invalidate();
+      utils.route.pendingByPickupPoint.invalidate();
+      utils.shipment.list.invalidate();
       toast.success(data.message);
     },
     onError: (err) => toast.error(err.message),
@@ -468,9 +471,9 @@ export default function Rutas() {
         {/* Fix stuck EN_PARADA shipments button */}
         {routeShipments?.some((s) => s.stuckAfterRoute) && (
           <Card className="border-red-200 bg-red-50">
-            <CardContent className="p-3 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <AlertCircle className="w-5 h-5 text-red-600" />
+            <CardContent className="p-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-start gap-2 min-w-0">
+                <AlertCircle className="w-5 h-5 text-red-600 shrink-0" />
                 <span className="text-sm text-red-700 font-medium">
                   Hay envios atascados en "En Parada" de rutas completadas
                 </span>
@@ -480,7 +483,7 @@ export default function Rutas() {
                 variant="outline"
                 onClick={() => fixStuckMutation.mutate()}
                 disabled={fixStuckMutation.isPending}
-                className="border-red-300 text-red-700 hover:bg-red-100"
+                className="w-full sm:w-auto border-red-300 text-red-700 hover:bg-red-100"
               >
                 {fixStuckMutation.isPending ? "Corrigiendo..." : "Corregir ahora"}
               </Button>

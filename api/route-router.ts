@@ -918,7 +918,9 @@ export const routeRouter = createRouter({
 
       return {
         fixed,
-        message: fixed > 0 ? `Corregidos ${fixed} envios atascados en EN_PARADA` : "No hay envios atascados",
+        message: fixed > 0
+          ? `Corregidos ${fixed} envio${fixed === 1 ? "" : "s"}. Quedaron como no recogidos y ya se pueden asignar a otra ruta.`
+          : "No hay envios atascados",
       };
     }),
 });
