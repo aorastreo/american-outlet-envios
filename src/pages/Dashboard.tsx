@@ -282,11 +282,7 @@ export default function Dashboard() {
         {/* HEADER */}
         <div>
           <h1 className="text-2xl font-bold text-[#1A1A1A]">
-            {isReceivingWarehouse
-              ? "Bodega Sabana"
-              : isWarehouse
-              ? "Bodega Central"
-              : cleanName(user?.franchise?.displayName || user?.franchise?.name)}
+            {cleanName(user?.franchise?.displayName || user?.franchise?.name) || "Franquicia"}
           </h1>
           <p className="text-[#8A8A8A] mt-1">
             {isReceivingWarehouse

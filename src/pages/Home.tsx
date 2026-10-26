@@ -488,12 +488,12 @@ export default function Home() {
               {
                 icon: Send,
                 title: "Envio a Bodega",
-                desc: "La tienda origen confirma que envio el paquete hacia la bodega central.",
+                desc: "La tienda origen confirma que envio el paquete hacia su bodega.",
               },
               {
                 icon: Warehouse,
-                title: "Bodega Central",
-                desc: "La bodega recibe, verifica y reenvia el paquete hacia su destino final.",
+                title: "En la bodega",
+                desc: "La bodega recibe el paquete y lo reenvia hacia su destino final.",
               },
               {
                 icon: CheckCircle,

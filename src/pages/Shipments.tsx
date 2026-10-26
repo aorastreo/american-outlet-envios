@@ -1121,7 +1121,7 @@ export default function Shipments() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-[#1A1A1A]">
-              {isBodega ? "Bodega - Envios" : "Mis Envios"}
+              {isBodega ? cleanName(user?.franchise?.displayName || user?.franchise?.name) || "Bodega" : "Mis Envios"}
             </h1>
             <p className="text-[#8A8A8A] mt-1">
               {filteredShipments.length} envio{filteredShipments.length !== 1 ? "s" : ""} encontrado
