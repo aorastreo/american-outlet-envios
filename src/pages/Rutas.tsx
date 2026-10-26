@@ -453,6 +453,7 @@ export default function Rutas() {
               const total = (route.summary as any)?.total || 0;
               const entregados = (route.summary as any)?.entregados || 0;
               const noRecogidos = (route.summary as any)?.noRecogidos || 0;
+              const pendientes = Math.max(0, total - entregados - noRecogidos);
               return (
                 <div key={route.id}>
                   <Link to={`/rutas/${route.id}`}>
@@ -470,13 +471,16 @@ export default function Rutas() {
                           </div>
                           <div className="flex items-center gap-2 mt-1">
                             <span className="text-xs text-[#8A8A8A]">
-                              {total > 0 ? `${total} envío${total !== 1 ? 's' : ''} asignado${total !== 1 ? 's' : ''}` : "Sin envíos asignados"}
+                              {total > 0 ? `${total} envío${total !== 1 ? "s" : ""}` : "Sin envíos"}
                             </span>
                             {entregados > 0 && (
-                              <span className="text-xs text-emerald-600">{entregados} entregado{entregados !== 1 ? 's' : ''}</span>
+                              <span className="text-xs text-emerald-600">{entregados} entregado{entregados !== 1 ? "s" : ""}</span>
                             )}
                             {noRecogidos > 0 && (
                               <span className="text-xs text-red-600">{noRecogidos} no recogido{noRecogidos !== 1 ? "s" : ""}</span>
+                            )}
+                            {pendientes > 0 && (
+                              <span className="text-xs text-amber-700">{pendientes} pendiente{pendientes !== 1 ? "s" : ""}</span>
                             )}
                           </div>
                         </div>
