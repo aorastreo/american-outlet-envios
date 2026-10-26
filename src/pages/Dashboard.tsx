@@ -199,7 +199,13 @@ export default function Dashboard() {
     () => (shipments || []).filter((s) => s.status === "CANCELADO"),
     [shipments],
   );
+  const sentToOtherBodega = useMemo(() => {
+    if (!isBodega || isReceivingWarehouse) return [];
+    const here = new Set((shipments || []).map((s) => s.id));
+    return (sentShipments || []).filter((s) => s.status === "ENVIADO_A_BODEGA" && !here.has(s.id));
+  }, [shipments, sentShipments, isBodega, isReceivingWarehouse]);
   const activeTotal = Math.max(0, (shipments?.length || 0) - cancelledShipments.length);
+  const warehouseTotal = activeTotal + sentToOtherBodega.length;
 
   // RECEIVING WAREHOUSE FILTERS (Sabana — only receives)
   const receivingToReceive = useMemo(() => {
@@ -284,7 +290,7 @@ export default function Dashboard() {
     ...(isCediWarehouse ? [{ label: "Para el camion", value: waitingForTruck.length, icon: Route, color: "text-[#B8860B]", bg: "bg-amber-50", border: "border-amber-200/50" }] : []),
     { label: "En camino", value: warehouseInRoute.length, icon: Truck, color: "text-[#D4730E]", bg: "bg-orange-50", border: "border-orange-200/50" },
     { label: "Entregados", value: warehouseDelivered.length, icon: CheckCircle, color: "text-[#1B6B3E]", bg: "bg-emerald-50", border: "border-emerald-200/50" },
-    { label: "Total", value: activeTotal, icon: Package, color: "text-[#1A1A1A]", bg: "bg-gray-50", border: "border-gray-200/50" },
+    { label: "Total", value: warehouseTotal, icon: Package, color: "text-[#1A1A1A]", bg: "bg-gray-50", border: "border-gray-200/50" },
   ] : [
     { label: "Por Enviar", value: storeCreated.length, icon: Send, color: "text-[#C8102E]", bg: "bg-[#FFF5F5]", border: "border-[#C8102E]/10" },
     { label: "Enviados", value: storeSent.length, icon: Truck, color: "text-[#D4730E]", bg: "bg-orange-50", border: "border-orange-200/50" },
