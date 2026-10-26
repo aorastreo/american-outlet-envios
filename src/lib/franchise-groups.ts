@@ -156,6 +156,10 @@ export function historyStepLabel(status: string, notes: string | null | undefine
     const to = place(/lleg[oó] a\s+(.+?)(?:\s+-|$)/i).replace(/^Recogida\s*-\s*/i, "");
     if (to) return `En el punto de ${to}`;
   }
-  if (status === "NO_RECOGIDO") return "No recogido";
+  if (status === "NO_RECOGIDO") {
+    const at = place(/No recogido en\s+(.+)$/i).replace(/^Recogida\s*-\s*/i, "");
+    if (at) return `No recogido en ${at}`;
+    return "No recogido";
+  }
   return fallback;
 }

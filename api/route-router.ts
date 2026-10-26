@@ -21,6 +21,10 @@ function readyForDriverRoute(shipment: { status: string; warehouseLocation?: str
     && (shipment.status === "RECIBIDO_EN_BODEGA" || shipment.status === "CREADO");
 }
 
+function pickupCity(name: string | null | undefined): string {
+  return (name || "").replace(/^Recogida\s*-\s*/i, "").trim();
+}
+
 export const routeRouter = createRouter({
   // ─── Create Route ──────────────────────────────────────────────
   create: franchiseAuthedQuery
@@ -260,14 +264,17 @@ export const routeRouter = createRouter({
       // (if the driver never marked them, they weren't delivered — assume not collected)
       if (input.status === "COMPLETADA") {
         const allRouteShipments = await db.select().from(routeShipments).where(eq(routeShipments.routeId, input.id));
+        const stops = await db.select().from(routeStops).where(eq(routeStops.routeId, input.id));
+        const cityByStop = new Map(stops.map((stop) => [stop.id, pickupCity(stop.cityName)]));
         for (const rs of allRouteShipments) {
           if (rs.status === "ASIGNADO") {
+            const city = cityByStop.get(rs.stopId) || "";
             await db.update(routeShipments).set({ status: "NO_RECOGIDO" }).where(eq(routeShipments.id, rs.id));
             await db.insert(shipmentTracking).values({
               shipmentId: rs.shipmentId,
               status: "NO_RECOGIDO",
               locationId: 0,
-              notes: "No recogido - cliente no paso a retirar el paquete",
+              notes: city ? `No recogido en ${city}` : "No recogido - cliente no paso a retirar el paquete",
               createdBy: ctx.franchiseUser!.id,
             });
             await db.update(shipments).set({ status: "NO_RECOGIDO" }).where(eq(shipments.id, rs.shipmentId));
@@ -343,6 +350,10 @@ export const routeRouter = createRouter({
         if (rsData.length === 0) return { success: true, status: input.status };
 
         const shipmentId = rsData[0].shipmentId;
+        const stopRows = rsData[0].stopId
+          ? await db.select().from(routeStops).where(eq(routeStops.id, rsData[0].stopId)).limit(1)
+          : [];
+        const city = pickupCity(stopRows[0]?.cityName);
 
         // 3. Map route status to shipments.status (valid enum values)
         const shipmentStatus = input.status === "ENTREGADO" ? "RECIBIDO_EN_DESTINO"
@@ -362,7 +373,7 @@ export const routeRouter = createRouter({
             locationId: 0,
             notes: input.status === "ENTREGADO"
               ? (input.notes?.trim() ? `Recibido por el cliente: ${input.notes.trim()}` : "Recibido por el cliente en punto de recogida")
-              : "Cliente no se presento a recoger el paquete en el punto de recogida",
+              : (city ? `No recogido en ${city}` : "Cliente no se presento a recoger el paquete en el punto de recogida"),
             createdBy: ctx.franchiseUser!.id,
           });
           console.log("[updateShipmentStatus] tracking inserted:", input.status);
@@ -686,6 +697,8 @@ export const routeRouter = createRouter({
         // Get route shipments for this route
         const rsList = await db.select().from(routeShipments)
           .where(eq(routeShipments.routeId, route.id));
+        const stops = await db.select().from(routeStops).where(eq(routeStops.routeId, route.id));
+        const cityByStop = new Map(stops.map((stop) => [stop.id, pickupCity(stop.cityName)]));
 
         for (const rs of rsList) {
           // Check if shipment is still stuck in EN_PARADA
@@ -703,7 +716,7 @@ export const routeRouter = createRouter({
               shipmentId: rs.shipmentId,
               status: "NO_RECOGIDO",
               locationId: 0,
-              notes: "No recogido - ruta completada, cliente no paso a retirar",
+              notes: cityByStop.get(rs.stopId) ? `No recogido en ${cityByStop.get(rs.stopId)}` : "No recogido - ruta completada, cliente no paso a retirar",
               createdBy: ctx.franchiseUser!.id,
             });
 

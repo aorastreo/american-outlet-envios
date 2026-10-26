@@ -536,6 +536,8 @@ export default function Rutas() {
                   ? "Aparecen aqui cuando ya estan en Bodega Cedi y todavia no se han puesto en una ruta"
                   : activeTab === "EN_RUTA"
                   ? "Los envios apareceran aqui cuando el camion salga"
+                  : activeTab === "NO_RECOGIDOS"
+                  ? "Aparecen aqui cuando el cliente no paso a retirar en la parada"
                   : "Los envios entregados apareceran aqui"}
               </p>
             </CardContent>
