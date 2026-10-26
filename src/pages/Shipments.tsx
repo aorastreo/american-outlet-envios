@@ -586,6 +586,93 @@ export default function Shipments() {
     });
   }, [shipments, activeTab, currentTab, searchQuery, originFilter, destFilter, dateFilter, dateFilterEnabled, isBodega, myFranchiseId, interBodegaIds, stuckIds]);
 
+  // A search only looks at the open tab. Point to the section that actually has the package.
+  const searchElsewhere = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return [];
+    const visible = new Set(filteredShipments.map((s) => s.id));
+    const pool = new Map<number, {
+      id: number;
+      status: string;
+      trackingNumber: string;
+      senderName?: string | null;
+      originName?: string | null;
+      destinationName?: string | null;
+      invoiceNumber?: string | null;
+      originFranchiseId: number;
+      destinationFranchiseId: number;
+      warehouseLocation?: string | null;
+      reservedOnRoute?: boolean;
+    }>();
+    for (const s of baseShipments || []) pool.set(s.id, s);
+    for (const s of interBodegaEnRuta) if (!pool.has(s.id)) pool.set(s.id, s);
+
+    const tabLabel = (key: string) => TABS.find((tab) => tab.key === key)?.label || key;
+    const hits: { id: number; trackingNumber: string; label: string; tab?: string; href?: string }[] = [];
+    for (const s of pool.values()) {
+      if (visible.has(s.id)) continue;
+      const matches =
+        s.trackingNumber.toLowerCase().includes(q) ||
+        (s.senderName || "").toLowerCase().includes(q) ||
+        (s.originName || "").toLowerCase().includes(q) ||
+        (s.destinationName || "").toLowerCase().includes(q) ||
+        (s.invoiceNumber || "").toLowerCase().includes(q);
+      if (!matches) continue;
+      if (originFilter.length > 0 && !originFilter.includes(String(s.originFranchiseId))) continue;
+      if (destFilter.length > 0 && !destFilter.includes(String(s.destinationFranchiseId))) continue;
+
+      let place: { label: string; tab?: string; href?: string } | null = null;
+      if (s.status === "CANCELADO") place = { label: `la seccion ${tabLabel("CANCELADOS")}`, tab: "CANCELADOS" };
+      else if (stuckIds.has(s.id)) place = { label: "Rutas, para corregir", href: "/rutas" };
+      else if (!isBodega && myFranchiseId) {
+        if (s.originFranchiseId === myFranchiseId && s.status === "CREADO") place = { label: `la seccion ${tabLabel("POR_ENVIAR")}`, tab: "POR_ENVIAR" };
+        else if (s.originFranchiseId === myFranchiseId && ["ENVIADO_A_BODEGA", "RECIBIDO_EN_BODEGA", "ENVIADO_A_DESTINO", "EN_RUTA", "EN_PARADA", "NO_RECOGIDO"].includes(s.status)) {
+          place = { label: `la seccion ${tabLabel("ENVIADOS")}`, tab: "ENVIADOS" };
+        } else if (s.destinationFranchiseId === myFranchiseId && s.originFranchiseId !== myFranchiseId && ["ENVIADO_A_BODEGA", "RECIBIDO_EN_BODEGA", "ENVIADO_A_DESTINO"].includes(s.status)) {
+          place = { label: `la seccion ${tabLabel("POR_RECIBIR")}`, tab: "POR_RECIBIR" };
+        } else if (s.destinationFranchiseId === myFranchiseId && s.status === "RECIBIDO_EN_DESTINO") {
+          place = { label: `la seccion ${tabLabel("EN_TIENDA")}`, tab: "EN_TIENDA" };
+        } else if (s.originFranchiseId === myFranchiseId && s.status === "RECIBIDO_EN_DESTINO") {
+          place = { label: `la seccion ${tabLabel("COMPLETADOS")}`, tab: "COMPLETADOS" };
+        }
+      } else if (isReceivingWarehouse) {
+        if (s.status === "ENVIADO_A_DESTINO") place = { label: `la seccion ${tabLabel("POR_RECIBIR")}`, tab: "POR_RECIBIR" };
+        else if (s.status === "RECIBIDO_EN_DESTINO") place = { label: `la seccion ${tabLabel("EN_BODEGA")}`, tab: "EN_BODEGA" };
+      } else {
+        const dest = (s.destinationName || "").toLowerCase();
+        const isRoute = dest.includes("grecia") || dest.includes("palmares") || dest.includes("san ramon");
+        const atCedi = s.warehouseLocation === "Bodega Cedi";
+        if (isRoute && atCedi && s.status === "NO_RECOGIDO" && !s.reservedOnRoute) {
+          place = { label: "Rutas, en No recogidos", href: "/rutas?tab=NO_RECOGIDOS" };
+        } else if (isRoute && atCedi && s.reservedOnRoute) {
+          place = { label: "Rutas", href: "/rutas" };
+        } else if (isRoute && atCedi && (s.status === "RECIBIDO_EN_BODEGA" || (s.status === "CREADO" && (s.originName || "").toLowerCase().includes("bodega")))) {
+          place = { label: "Rutas, esperando el camion", href: "/rutas" };
+        } else if (s.status === "ENVIADO_A_BODEGA" && interBodegaIds.has(s.id)) {
+          place = { label: `la seccion ${tabLabel("EN_RUTA")}`, tab: "EN_RUTA" };
+        } else if (s.status === "ENVIADO_A_BODEGA") {
+          place = { label: `la seccion ${tabLabel("POR_RECIBIR")}`, tab: "POR_RECIBIR" };
+        } else if (s.status === "RECIBIDO_EN_BODEGA" && s.destinationFranchiseId === myFranchiseId) {
+          place = { label: `la seccion ${tabLabel("ENTREGA_CLIENTE")}`, tab: "ENTREGA_CLIENTE" };
+        } else if (s.status === "CREADO" || s.status === "RECIBIDO_EN_BODEGA") {
+          const originFr = allFranchises?.find((f) => f.id === s.originFranchiseId);
+          if (s.status === "CREADO" && !originFr?.isWarehouse) place = { label: "la tienda que lo creo" };
+          else place = { label: `la seccion ${tabLabel("EN_BODEGA")}`, tab: "EN_BODEGA" };
+        } else if (["ENVIADO_A_DESTINO", "EN_RUTA", "EN_PARADA"].includes(s.status)) {
+          place = { label: `la seccion ${tabLabel("EN_RUTA")}`, tab: "EN_RUTA" };
+        } else if (s.status === "RECIBIDO_EN_DESTINO") {
+          place = { label: `la seccion ${tabLabel("ENTREGADOS")}`, tab: "ENTREGADOS" };
+        } else if (s.status === "NO_RECOGIDO") {
+          place = { label: "Rutas, en No recogidos", href: "/rutas?tab=NO_RECOGIDOS" };
+        }
+      }
+      if (!place || place.tab === activeTab) continue;
+      hits.push({ id: s.id, trackingNumber: s.trackingNumber, label: place.label, tab: place.tab, href: place.href });
+      if (hits.length >= 4) break;
+    }
+    return hits;
+  }, [searchQuery, filteredShipments, baseShipments, interBodegaEnRuta, originFilter, destFilter, stuckIds, isBodega, myFranchiseId, isReceivingWarehouse, interBodegaIds, allFranchises, activeTab, TABS]);
+
   // Count per tab
   const tabCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -1426,6 +1513,34 @@ export default function Shipments() {
                 Corregir en Rutas
               </Link>
             </div>
+          </div>
+        )}
+
+        {searchElsewhere.length > 0 && (
+          <div className="px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800 space-y-2">
+            <p className="font-medium">
+              {filteredShipments.length === 0 ? "No esta en esta seccion." : "Tambien hay envios en otra seccion."}
+            </p>
+            {searchElsewhere.map((hit) => (
+              <div key={hit.id} className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                <span className="font-mono font-semibold">{hit.trackingNumber}</span>
+                <span>esta en {hit.label}.</span>
+                {hit.tab && (
+                  <button
+                    type="button"
+                    className="font-semibold underline"
+                    onClick={() => handleTabChange(hit.tab as ActiveTabKey)}
+                  >
+                    Abrir
+                  </button>
+                )}
+                {hit.href && (
+                  <Link to={hit.href} className="font-semibold underline">
+                    Abrir Rutas
+                  </Link>
+                )}
+              </div>
+            ))}
           </div>
         )}
 
