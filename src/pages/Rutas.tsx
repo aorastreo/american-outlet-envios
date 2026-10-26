@@ -481,8 +481,8 @@ export default function Rutas() {
                         <div className="w-8 h-8 bg-[#FFF5F5] rounded-lg flex items-center justify-center">
                           <Truck className="w-4 h-4 text-[#C8102E]" />
                         </div>
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
                             <span className="text-sm font-semibold text-[#1A1A1A]">{route.name}</span>
                             <Badge variant="secondary" className={rcfg.color}>
                               <rcfg.icon className="w-3 h-3 mr-1" />{rcfg.label}
@@ -490,7 +490,7 @@ export default function Rutas() {
                           </div>
                           {routeCountLine(route.summary as any)}
                         </div>
-                        <ChevronRight className="w-5 h-5 text-[#D4D4D4]" />
+                        <ChevronRight className="w-5 h-5 text-[#D4D4D4] shrink-0" />
                       </CardContent>
                     </Card>
                   </Link>
@@ -499,7 +499,7 @@ export default function Rutas() {
                       <Link to={`/rutas/${route.id}`}>
                         <Button size="sm" variant="outline" className="w-full text-xs border-[#B8860B]/30 text-[#B8860B] hover:bg-amber-50">
                           <Package className="w-3 h-3 mr-1" />
-                          {total === 0 ? "Asignar envíos a esta ruta" : "Agregar más envíos"}
+                          {((route.summary as any)?.total || 0) === 0 ? "Asignar envíos a esta ruta" : "Agregar más envíos"}
                         </Button>
                       </Link>
                     </div>
@@ -532,8 +532,8 @@ export default function Rutas() {
                               <div className="w-8 h-8 bg-emerald-50 rounded-lg flex items-center justify-center">
                                 <CheckCircle className="w-4 h-4 text-[#1B6B3E]" />
                               </div>
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex flex-wrap items-center gap-2">
                                   <span className="text-sm font-semibold text-[#1A1A1A]">{route.name}</span>
                                   <Badge variant="secondary" className={rcfg.color}>
                                     <rcfg.icon className="w-3 h-3 mr-1" />{rcfg.label}
@@ -541,7 +541,7 @@ export default function Rutas() {
                                 </div>
                                 {routeCountLine(route.summary as any)}
                               </div>
-                              <ChevronRight className="w-5 h-5 text-[#D4D4D4]" />
+                              <ChevronRight className="w-5 h-5 text-[#D4D4D4] shrink-0" />
                             </CardContent>
                           </Card>
                         </Link>
