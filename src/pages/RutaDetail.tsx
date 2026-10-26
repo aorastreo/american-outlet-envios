@@ -188,9 +188,13 @@ export default function RutaDetail() {
   // Get ALL pending shipments to show alerts for stops that have unassigned shipments
   const { data: allPending } = trpc.route.pendingByPickupPoint.useQuery();
 
+  const costaRicaNumber = (raw: string) => {
+    const digits = raw.replace(/\D/g, "");
+    return digits.startsWith("506") && digits.length > 8 ? digits : `506${digits}`;
+  };
+
   const handleWhatsApp = (phone: string, trackingNumber: string, cityName: string, arrived: boolean) => {
-    const digits = phone.replace(/\D/g, "");
-    const cleanPhone = digits.startsWith("506") && digits.length > 8 ? digits : `506${digits}`;
+    const cleanPhone = costaRicaNumber(phone);
     const message = arrived
       ? `Hola! Su pedido con guia ${trackingNumber} ya esta en ${cityName}. El camion esta en el punto de referencia. Por favor pase a recogerlo. Gracias! - American Outlet`
       : `Hola! Su pedido con guia ${trackingNumber} va en camino hacia ${cityName}. Le avisamos cuando pueda pasar a recogerlo. Gracias! - American Outlet`;
@@ -630,7 +634,7 @@ export default function RutaDetail() {
                                   <div className="flex items-center gap-2 mt-2">
                                     <Phone className="w-3.5 h-3.5 text-[#C8102E]" />
                                     <span className="text-sm font-medium text-[#1A1A1A]">{shipment.shipment.senderPhone}</span>
-                                    <a href={`tel:${shipment.shipment.senderPhone.replace(/\D/g, "")}`} className="inline-flex items-center gap-1 text-[10px] bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100 px-2 py-0.5 rounded transition-colors" onClick={(e) => e.stopPropagation()}>
+                                    <a href={`tel:+${costaRicaNumber(shipment.shipment.senderPhone)}`} className="inline-flex items-center gap-1 text-[10px] bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100 px-2 py-0.5 rounded transition-colors" onClick={(e) => e.stopPropagation()}>
                                       <Phone className="w-3 h-3" />Llamar
                                     </a>
                                     <button
