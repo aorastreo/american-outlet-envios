@@ -483,9 +483,60 @@ export const shipmentRouter = createRouter({
         .leftJoin(franchises, eq(franchises.id, shipments.originFranchiseId))
         .where(whereClause)
         .orderBy(desc(shipments.createdAt));
-      const result = pageSize
+      const listedHere = pageSize
         ? await rowsQuery.limit(pageSize).offset(offset)
         : await rowsQuery;
+
+      // A package that left for the other warehouse stays on Entregados after the store receives it.
+      let deliveredAfterLeaving: typeof listedHere = [];
+      if (isWarehouse && !isSabanaWarehouse(userFranchise[0]) && !pageSize) {
+        const myBodegaName = userFranchise[0]?.name || "";
+        const normalizedName = myBodegaName.toLowerCase().includes("cedi") ? "Bodega Cedi" : "Bodega Pavon";
+        const touchedHere = db
+          .select({ id: shipmentTracking.shipmentId })
+          .from(shipmentTracking)
+          .where(or(
+            and(
+              eq(shipmentTracking.status, "RECIBIDO_EN_BODEGA"),
+              sql`${shipmentTracking.notes} LIKE ${"%Recibido en " + normalizedName + "%"}`,
+            ),
+            sql`${shipmentTracking.notes} LIKE ${"%desde " + normalizedName + "%"}`,
+          ));
+        deliveredAfterLeaving = await db
+          .select({
+            id: shipments.id,
+            trackingNumber: shipments.trackingNumber,
+            invoiceNumber: shipments.invoiceNumber,
+            senderName: shipments.senderName,
+            senderPhone: shipments.senderPhone,
+            status: shipments.status,
+            notes: shipments.notes,
+            createdAt: shipments.createdAt,
+            updatedAt: shipments.updatedAt,
+            originFranchiseId: shipments.originFranchiseId,
+            destinationFranchiseId: shipments.destinationFranchiseId,
+            currentLocationId: shipments.currentLocationId,
+            warehouseLocation: shipments.warehouseLocation,
+            createdBy: shipments.createdBy,
+            originName: franchises.name,
+            destinationName: sql<string>`(SELECT f2.name FROM franchises f2 WHERE f2.id = ${shipments.destinationFranchiseId})`,
+            currentLocationName: sql<string>`(SELECT f3.name FROM franchises f3 WHERE f3.id = ${shipments.currentLocationId})`,
+          })
+          .from(shipments)
+          .leftJoin(franchises, eq(franchises.id, shipments.originFranchiseId))
+          .where(and(
+            eq(shipments.status, "RECIBIDO_EN_DESTINO"),
+            sql`${shipments.warehouseLocation} != ${normalizedName}`,
+            or(inArray(shipments.id, touchedHere), eq(shipments.originFranchiseId, franchiseId)),
+          ))
+          .orderBy(desc(shipments.createdAt));
+      }
+
+      const seenIds = new Set(listedHere.map((row) => row.id));
+      const result = [
+        ...listedHere,
+        ...deliveredAfterLeaving.filter((row) => !seenIds.has(row.id)),
+      ];
 
       // Limpia nombres de franquicia
       const allFranchises = await db.select().from(franchises);
