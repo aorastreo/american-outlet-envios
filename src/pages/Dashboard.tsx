@@ -147,6 +147,7 @@ export default function Dashboard() {
   const isWarehouse = user?.franchise?.isWarehouse === 1;
   const isReceivingWarehouse = user?.username === "bodega_sabana";
   const isBodega = isWarehouse || isReceivingWarehouse;
+  const isCediWarehouse = `${user?.franchise?.name || ""} ${user?.franchise?.displayName || ""} ${user?.username || ""}`.toLowerCase().includes("cedi");
   const myFranchiseId = user?.franchiseId || 0;
 
   // WAREHOUSE FILTERS (main bodega)
@@ -273,6 +274,7 @@ export default function Dashboard() {
     { label: "Por Recibir", value: warehousePendingReception.length, icon: Inbox, color: "text-[#B8860B]", bg: "bg-amber-50", border: "border-amber-200/50" },
     { label: "En Bodega", value: warehouseInWarehouse.length, icon: ClipboardCheck, color: "text-purple-600", bg: "bg-purple-50", border: "border-purple-200/50" },
     { label: "Entrega a cliente", value: warehouseCustomerPickup.length, icon: User, color: "text-teal-700", bg: "bg-teal-50", border: "border-teal-200/50" },
+    ...(isCediWarehouse ? [{ label: "Para el camion", value: waitingForTruck.length, icon: Route, color: "text-[#B8860B]", bg: "bg-amber-50", border: "border-amber-200/50" }] : []),
     { label: "En camino", value: warehouseInRoute.length, icon: Truck, color: "text-[#D4730E]", bg: "bg-orange-50", border: "border-orange-200/50" },
     { label: "Entregados", value: warehouseDelivered.length, icon: CheckCircle, color: "text-[#1B6B3E]", bg: "bg-emerald-50", border: "border-emerald-200/50" },
     { label: "Total", value: shipments?.length || 0, icon: Package, color: "text-[#1A1A1A]", bg: "bg-gray-50", border: "border-gray-200/50" },
@@ -303,7 +305,7 @@ export default function Dashboard() {
         </div>
 
         {/* STATS */}
-        <div className={`grid grid-cols-2 ${isReceivingWarehouse ? "" : "md:grid-cols-3 lg:grid-cols-6"} gap-4`}>
+        <div className={`grid grid-cols-2 gap-4 ${isReceivingWarehouse ? "" : isCediWarehouse ? "md:grid-cols-3 xl:grid-cols-4" : "md:grid-cols-3 lg:grid-cols-6"}`}>
           {statCards.map((stat) => (
             <Card key={stat.label} className={`${stat.border} border`}>
               <CardContent className="p-4">
