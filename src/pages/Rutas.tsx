@@ -18,6 +18,29 @@ import toast from "react-hot-toast";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
+function routeCountLine(summary: { total?: number; entregados?: number; noRecogidos?: number } | undefined) {
+  const total = summary?.total || 0;
+  const entregados = summary?.entregados || 0;
+  const noRecogidos = summary?.noRecogidos || 0;
+  const pendientes = Math.max(0, total - entregados - noRecogidos);
+  return (
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1">
+      <span className="text-xs text-[#8A8A8A]">
+        {total > 0 ? `${total} envío${total !== 1 ? "s" : ""}` : "Sin envíos"}
+      </span>
+      {entregados > 0 && (
+        <span className="text-xs text-emerald-600">{entregados} entregado{entregados !== 1 ? "s" : ""}</span>
+      )}
+      {noRecogidos > 0 && (
+        <span className="text-xs text-red-600">{noRecogidos} no recogido{noRecogidos !== 1 ? "s" : ""}</span>
+      )}
+      {pendientes > 0 && (
+        <span className="text-xs text-amber-700">{pendientes} pendiente{pendientes !== 1 ? "s" : ""}</span>
+      )}
+    </div>
+  );
+}
+
 function getStatusConfig(status: string) {
   const configs: Record<string, { color: string; label: string; icon: React.ElementType }> = {
     CREADO: { color: "bg-slate-100 text-[#1A1A1A]", label: "Creado", icon: Package },
@@ -450,10 +473,6 @@ export default function Rutas() {
             )}
             {routes.filter(r => r.status === "EN_RUTA" || r.status === "PLANIFICADA").map((route) => {
               const rcfg = getStatusConfig(route.status);
-              const total = (route.summary as any)?.total || 0;
-              const entregados = (route.summary as any)?.entregados || 0;
-              const noRecogidos = (route.summary as any)?.noRecogidos || 0;
-              const pendientes = Math.max(0, total - entregados - noRecogidos);
               return (
                 <div key={route.id}>
                   <Link to={`/rutas/${route.id}`}>
@@ -469,20 +488,7 @@ export default function Rutas() {
                               <rcfg.icon className="w-3 h-3 mr-1" />{rcfg.label}
                             </Badge>
                           </div>
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className="text-xs text-[#8A8A8A]">
-                              {total > 0 ? `${total} envío${total !== 1 ? "s" : ""}` : "Sin envíos"}
-                            </span>
-                            {entregados > 0 && (
-                              <span className="text-xs text-emerald-600">{entregados} entregado{entregados !== 1 ? "s" : ""}</span>
-                            )}
-                            {noRecogidos > 0 && (
-                              <span className="text-xs text-red-600">{noRecogidos} no recogido{noRecogidos !== 1 ? "s" : ""}</span>
-                            )}
-                            {pendientes > 0 && (
-                              <span className="text-xs text-amber-700">{pendientes} pendiente{pendientes !== 1 ? "s" : ""}</span>
-                            )}
-                          </div>
+                          {routeCountLine(route.summary as any)}
                         </div>
                         <ChevronRight className="w-5 h-5 text-[#D4D4D4]" />
                       </CardContent>
@@ -533,6 +539,7 @@ export default function Rutas() {
                                     <rcfg.icon className="w-3 h-3 mr-1" />{rcfg.label}
                                   </Badge>
                                 </div>
+                                {routeCountLine(route.summary as any)}
                               </div>
                               <ChevronRight className="w-5 h-5 text-[#D4D4D4]" />
                             </CardContent>
