@@ -372,7 +372,9 @@ export const routeRouter = createRouter({
             status: input.status === "ENTREGADO" ? "RECIBIDO_EN_DESTINO" : "NO_RECOGIDO",
             locationId: 0,
             notes: input.status === "ENTREGADO"
-              ? (input.notes?.trim() ? `Recibido por el cliente: ${input.notes.trim()}` : "Recibido por el cliente en punto de recogida")
+              ? (city
+                ? `Entregado al cliente en ${city}${input.notes?.trim() ? ` - ${input.notes.trim()}` : ""}`
+                : (input.notes?.trim() ? `Recibido por el cliente: ${input.notes.trim()}` : "Recibido por el cliente en punto de recogida"))
               : (city ? `No recogido en ${city}` : "Cliente no se presento a recoger el paquete en el punto de recogida"),
             createdBy: ctx.franchiseUser!.id,
           });

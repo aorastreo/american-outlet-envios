@@ -6,6 +6,10 @@ export interface TimelineStep {
   desc: string;
 }
 
+function pickupPlace(name?: string | null): string {
+  return (name || "").replace(/AMERICAN OUTLET\s*/i, "").replace(/^Recogida\s*-\s*/i, "").trim();
+}
+
 /**
  * Determine current step index using tracking history to disambiguate duplicate statuses.
  * Counts how many times each status has occurred in history + current status.
@@ -154,9 +158,10 @@ export function buildShipmentTimeline(
     steps.push({ status: "RECIBIDO_EN_BODEGA", label: "En Bodega Pavon", desc: "Bodega recibio" });
   }
     if (isPickup) {
-      steps.push({ status: "EN_RUTA", label: "En Ruta", desc: "Asignado a camion" });
-      steps.push({ status: "EN_PARADA", label: "En Parada", desc: "Camion en punto" });
-      steps.push({ status: "RECIBIDO_EN_DESTINO", label: "Entregado", desc: "Cliente recibio" });
+      const city = pickupPlace(destName);
+      steps.push({ status: "EN_RUTA", label: city ? `En ruta a ${city}` : "En ruta", desc: "El camion va hacia el punto" });
+      steps.push({ status: "EN_PARADA", label: city ? `En el punto de ${city}` : "En parada", desc: "El camion ya llego" });
+      steps.push({ status: "RECIBIDO_EN_DESTINO", label: city ? `Entregado en ${city}` : "Entregado", desc: "El cliente recogio el paquete" });
     } else {
       steps.push({ status: "ENVIADO_A_DESTINO", label: "Enviado a Destino", desc: destName ? `Enviado a ${destName}` : "Enviado a tienda" });
       steps.push({ status: "RECIBIDO_EN_DESTINO", label: "Entregado", desc: destName ? `${destName} recibio` : "Tienda recibio" });
@@ -175,9 +180,10 @@ export function buildShipmentTimeline(
       steps.push({ status: "ENVIADO_A_BODEGA", label: "Enviado a CEDI", desc: "Bodega envia a bodega" });
       steps.push({ status: "RECIBIDO_EN_BODEGA", label: "En CEDI", desc: "Bodega recibio" });
     }
-    steps.push({ status: "EN_RUTA", label: "En Ruta", desc: "Asignado a camion" });
-    steps.push({ status: "EN_PARADA", label: "En Parada", desc: "Camion en punto" });
-    steps.push({ status: "RECIBIDO_EN_DESTINO", label: "Entregado", desc: "Cliente recibio" });
+    const city = pickupPlace(destName);
+    steps.push({ status: "EN_RUTA", label: city ? `En ruta a ${city}` : "En ruta", desc: "El camion va hacia el punto" });
+    steps.push({ status: "EN_PARADA", label: city ? `En el punto de ${city}` : "En parada", desc: "El camion ya llego" });
+    steps.push({ status: "RECIBIDO_EN_DESTINO", label: city ? `Entregado en ${city}` : "Entregado", desc: "El cliente recogio el paquete" });
   }
   // --- TIENDA → TIENDA ---
   else {
@@ -203,10 +209,13 @@ export function buildShipmentTimeline(
   const lastTrackingEntry = trackingHistory.length > 0 ? trackingHistory[trackingHistory.length - 1] : null;
   const hasNoRecogido = lastTrackingEntry?.status === "NO_RECOGIDO" || currentShipmentStatus === "NO_RECOGIDO";
   if (hasNoRecogido && steps.length > 0) {
+    const note = String(lastTrackingEntry?.notes || "");
+    const fromNote = (note.match(/No recogido en\s+(.+)$/i)?.[1] || "").replace(/^Recogida\s*-\s*/i, "").trim();
+    const city = fromNote || pickupPlace(destName);
     steps[steps.length - 1] = {
       status: "NO_RECOGIDO",
-      label: "No Recogido",
-      desc: "Cliente no se presento a recoger el paquete",
+      label: city ? `No recogido en ${city}` : "No recogido",
+      desc: "El cliente no paso a retirar",
     };
   }
 

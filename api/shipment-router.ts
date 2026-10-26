@@ -128,9 +128,10 @@ function buildTimelineSteps(
       steps.push({ status: "RECIBIDO_EN_BODEGA", label: "En CEDI", desc: "Bodega recibio" });
     }
     if (isPickup) {
-      steps.push({ status: "EN_RUTA", label: "En Ruta", desc: "Asignado a camion" });
-      steps.push({ status: "EN_PARADA", label: "En Parada", desc: "Camion en punto" });
-      steps.push({ status: "RECIBIDO_EN_DESTINO", label: "Entregado", desc: "Cliente recibio" });
+      const city = (destName || "").replace(/AMERICAN OUTLET\s*/i, "").replace(/^Recogida\s*-\s*/i, "").trim();
+      steps.push({ status: "EN_RUTA", label: city ? `En ruta a ${city}` : "En ruta", desc: "El camion va hacia el punto" });
+      steps.push({ status: "EN_PARADA", label: city ? `En el punto de ${city}` : "En parada", desc: "El camion ya llego" });
+      steps.push({ status: "RECIBIDO_EN_DESTINO", label: city ? `Entregado en ${city}` : "Entregado", desc: "El cliente recogio el paquete" });
     } else {
       steps.push({ status: "ENVIADO_A_DESTINO", label: "Enviado a Destino", desc: destName ? `Enviado a ${destName}` : "Enviado a tienda" });
       steps.push({ status: "RECIBIDO_EN_DESTINO", label: "Entregado", desc: destName ? `${destName} recibio` : "Tienda recibio" });
@@ -148,9 +149,10 @@ function buildTimelineSteps(
       steps.push({ status: "ENVIADO_A_BODEGA", label: "Enviado a CEDI", desc: "Bodega envia a bodega" });
       steps.push({ status: "RECIBIDO_EN_BODEGA", label: "En CEDI", desc: "Bodega recibio" });
     }
-    steps.push({ status: "EN_RUTA", label: "En Ruta", desc: "Asignado a camion" });
-    steps.push({ status: "EN_PARADA", label: "En Parada", desc: "Camion en punto" });
-    steps.push({ status: "RECIBIDO_EN_DESTINO", label: "Entregado", desc: "Cliente recibio" });
+    const city = (destName || "").replace(/AMERICAN OUTLET\s*/i, "").replace(/^Recogida\s*-\s*/i, "").trim();
+    steps.push({ status: "EN_RUTA", label: city ? `En ruta a ${city}` : "En ruta", desc: "El camion va hacia el punto" });
+    steps.push({ status: "EN_PARADA", label: city ? `En el punto de ${city}` : "En parada", desc: "El camion ya llego" });
+    steps.push({ status: "RECIBIDO_EN_DESTINO", label: city ? `Entregado en ${city}` : "Entregado", desc: "El cliente recogio el paquete" });
   } else {
     // Tienda -> Tienda
     const originIsMio = originNameLower.includes("chiles") || originNameLower.includes("pavon") || originNameLower.includes("santa rosa") || originNameLower.includes("ganga");

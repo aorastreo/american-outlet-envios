@@ -103,6 +103,10 @@ export function shipmentPlaceText(shipment: {
     return { badge: "Entregado al cliente", chip: null };
   }
 
+  if (shipment.status === "RECIBIDO_EN_DESTINO" && getFranchiseGroup(shipment.destinationName) === "route" && destination) {
+    return { badge: `Entregado en ${destination}`, chip: null };
+  }
+
   if (shipment.status === "ENVIADO_A_DESTINO") {
     return { badge: destination ? `En camino a ${destination}` : "En camino a la tienda", chip: null };
   }
@@ -144,6 +148,14 @@ export function historyStepLabel(status: string, notes: string | null | undefine
     if (/sabana/i.test(note)) return "En camino a Bodega Sabana";
   }
   if (status === "RECIBIDO_EN_DESTINO") {
+    const deliveredAt = place(/Entregado al cliente en\s+(.+)$/i)
+      .replace(/\s+-.*/, "")
+      .replace(/^Recogida\s*-\s*/i, "");
+    if (deliveredAt && !/^bodega$/i.test(deliveredAt)) {
+      return getFranchiseGroup(deliveredAt) === "route"
+        ? `Entregado en ${deliveredAt}`
+        : `Entregado al cliente en ${deliveredAt}`;
+    }
     if (/cliente/i.test(note)) return "Entregado al cliente";
     const at = place(/Recibido en\s+(.+)$/i);
     if (at && !/^tienda/i.test(at)) return `En ${at}`;
