@@ -15,10 +15,15 @@ function isPickupFranchise(franchise: { code?: string | null; displayName?: stri
     || name.includes("san ramon");
 }
 
-function readyForDriverRoute(shipment: { status: string; warehouseLocation?: string | null }) {
+function readyForDriverRoute(
+  shipment: { status: string; warehouseLocation?: string | null; originFranchiseId?: number | null },
+  origin?: { isWarehouse?: number | null } | null,
+) {
   if (shipment.status === "NO_RECOGIDO") return true;
-  return shipment.warehouseLocation === "Bodega Cedi"
-    && (shipment.status === "RECIBIDO_EN_BODEGA" || shipment.status === "CREADO");
+  if (shipment.warehouseLocation !== "Bodega Cedi") return false;
+  if (shipment.status === "RECIBIDO_EN_BODEGA") return true;
+  // A store writes "Bodega Cedi" as the first stop while the box is still at the store.
+  return shipment.status === "CREADO" && origin?.isWarehouse === 1;
 }
 
 function pickupCity(name: string | null | undefined): string {
@@ -109,9 +114,10 @@ export const routeRouter = createRouter({
           }
           const row = shipment[0];
           const destFranchise = allFranchises.find((franchise) => franchise.id === row.destinationFranchiseId);
+          const originFranchise = allFranchises.find((franchise) => franchise.id === row.originFranchiseId);
           const destName = destFranchise?.displayName || destFranchise?.name || "";
           const stopId = stopIdForDestination(createdStops, destName);
-          if (!pickupIds.includes(row.destinationFranchiseId) || !readyForDriverRoute(row) || !stopId) {
+          if (!pickupIds.includes(row.destinationFranchiseId) || !readyForDriverRoute(row, originFranchise) || !stopId) {
             skipped.push(row.trackingNumber);
             continue;
           }
@@ -260,7 +266,8 @@ export const routeRouter = createRouter({
             message: `El envio ${shipment[0].trackingNumber} va a ${destFranchise?.displayName || "tienda"} - solo envios a puntos de recogida pueden ir en ruta de camion`
           });
         }
-        if (!readyForDriverRoute(shipment[0])) {
+        const originFranchise = allFranchises.find((franchise) => franchise.id === shipment[0].originFranchiseId);
+        if (!readyForDriverRoute(shipment[0], originFranchise)) {
           throw new TRPCError({
             code: "BAD_REQUEST",
             message: `El envio ${shipment[0].trackingNumber} todavia no esta en Bodega Cedi. Primero tiene que llegar ahi.`,
@@ -590,7 +597,10 @@ export const routeRouter = createRouter({
         .where(eq(routeShipments.status, "ASIGNADO"));
       const assignedIds = new Set(assigned.map(a => a.shipmentId));
 
-      const available = filteredShipments.filter(s => !assignedIds.has(s.id) && readyForDriverRoute(s));
+      const available = filteredShipments.filter((s) => {
+        const origin = allFranchises.find((franchise) => franchise.id === s.originFranchiseId);
+        return !assignedIds.has(s.id) && readyForDriverRoute(s, origin);
+      });
       if (available.length === 0) return [];
 
       const shipmentIds = available.map(s => s.id);
@@ -630,7 +640,10 @@ export const routeRouter = createRouter({
       const assigned = await db.select({ shipmentId: routeShipments.shipmentId }).from(routeShipments)
         .where(eq(routeShipments.status, "ASIGNADO"));
       const assignedIds = new Set(assigned.map(a => a.shipmentId));
-      const available = pending.filter(s => !assignedIds.has(s.id) && readyForDriverRoute(s));
+      const available = pending.filter((s) => {
+        const origin = allFranchises.find((franchise) => franchise.id === s.originFranchiseId);
+        return !assignedIds.has(s.id) && readyForDriverRoute(s, origin);
+      });
 
       if (available.length === 0) return [];
 
