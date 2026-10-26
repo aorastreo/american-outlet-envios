@@ -768,7 +768,7 @@ export default function RutaDetail() {
           const stopCfg = stopStatusConfig[stop.status];
           const isCurrent = route.status === "EN_RUTA" && stop.status === "PENDIENTE" &&
             (idx === 0 || route.stops[idx - 1].status === "COMPLETADO");
-          const stopShipments = stop.shipments || [];
+          const stopShipments = (stop.shipments || []).filter((row: any) => row.shipment?.status !== "CANCELADO");
 
           return (
             <div key={stop.id} className="space-y-3">

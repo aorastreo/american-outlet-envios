@@ -146,8 +146,17 @@ export const routeRouter = createRouter({
       const routeIds = routes.map(r => r.id);
       let shipmentCounts: Record<number, { total: number; entregados: number; noRecogidos: number }> = {};
       if (routeIds.length > 0) {
-        const allRouteShipments = await db.select().from(routeShipments).where(inArray(routeShipments.routeId, routeIds));
+        const allRouteShipments = await db
+          .select({
+            routeId: routeShipments.routeId,
+            status: routeShipments.status,
+            shipmentStatus: shipments.status,
+          })
+          .from(routeShipments)
+          .leftJoin(shipments, eq(shipments.id, routeShipments.shipmentId))
+          .where(inArray(routeShipments.routeId, routeIds));
         for (const rs of allRouteShipments) {
+          if (rs.shipmentStatus === "CANCELADO") continue;
           if (!shipmentCounts[rs.routeId]) {
             shipmentCounts[rs.routeId] = { total: 0, entregados: 0, noRecogidos: 0 };
           }
@@ -192,6 +201,10 @@ export const routeRouter = createRouter({
         const allFranchises = await db.select().from(franchises);
         const franchiseMap = new Map(allFranchises.map(f => [f.id, f]));
 
+        const cancelledShipmentIds = new Set(
+          shipmentsData.filter(s => s.status === "CANCELADO").map(s => s.id)
+        );
+
         const stopsWithShipments = stops.map(stop => {
           const stopShipments = allRouteShipments
             .filter(rs => rs.stopId === stop.id)
@@ -208,20 +221,22 @@ export const routeRouter = createRouter({
                 } : null,
               };
             });
+          const counted = stopShipments.filter(s => !cancelledShipmentIds.has(s.shipmentId));
 
           return {
             ...stop,
             shipments: stopShipments,
-            totalShipments: stopShipments.length,
-            delivered: stopShipments.filter(s => s.status === "ENTREGADO").length,
-            notCollected: stopShipments.filter(s => s.status === "NO_RECOGIDO").length,
-            pending: stopShipments.filter(s => s.status === "ASIGNADO").length,
+            totalShipments: counted.length,
+            delivered: counted.filter(s => s.status === "ENTREGADO").length,
+            notCollected: counted.filter(s => s.status === "NO_RECOGIDO").length,
+            pending: counted.filter(s => s.status === "ASIGNADO").length,
           };
         });
 
-        const totalAssigned = allRouteShipments.length;
-        const totalDelivered = allRouteShipments.filter(s => s.status === "ENTREGADO").length;
-        const totalNotCollected = allRouteShipments.filter(s => s.status === "NO_RECOGIDO").length;
+        const countedRouteShipments = allRouteShipments.filter(s => !cancelledShipmentIds.has(s.shipmentId));
+        const totalAssigned = countedRouteShipments.length;
+        const totalDelivered = countedRouteShipments.filter(s => s.status === "ENTREGADO").length;
+        const totalNotCollected = countedRouteShipments.filter(s => s.status === "NO_RECOGIDO").length;
 
         return {
           ...route[0],
