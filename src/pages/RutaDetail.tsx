@@ -498,6 +498,7 @@ export default function RutaDetail() {
             </Card>
 
             {route.stops?.map((stop: any, stopIdx: number) => {
+              const earlierClosed = route.stops.slice(0, stopIdx).every((earlier: any) => earlier.status === "COMPLETADO");
               const stopShipments = stop.shipments || [];
               if (stopShipments.length === 0) {
                 return (
@@ -552,7 +553,7 @@ export default function RutaDetail() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      {stop.status === "PENDIENTE" && (
+                      {stop.status === "PENDIENTE" && earlierClosed && (
                         <Button
                           size="sm"
                           onClick={() => updateStopMutation.mutate({ stopId: stop.id, status: "LLEGADO" })}
@@ -562,6 +563,9 @@ export default function RutaDetail() {
                           <MapPin className="w-4 h-4 mr-1.5" />
                           Llegue a {stop.cityName}
                         </Button>
+                      )}
+                      {stop.status === "PENDIENTE" && !earlierClosed && (
+                        <p className="text-[10px] text-[#8A8A8A] text-right max-w-[140px]">Despues de la parada anterior</p>
                       )}
                       {stop.status === "LLEGADO" && (
                         <div className="flex flex-col items-end gap-1">
