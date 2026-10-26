@@ -524,12 +524,12 @@ export default function RutaDetail() {
               const stopShipments = (stop.shipments || []).filter((row: any) => row.shipment?.status !== "CANCELADO");
               if (stopShipments.length === 0) {
                 return (
-                  <div key={stop.id} className="flex items-center justify-between bg-white rounded-lg border border-gray-200 px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${stop.status === "COMPLETADO" ? "bg-[#1B6B3E] text-white" : "bg-[#F0F0F0] text-[#8A8A8A]"}`}>
+                  <div key={stop.id} className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between bg-white rounded-lg border border-gray-200 px-4 py-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${stop.status === "COMPLETADO" ? "bg-[#1B6B3E] text-white" : "bg-[#F0F0F0] text-[#8A8A8A]"}`}>
                         {stopIdx + 1}
                       </div>
-                      <div>
+                      <div className="min-w-0">
                         <h3 className="text-base font-semibold text-[#1A1A1A]">{stop.cityName}</h3>
                         <p className="text-xs text-[#8A8A8A]">No hay envios para esta parada</p>
                       </div>
@@ -542,11 +542,12 @@ export default function RutaDetail() {
                         variant="outline"
                         onClick={() => updateStopMutation.mutate({ stopId: stop.id, status: "COMPLETADO" })}
                         disabled={updateStopMutation.isPending}
+                        className="w-full sm:w-auto"
                       >
                         Saltar {stop.cityName}
                       </Button>
                     ) : (
-                      <p className="text-[10px] text-[#8A8A8A] text-right max-w-[140px]">Despues de la parada anterior</p>
+                      <p className="text-xs text-[#8A8A8A] sm:text-right sm:max-w-[140px]">Despues de la parada anterior</p>
                     )}
                   </div>
                 );
@@ -559,16 +560,16 @@ export default function RutaDetail() {
               return (
                 <div key={stop.id} className="space-y-3">
                   {/* Stop Header */}
-                  <div className="flex items-center justify-between bg-white rounded-lg border border-gray-200 px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between bg-white rounded-lg border border-gray-200 px-4 py-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${
                         pendingCount === 0 ? "bg-[#1B6B3E] text-white" : "bg-[#C8102E] text-white"
                       }`}>
                         {stopIdx + 1}
                       </div>
-                      <div>
+                      <div className="min-w-0">
                         <h3 className="text-base font-semibold text-[#1A1A1A]">{stop.cityName}</h3>
-                        <div className="flex items-center gap-2 text-xs">
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
                           <span className="text-[#8A8A8A]">{stopShipments.length} envio{stopShipments.length !== 1 ? "s" : ""}</span>
                           {deliveredCount > 0 && <span className="text-emerald-600 font-medium">{deliveredCount} entregado{deliveredCount !== 1 ? "s" : ""}</span>}
                           {noPickupCount > 0 && <span className="text-red-600 font-medium">{noPickupCount} no recogido{noPickupCount !== 1 ? "s" : ""}</span>}
@@ -577,12 +578,12 @@ export default function RutaDetail() {
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 w-full sm:w-auto">
                       {stop.status === "PENDIENTE" && earlierClosed && (
                         <Button
                           size="sm"
                           onClick={() => updateStopMutation.mutate({ stopId: stop.id, status: "LLEGADO" })}
-                          className="bg-[#B8860B] hover:bg-[#8B6508]"
+                          className="w-full sm:w-auto bg-[#B8860B] hover:bg-[#8B6508]"
                           disabled={updateStopMutation.isPending}
                         >
                           <MapPin className="w-4 h-4 mr-1.5" />
@@ -590,21 +591,21 @@ export default function RutaDetail() {
                         </Button>
                       )}
                       {stop.status === "PENDIENTE" && !earlierClosed && (
-                        <p className="text-[10px] text-[#8A8A8A] text-right max-w-[140px]">Despues de la parada anterior</p>
+                        <p className="text-xs text-[#8A8A8A] sm:text-right sm:max-w-[140px]">Despues de la parada anterior</p>
                       )}
                       {stop.status === "LLEGADO" && (
-                        <div className="flex flex-col items-end gap-1">
+                        <div className="flex flex-col items-stretch sm:items-end gap-1 w-full sm:w-auto">
                           <Button
                             size="sm"
                             onClick={() => updateStopMutation.mutate({ stopId: stop.id, status: "COMPLETADO" })}
-                            className="bg-[#1B6B3E] hover:bg-[#145a32]"
+                            className="w-full sm:w-auto bg-[#1B6B3E] hover:bg-[#145a32]"
                             disabled={updateStopMutation.isPending || pendingCount > 0}
                           >
                             <CheckCircle className="w-4 h-4 mr-1.5" />
                             Salir de {stop.cityName}
                           </Button>
                           {pendingCount > 0 && (
-                            <p className="text-[10px] text-amber-700 text-right max-w-[150px]">Marque cada envio antes de salir</p>
+                            <p className="text-xs text-amber-700 sm:text-right sm:max-w-[150px]">Marque cada envio antes de salir</p>
                           )}
                         </div>
                       )}
