@@ -19,6 +19,35 @@ function isSabanaWarehouse(franchise: { name?: string | null; code?: string | nu
   return text.includes("sabana");
 }
 
+async function leftOnClosedRoute(
+  db: ReturnType<typeof getDb>,
+  shipmentId: number,
+  status: string,
+): Promise<boolean> {
+  if (status !== "EN_PARADA") return false;
+  const openRoute = await db
+    .select({ id: routeShipments.id })
+    .from(routeShipments)
+    .innerJoin(deliveryRoutes, eq(deliveryRoutes.id, routeShipments.routeId))
+    .where(and(
+      eq(routeShipments.shipmentId, shipmentId),
+      inArray(deliveryRoutes.status, ["PLANIFICADA", "EN_RUTA"]),
+    ))
+    .limit(1);
+  if (openRoute.length > 0) return false;
+  const closed = await db
+    .select({ id: routeShipments.id })
+    .from(routeShipments)
+    .innerJoin(deliveryRoutes, eq(deliveryRoutes.id, routeShipments.routeId))
+    .where(and(
+      eq(routeShipments.shipmentId, shipmentId),
+      eq(deliveryRoutes.status, "COMPLETADA"),
+      ne(routeShipments.status, "ENTREGADO"),
+    ))
+    .limit(1);
+  return closed.length > 0;
+}
+
 // API router loaded
 
 // Helper: replicate frontend's extractBodegaNames logic
@@ -630,6 +659,7 @@ export const shipmentRouter = createRouter({
         destinationFranchiseId: shipment[0].destinationFranchiseId,
         currentLocation: franchiseMap.get(shipment[0].currentLocationId),
         isPickupRoute,
+        stuckAfterRoute: await leftOnClosedRoute(db, shipment[0].id, shipment[0].status),
       };
     }),
 
@@ -876,6 +906,7 @@ export const shipmentRouter = createRouter({
         isPickupRoute,
         timelineSteps,
         warehouseLocation: shipment[0].warehouseLocation,
+        stuckAfterRoute: await leftOnClosedRoute(db, shipment[0].id, shipment[0].status),
       };
     }),
 

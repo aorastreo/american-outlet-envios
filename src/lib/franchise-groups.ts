@@ -77,6 +77,7 @@ export function shipmentPlaceText(shipment: {
   originName?: string | null;
   destinationName?: string | null;
   warehouseLocation?: string | null;
+  stuckAfterRoute?: boolean;
 }): { badge: string | null; chip: string | null } {
   const place = shipment.warehouseLocation?.trim() || "";
   const destination = stopName(shipment.destinationName);
@@ -124,6 +125,9 @@ export function shipmentPlaceText(shipment: {
   }
 
   if (shipment.status === "EN_PARADA") {
+    if (shipment.stuckAfterRoute) {
+      return { badge: destination ? `No recogido en ${destination}` : "No recogido", chip: null };
+    }
     return { badge: destination ? `En el punto de ${destination}` : null, chip: null };
   }
 

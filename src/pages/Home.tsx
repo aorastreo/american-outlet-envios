@@ -12,7 +12,7 @@ import {
   Send, ClipboardCheck, Zap,
 } from "lucide-react";
 import { format } from "date-fns";
-import { buildShipmentTimeline, getCurrentStepIndex } from "../lib/timeline";
+import { buildShipmentTimeline, getCurrentStepIndex, showClosedRouteOnTimeline } from "../lib/timeline";
 import { historyStepLabel, shipmentPlaceText } from "../lib/franchise-groups";
 import { es } from "date-fns/locale";
 
@@ -95,11 +95,12 @@ export default function Home() {
   const whLoc = (shipment as any)?.warehouseLocation;
   const originFranchiseName = (shipment as any)?.originFranchise?.displayName || (shipment as any)?.originName || "";
   const destFranchiseName = (shipment as any)?.destinationFranchise?.displayName || (shipment as any)?.destinationName || "";
+  const stuckAfterRoute = Boolean((shipment as any)?.stuckAfterRoute);
   const timelineSteps = useMemo(() => {
-    return shipment
-      ? buildShipmentTimeline(isPickup, originIsWarehouse, destIsWarehouse, trackingHistory, whLoc, (shipment as any)?.status, originFranchiseName, destFranchiseName)
-      : [];
-  }, [isPickup, originIsWarehouse, destIsWarehouse, trackingHistory, whLoc, shipment, originFranchiseName, destFranchiseName]);
+    if (!shipment) return [];
+    const steps = buildShipmentTimeline(isPickup, originIsWarehouse, destIsWarehouse, trackingHistory, whLoc, (shipment as any)?.status, originFranchiseName, destFranchiseName);
+    return stuckAfterRoute ? showClosedRouteOnTimeline(steps) : steps;
+  }, [isPickup, originIsWarehouse, destIsWarehouse, trackingHistory, whLoc, shipment, originFranchiseName, destFranchiseName, stuckAfterRoute]);
 
   const mappedHomeStatus = (shipment as any)?.status === "ENTREGADO" ? "RECIBIDO_EN_DESTINO" : (shipment as any)?.status;
   const currentStepIndex = getCurrentStepIndex(timelineSteps, mappedHomeStatus, trackingHistory);
@@ -254,11 +255,12 @@ export default function Home() {
                           originName: shipment.originFranchise?.displayName,
                           destinationName: shipment.destinationFranchise?.displayName,
                           warehouseLocation: (shipment as any).warehouseLocation,
+                          stuckAfterRoute,
                         });
                         return cfg ? (
                           <Badge
                             variant="secondary"
-                            className={cfg.color}
+                            className={stuckAfterRoute ? "bg-red-100 text-red-700" : cfg.color}
                           >
                             <cfg.icon className="w-3 h-3 mr-1" />
                             {place.badge || cfg.label}

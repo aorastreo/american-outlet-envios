@@ -15,6 +15,19 @@ function pickupPlace(name?: string | null): string {
  * Counts how many times each status has occurred in history + current status.
  * Walks through steps forward, matching occurrences until we reach the current state.
  */
+export function showClosedRouteOnTimeline(steps: TimelineStep[]): TimelineStep[] {
+  return steps.map((step) => {
+    if (step.status !== "EN_PARADA") return step;
+    const city = step.label.replace(/^En el punto de\s+/i, "").trim();
+    const named = /^en el punto de\s+/i.test(step.label) && Boolean(city);
+    return {
+      ...step,
+      label: named ? `No recogido en ${city}` : "No recogido",
+      desc: "El camion ya salio",
+    };
+  });
+}
+
 export function getCurrentStepIndex(
   displaySteps: TimelineStep[],
   mappedStatus: string | undefined | null,

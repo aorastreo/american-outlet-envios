@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { buildShipmentTimeline, getCurrentStepIndex } from "../lib/timeline";
+import { buildShipmentTimeline, getCurrentStepIndex, showClosedRouteOnTimeline } from "../lib/timeline";
 import { historyStepLabel, shipmentPlaceText } from "../lib/franchise-groups";
 
 function cleanName(name: string | undefined): string {
@@ -83,7 +83,8 @@ export default function Track() {
 
   const trackingHistory = shipment?.tracking || [];
   const whLoc = (shipment as any)?.warehouseLocation;
-  const displaySteps = shipment
+  const stuckAfterRoute = Boolean((shipment as any)?.stuckAfterRoute);
+  const builtSteps = shipment
     ? buildShipmentTimeline(
         isPickup,
         originIsWarehouse,
@@ -95,6 +96,7 @@ export default function Track() {
         shipment?.destinationFranchise?.displayName
       )
     : [];
+  const displaySteps = stuckAfterRoute ? showClosedRouteOnTimeline(builtSteps) : builtSteps;
 
   const mappedStatus = shipment?.status === "ENTREGADO" ? "RECIBIDO_EN_DESTINO" : shipment?.status;
   const currentStepIndex = getCurrentStepIndex(displaySteps, mappedStatus || null, trackingHistory);
@@ -165,8 +167,9 @@ export default function Track() {
                           originName: shipment.originFranchise?.displayName,
                           destinationName: shipment.destinationFranchise?.displayName,
                           warehouseLocation: (shipment as any).warehouseLocation,
+                          stuckAfterRoute,
                         });
-                        return cfg ? <Badge variant="secondary" className={cfg.color}><cfg.icon className="w-3 h-3 mr-1" />{place.badge || cfg.label}</Badge> : null;
+                        return cfg ? <Badge variant="secondary" className={stuckAfterRoute ? "bg-red-100 text-red-700" : cfg.color}><cfg.icon className="w-3 h-3 mr-1" />{place.badge || cfg.label}</Badge> : null;
                       })()}
                     </div>
                     <div className="flex items-center gap-4 mt-3 text-sm text-[#525252] flex-wrap">

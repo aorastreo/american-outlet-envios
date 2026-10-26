@@ -17,7 +17,7 @@ import { es } from "date-fns/locale";
 import { useState } from "react";
 import { useFranchiseAuth } from "@/hooks/useFranchiseAuth";
 import toast from "react-hot-toast";
-import { buildShipmentTimeline, getCurrentStepIndex } from "../lib/timeline";
+import { buildShipmentTimeline, getCurrentStepIndex, showClosedRouteOnTimeline } from "../lib/timeline";
 import { getFranchiseGroup, historyStepLabel, needsInterBodega, shipmentPlaceText } from "../lib/franchise-groups";
 
 // Safe helper to get status config - never returns undefined
@@ -202,6 +202,7 @@ export default function ShipmentDetail() {
   const isWarehouseUser = user?.franchise?.isWarehouse === 1;
   const isCancelled = shipment.status === "CANCELADO";
   const isDelivered = shipment.status === "RECIBIDO_EN_DESTINO";
+  const stuckAfterRoute = Boolean((shipment as any).stuckAfterRoute);
    const canCancel = !isCancelled && !isDelivered && (isOrigin || isDestination || shipment.currentLocationId === franchiseId);
   const destNameLower = (shipment.destinationFranchise?.displayName || shipment.destinationName || "").toLowerCase();
   const isPickup = (shipment as any).isPickupRoute === true ||
@@ -274,7 +275,7 @@ export default function ShipmentDetail() {
   // Build clean timeline with specific bodega names
   const trackingHistory = shipment.tracking || [];
   const whLoc = (shipment as any).warehouseLocation;
-  const timelineSteps = buildShipmentTimeline(
+  const builtSteps = buildShipmentTimeline(
     isPickup,
     originIsWarehouse,
     destIsWarehouse,
@@ -284,6 +285,7 @@ export default function ShipmentDetail() {
     shipment.originFranchise?.displayName,
     shipment.destinationFranchise?.displayName
   );
+  const timelineSteps = stuckAfterRoute ? showClosedRouteOnTimeline(builtSteps) : builtSteps;
 
   // Find current step index using tracking history to disambiguate duplicate statuses
   const searchStatus = shipment.status === "ENTREGADO" ? "RECIBIDO_EN_DESTINO" : shipment.status;
@@ -307,9 +309,10 @@ export default function ShipmentDetail() {
                   originName: shipment.originFranchise?.displayName,
                   destinationName: shipment.destinationFranchise?.displayName || (shipment as any).destinationName,
                   warehouseLocation: (shipment as any).warehouseLocation,
+                  stuckAfterRoute,
                 });
-                const label = place.badge || cfg.label;
-                return <Badge variant="secondary" className={cfg.color}><cfg.icon className="w-3 h-3 mr-1" />{label}</Badge>;
+                const label = stuckAfterRoute ? "Quedo en una ruta cerrada" : (place.badge || cfg.label);
+                return <Badge variant="secondary" className={stuckAfterRoute ? "bg-red-50 text-red-700" : cfg.color}><cfg.icon className="w-3 h-3 mr-1" />{label}</Badge>;
               })()}
             </div>
             {shipment.invoiceNumber && <p className="text-sm text-[#8A8A8A] mt-1 flex items-center gap-1"><FileText className="w-3.5 h-3.5" />Factura: #{shipment.invoiceNumber}</p>}
@@ -353,6 +356,14 @@ export default function ShipmentDetail() {
         {isCancelled && (
           <Card className="bg-red-50 border-red-200"><CardContent className="p-3 flex items-center gap-2"><Ban className="w-4 h-4 text-red-600" /><span className="text-sm text-red-700 font-medium">Este envio ha sido cancelado</span></CardContent></Card>
         )}
+        {stuckAfterRoute && (
+          <Card className="bg-red-50 border-red-200">
+            <CardContent className="p-3 flex flex-col sm:flex-row sm:items-center gap-2">
+              <span className="text-sm text-red-800">El camion ya salio y el cliente no lo recogio. Corrijalo en Rutas para poder asignarlo de nuevo.</span>
+              <Button variant="outline" size="sm" className="border-red-200 text-red-700" onClick={() => navigate("/rutas")}>Ir a Rutas</Button>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Cliente + Articulos */}
         <Card>
@@ -383,10 +394,12 @@ export default function ShipmentDetail() {
                         && !isPickup
                         && !isSabana
                         && (destLower.includes("bodega") || (shipment.destinationFranchise as any)?.isWarehouse === 1);
-                      const ready = shipment.status === "EN_PARADA"
+                      const ready = !stuckAfterRoute && (shipment.status === "EN_PARADA"
                         || (shipment.status === "RECIBIDO_EN_BODEGA" && (shipment.destinationFranchise as any)?.isWarehouse === 1 && !isPickup && !isSabana)
-                        || (shipment.status === "RECIBIDO_EN_DESTINO" && !isPickup && !isSabana && !collectedAtWarehouse);
-                      const message = shipment.status === "NO_RECOGIDO"
+                        || (shipment.status === "RECIBIDO_EN_DESTINO" && !isPickup && !isSabana && !collectedAtWarehouse));
+                      const message = stuckAfterRoute
+                        ? `Hola! Soy el encargado de American Outlet. Su pedido *${shipment.trackingNumber}* no se pudo entregar en *${place}*. El camion ya salio de ese punto.`
+                        : shipment.status === "NO_RECOGIDO"
                         ? `Hola! Soy el encargado de American Outlet. Su pedido *${shipment.trackingNumber}* no se pudo entregar en *${place}*.`
                         : (shipment.status === "RECIBIDO_EN_DESTINO" && isPickup) || collectedAtWarehouse
                           ? `Hola! Soy el encargado de American Outlet. Su pedido *${shipment.trackingNumber}* ya fue entregado en *${place}*. Gracias!`
