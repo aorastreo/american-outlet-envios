@@ -36,7 +36,7 @@ const stopStatusConfig: Record<string, { color: string; label: string }> = {
 };
 
 const shipmentStatusConfig: Record<string, { color: string; label: string }> = {
-  ASIGNADO: { color: "bg-blue-50 text-blue-700", label: "En Ruta" },
+  ASIGNADO: { color: "bg-blue-50 text-blue-700", label: "Asignado" },
   EN_PARADA: { color: "bg-amber-50 text-[#B8860B]", label: "En Parada" },
   ENTREGADO: { color: "bg-emerald-50 text-[#1B6B3E]", label: "Entregado" },
   NO_RECOGIDO: { color: "bg-red-50 text-red-700", label: "No recogido" },
@@ -188,12 +188,12 @@ export default function RutaDetail() {
   // Get ALL pending shipments to show alerts for stops that have unassigned shipments
   const { data: allPending } = trpc.route.pendingByPickupPoint.useQuery();
 
-  const handleWhatsApp = (phone: string, trackingNumber: string, cityName: string) => {
+  const handleWhatsApp = (phone: string, trackingNumber: string, cityName: string, arrived: boolean) => {
     const cleanPhone = phone.replace(/\D/g, "");
-    const message = encodeURIComponent(
-      `Hola! Su pedido con guia ${trackingNumber} ya esta disponible para recoger en ${cityName}. El camion esta estacionado en el punto de referencia. Por favor pase a recogerlo. Gracias! - American Outlet`
-    );
-    window.open(`https://wa.me/506${cleanPhone}?text=${message}`, "_blank");
+    const message = arrived
+      ? `Hola! Su pedido con guia ${trackingNumber} ya esta en ${cityName}. El camion esta en el punto de referencia. Por favor pase a recogerlo. Gracias! - American Outlet`
+      : `Hola! Su pedido con guia ${trackingNumber} va en camino hacia ${cityName}. Le avisamos cuando pueda pasar a recogerlo. Gracias! - American Outlet`;
+    window.open(`https://wa.me/506${cleanPhone}?text=${encodeURIComponent(message)}`, "_blank");
   };
 
   if (isLoading) {
@@ -517,9 +517,33 @@ export default function RutaDetail() {
                         </div>
                       </div>
                     </div>
-                    {pendingCount === 0 && (
-                      <CheckCircle className="w-5 h-5 text-emerald-500" />
-                    )}
+                    <div className="flex items-center gap-2">
+                      {stop.status === "PENDIENTE" && (
+                        <Button
+                          size="sm"
+                          onClick={() => updateStopMutation.mutate({ stopId: stop.id, status: "LLEGADO" })}
+                          className="bg-[#B8860B] hover:bg-[#8B6508]"
+                          disabled={updateStopMutation.isPending}
+                        >
+                          <MapPin className="w-4 h-4 mr-1.5" />
+                          Llegue a {stop.cityName}
+                        </Button>
+                      )}
+                      {stop.status === "LLEGADO" && (
+                        <Button
+                          size="sm"
+                          onClick={() => updateStopMutation.mutate({ stopId: stop.id, status: "COMPLETADO" })}
+                          className="bg-[#1B6B3E] hover:bg-[#145a32]"
+                          disabled={updateStopMutation.isPending}
+                        >
+                          <CheckCircle className="w-4 h-4 mr-1.5" />
+                          Salir de {stop.cityName}
+                        </Button>
+                      )}
+                      {stop.status === "COMPLETADO" && (
+                        <CheckCircle className="w-5 h-5 text-emerald-500" />
+                      )}
+                    </div>
                   </div>
 
                   {/* Shipments for this stop */}
@@ -588,9 +612,21 @@ export default function RutaDetail() {
                                     <a href={`tel:${shipment.shipment.senderPhone.replace(/\D/g, "")}`} className="inline-flex items-center gap-1 text-[10px] bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100 px-2 py-0.5 rounded transition-colors" onClick={(e) => e.stopPropagation()}>
                                       <Phone className="w-3 h-3" />Llamar
                                     </a>
-                                    <a href={`https://wa.me/506${shipment.shipment.senderPhone.replace(/\D/g, "")}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[10px] bg-[#25D366]/10 border border-[#25D366]/30 text-[#25D366] hover:bg-[#25D366] hover:text-white px-2 py-0.5 rounded transition-colors" onClick={(e) => e.stopPropagation()}>
+                                    <button
+                                      type="button"
+                                      className="inline-flex items-center gap-1 text-[10px] bg-[#25D366]/10 border border-[#25D366]/30 text-[#25D366] hover:bg-[#25D366] hover:text-white px-2 py-0.5 rounded transition-colors"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleWhatsApp(
+                                          shipment.shipment.senderPhone,
+                                          shipment.shipment.trackingNumber,
+                                          stop.cityName,
+                                          stop.status !== "PENDIENTE"
+                                        );
+                                      }}
+                                    >
                                       <MessageCircle className="w-3 h-3" />WhatsApp
-                                    </a>
+                                    </button>
                                   </div>
                                 )}
 
@@ -731,7 +767,7 @@ export default function RutaDetail() {
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  onClick={() => handleWhatsApp(s.senderPhone, s.trackingNumber, stop.cityName)}
+                                  onClick={() => handleWhatsApp(s.senderPhone, s.trackingNumber, stop.cityName, stop.status !== "PENDIENTE")}
                                   className="h-9 px-3 bg-[#25D366]/10 border-[#25D366]/30 text-[#25D366] hover:bg-[#25D366] hover:text-white"
                                 >
                                   <MessageCircle className="w-4 h-4 mr-1.5" />

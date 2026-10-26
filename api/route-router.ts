@@ -302,6 +302,9 @@ export const routeRouter = createRouter({
         const cityName = stopData[0]?.cityName || "parada";
         const assigned = await db.select().from(routeShipments).where(eq(routeShipments.stopId, input.stopId));
         for (const rs of assigned) {
+          if (rs.status === "ENTREGADO" || rs.status === "NO_RECOGIDO") continue;
+          const current = await db.select().from(shipments).where(eq(shipments.id, rs.shipmentId)).limit(1);
+          if (current[0]?.status === "RECIBIDO_EN_DESTINO" || current[0]?.status === "NO_RECOGIDO") continue;
           await db.insert(shipmentTracking).values({
             shipmentId: rs.shipmentId,
             status: "EN_PARADA",
