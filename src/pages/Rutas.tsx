@@ -321,6 +321,9 @@ export default function Rutas() {
   };
 
   const isLoading = shipmentsLoading || routesLoading;
+  const waitingOnPlannedRoute = (routes || []).some(
+    (route) => route.status === "PLANIFICADA" && ((route.summary as any)?.total || 0) > 0
+  );
 
   return (
     <FranchiseLayout>
@@ -530,10 +533,16 @@ export default function Rutas() {
           <Card>
             <CardContent className="p-12 text-center">
               <MapPin className="w-12 h-12 text-[#D4D4D4] mx-auto mb-3" />
-              <p className="text-[#404040]">No hay envios {currentTab.label.toLowerCase()}</p>
+              <p className="text-[#404040]">
+                {activeTab === "EN_RUTA" && waitingOnPlannedRoute
+                  ? "Los paquetes estan dentro de la ruta"
+                  : `No hay envios ${currentTab.label.toLowerCase()}`}
+              </p>
               <p className="text-xs text-[#8A8A8A] mt-1">
                 {activeTab === "EN_BODEGA"
                   ? "Aparecen aqui cuando ya estan en Bodega Cedi y todavia no se han puesto en una ruta"
+                  : activeTab === "EN_RUTA" && waitingOnPlannedRoute
+                  ? "Abra la ruta de arriba. Salen en esta lista cuando el camion ya salio"
                   : activeTab === "EN_RUTA"
                   ? "Los envios apareceran aqui cuando el camion salga"
                   : activeTab === "NO_RECOGIDOS"
