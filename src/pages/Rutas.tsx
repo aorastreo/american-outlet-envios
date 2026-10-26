@@ -372,7 +372,7 @@ export default function Rutas() {
                 : `${filteredShipments.length} envio${filteredShipments.length !== 1 ? "s" : ""} - ${currentTab.label}`}
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <Button onClick={() => setPendingDialog(true)} variant="outline" className="border-orange-300 text-orange-700 hover:bg-orange-50">
               <ClipboardList className="w-4 h-4 mr-2" />
               Pendientes
@@ -412,7 +412,7 @@ export default function Rutas() {
         )}
 
         {/* ─── Tabs ─────────────────────────────────────────────── */}
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
           {TABS.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.key;
@@ -421,15 +421,15 @@ export default function Rutas() {
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
-                className={`relative flex flex-col items-center gap-1.5 px-4 py-3 rounded-xl border-2 transition-all duration-200 ${
+                className={`relative flex flex-col items-center gap-1.5 px-2 py-3 sm:px-4 rounded-xl border-2 transition-all duration-200 ${
                   isActive
                     ? `${tab.activeBg} ${tab.activeBorder} shadow-sm`
                     : "bg-white border-[#E5E5E5] hover:bg-[#FAFAFA] hover:border-[#D4D4D4]"
                 }`}
               >
-                <div className="flex items-center gap-2">
-                  <Icon className={`w-4 h-4 ${isActive ? tab.activeColor : tab.color}`} />
-                  <span className={`text-sm font-semibold ${isActive ? tab.activeColor : tab.color}`}>{tab.label}</span>
+                <div className="flex items-center justify-center gap-1.5 min-w-0">
+                  <Icon className={`w-4 h-4 shrink-0 ${isActive ? tab.activeColor : tab.color}`} />
+                  <span className={`text-sm font-semibold text-center ${isActive ? tab.activeColor : tab.color}`}>{tab.label}</span>
                 </div>
                 <Badge className={`text-xs font-bold ${isActive ? tab.badgeColor : "bg-[#F0F0F0] text-[#8A8A8A]"}`}>
                   {count}
