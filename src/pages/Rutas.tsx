@@ -18,6 +18,16 @@ import toast from "react-hot-toast";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
+function routePlannedTime(route: { name?: string | null; createdAt?: string | Date | null }): number {
+  const match = String(route.name || "").match(/(\d{2})\/(\d{2})\/(\d{4})/);
+  if (match) {
+    const when = new Date(Number(match[3]), Number(match[2]) - 1, Number(match[1])).getTime();
+    if (!Number.isNaN(when)) return when;
+  }
+  const created = route.createdAt ? new Date(route.createdAt).getTime() : 0;
+  return Number.isNaN(created) ? 0 : created;
+}
+
 function routeCountLine(summary: { total?: number; entregados?: number; noRecogidos?: number } | undefined) {
   const total = summary?.total || 0;
   const entregados = summary?.entregados || 0;
@@ -358,6 +368,22 @@ export default function Rutas() {
   const waitingOnPlannedRoute = (routes || []).some(
     (route) => route.status === "PLANIFICADA" && ((route.summary as any)?.total || 0) > 0
   );
+  const activeRoutes = useMemo(() => {
+    return (routes || [])
+      .filter((route) => route.status === "EN_RUTA" || route.status === "PLANIFICADA")
+      .sort((a, b) => {
+        if (a.status !== b.status) {
+          if (a.status === "EN_RUTA") return -1;
+          if (b.status === "EN_RUTA") return 1;
+        }
+        return routePlannedTime(a) - routePlannedTime(b);
+      });
+  }, [routes]);
+  const completedRoutes = useMemo(() => {
+    return (routes || [])
+      .filter((route) => route.status === "COMPLETADA")
+      .sort((a, b) => routePlannedTime(b) - routePlannedTime(a));
+  }, [routes]);
 
   return (
     <FranchiseLayout>
@@ -466,10 +492,10 @@ export default function Rutas() {
         {activeTab === "EN_RUTA" && routes && routes.length > 0 && (
           <div className="space-y-2">
             <p className="text-xs font-semibold text-[#8A8A8A] uppercase tracking-wider">Rutas Activas</p>
-            {routes.filter(r => r.status === "EN_RUTA" || r.status === "PLANIFICADA").length === 0 && (
+            {activeRoutes.length === 0 && (
               <p className="text-sm text-[#8A8A8A] text-center py-4">No hay rutas activas</p>
             )}
-            {routes.filter(r => r.status === "EN_RUTA" || r.status === "PLANIFICADA").map((route) => {
+            {activeRoutes.map((route) => {
               const rcfg = getStatusConfig(route.status);
               return (
                 <div key={route.id}>
@@ -507,7 +533,7 @@ export default function Rutas() {
             })}
 
             {/* ─── Completed Routes (collapsible) ───────────────────── */}
-            {routes.filter(r => r.status === "COMPLETADA").length > 0 && (
+            {completedRoutes.length > 0 && (
               <div className="mt-4 border-t border-[#F0F0F0] pt-3">
                 <button
                   onClick={() => setShowCompletedRoutes(!showCompletedRoutes)}
@@ -516,12 +542,12 @@ export default function Rutas() {
                   {showCompletedRoutes ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                   Rutas Completadas
                   <Badge variant="secondary" className="bg-emerald-50 text-[#1B6B3E] text-xs">
-                    {routes.filter(r => r.status === "COMPLETADA").length}
+                    {completedRoutes.length}
                   </Badge>
                 </button>
                 {showCompletedRoutes && (
                   <div className="space-y-2 mt-3">
-                    {routes.filter(r => r.status === "COMPLETADA").map((route) => {
+                    {completedRoutes.map((route) => {
                       const rcfg = getStatusConfig(route.status);
                       return (
                         <Link to={`/rutas/${route.id}`} key={route.id}>
