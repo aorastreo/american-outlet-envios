@@ -514,7 +514,7 @@ export default function RutaDetail() {
                     </div>
                     {stop.status === "COMPLETADO" ? (
                       <CheckCircle className="w-5 h-5 text-emerald-500" />
-                    ) : (
+                    ) : earlierClosed ? (
                       <Button
                         size="sm"
                         variant="outline"
@@ -523,6 +523,8 @@ export default function RutaDetail() {
                       >
                         Saltar {stop.cityName}
                       </Button>
+                    ) : (
+                      <p className="text-[10px] text-[#8A8A8A] text-right max-w-[140px]">Despues de la parada anterior</p>
                     )}
                   </div>
                 );

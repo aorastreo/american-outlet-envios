@@ -399,6 +399,14 @@ export const routeRouter = createRouter({
           }).where(eq(shipments.id, rs.shipmentId));
         }
       } else if (input.status === "COMPLETADO") {
+        const leavingStop = await db.select().from(routeStops).where(eq(routeStops.id, input.stopId)).limit(1);
+        if (leavingStop[0]?.status === "PENDIENTE") {
+          const earlierStops = await db.select().from(routeStops).where(eq(routeStops.routeId, leavingStop[0].routeId));
+          const previousStillOpen = earlierStops.some((stop) => stop.stopOrder < leavingStop[0].stopOrder && stop.status !== "COMPLETADO");
+          if (previousStillOpen) {
+            throw new TRPCError({ code: "BAD_REQUEST", message: "Primero hay que salir de la parada anterior" });
+          }
+        }
         const stillAssigned = await db.select().from(routeShipments).where(and(
           eq(routeShipments.stopId, input.stopId),
           eq(routeShipments.status, "ASIGNADO"),
