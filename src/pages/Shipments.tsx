@@ -808,6 +808,11 @@ export default function Shipments() {
                       {place.chip}
                     </span>
                   )}
+                  {!selectable && !isBodega && activeTab === "POR_RECIBIR" && (
+                    <p className="text-[11px] leading-snug text-amber-700 font-medium max-w-[200px] ml-auto">
+                      Sigue en bodega. Se recibe cuando ya va hacia la tienda.
+                    </p>
+                  )}
                   {isBodega && activeTab === "POR_RECIBIR" && shipment.status === "ENVIADO_A_BODEGA" && (() => {
                     const firstStop = getFranchiseGroup(shipment.originName) === "vendedor" ? "Bodega Cedi" : "Bodega Pavon";
                     if (!shipment.warehouseLocation || shipment.warehouseLocation === firstStop) return null;
