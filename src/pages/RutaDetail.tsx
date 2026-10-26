@@ -491,7 +491,33 @@ export default function RutaDetail() {
 
             {route.stops?.map((stop: any, stopIdx: number) => {
               const stopShipments = stop.shipments || [];
-              if (stopShipments.length === 0) return null;
+              if (stopShipments.length === 0) {
+                return (
+                  <div key={stop.id} className="flex items-center justify-between bg-white rounded-lg border border-gray-200 px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${stop.status === "COMPLETADO" ? "bg-[#1B6B3E] text-white" : "bg-[#F0F0F0] text-[#8A8A8A]"}`}>
+                        {stopIdx + 1}
+                      </div>
+                      <div>
+                        <h3 className="text-base font-semibold text-[#1A1A1A]">{stop.cityName}</h3>
+                        <p className="text-xs text-[#8A8A8A]">No hay envios para esta parada</p>
+                      </div>
+                    </div>
+                    {stop.status === "COMPLETADO" ? (
+                      <CheckCircle className="w-5 h-5 text-emerald-500" />
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => updateStopMutation.mutate({ stopId: stop.id, status: "COMPLETADO" })}
+                        disabled={updateStopMutation.isPending}
+                      >
+                        Saltar {stop.cityName}
+                      </Button>
+                    )}
+                  </div>
+                );
+              }
 
               const deliveredCount = stopShipments.filter((s: any) => (optimisticStatuses[s.id] ?? s.status) === "ENTREGADO").length;
               const noPickupCount = stopShipments.filter((s: any) => (optimisticStatuses[s.id] ?? s.status) === "NO_RECOGIDO").length;
