@@ -635,23 +635,26 @@ export default function Shipments() {
     const cfg = getStatusConfig(shipment.status);
     const place = shipmentPlaceText(shipment);
     const isSelected = selectedIds.includes(shipment.id);
+    const selectable = canSelectShipment(shipment);
     return (
       <div key={shipment.id} className="relative group">
-        <div className="absolute left-2 top-1/2 -translate-y-1/2 z-10">
-          <Checkbox
-            checked={isSelected}
-            onCheckedChange={() => toggleSelection(shipment.id)}
-            className="border-[#D4D4D4] data-[state=checked]:bg-[#C8102E] data-[state=checked]:border-[#C8102E]"
-            onClick={(e) => e.stopPropagation()}
-          />
-        </div>
+        {selectable && (
+          <div className="absolute left-2 top-1/2 -translate-y-1/2 z-10">
+            <Checkbox
+              checked={isSelected}
+              onCheckedChange={() => toggleSelection(shipment.id)}
+              className="border-[#D4D4D4] data-[state=checked]:bg-[#C8102E] data-[state=checked]:border-[#C8102E]"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+        )}
         <Link to={`/envios/${shipment.id}`} className="block">
           <Card
             className={`hover:shadow-md transition-shadow cursor-pointer border-[#F0F0F0] ${
               isSelected ? "ring-2 ring-[#C8102E]/20 border-[#C8102E]/30 bg-[#FFF5F5]/50" : ""
             }`}
           >
-            <CardContent className="p-4 pl-10">
+            <CardContent className={`p-4 ${selectable ? "pl-10" : ""}`}>
               <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-3 flex-wrap">
@@ -741,16 +744,20 @@ export default function Shipments() {
     setDestFilter([]);
   };
 
+  const canSelectShipment = (shipment: { status: string }) =>
+    isBodega || activeTab !== "POR_RECIBIR" || shipment.status === "ENVIADO_A_DESTINO";
+
   const toggleSelection = (id: number) => {
     setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   };
 
   const selectAllVisible = () => {
-    const allSelected = filteredShipments.every((s) => selectedIds.includes(s.id));
+    const selectable = filteredShipments.filter(canSelectShipment);
+    const allSelected = selectable.length > 0 && selectable.every((s) => selectedIds.includes(s.id));
     if (allSelected) {
-      setSelectedIds((prev) => prev.filter((id) => !filteredShipments.find((s) => s.id === id)));
+      setSelectedIds((prev) => prev.filter((id) => !selectable.find((s) => s.id === id)));
     } else {
-      setSelectedIds((prev) => [...new Set([...prev, ...filteredShipments.map((s) => s.id)])]);
+      setSelectedIds((prev) => [...new Set([...prev, ...selectable.map((s) => s.id)])]);
     }
   };
 
@@ -882,7 +889,7 @@ export default function Shipments() {
     const seleccionados = filteredShipments.filter((s) => selectedIds.includes(s.id));
     const invalidos = seleccionados.filter((s) => s.status !== "ENVIADO_A_DESTINO");
     if (invalidos.length > 0) {
-      toast.error(`${invalidos.length} envio(s) no estan en estado ENVIADO_A_DESTINO`);
+      toast.error("Esos paquetes siguen en bodega. Solo se reciben cuando ya van hacia la tienda.");
       return;
     }
     openConfirmDialog(
@@ -1417,15 +1424,15 @@ export default function Shipments() {
         ) : (
           <div className="space-y-3">
             {/* Select all */}
-            {filteredShipments.length > 1 && (
+            {filteredShipments.filter(canSelectShipment).length > 1 && (
               <div className="flex items-center gap-2 px-4 py-2 bg-[#F7F7F7] rounded-lg border border-[#D4D4D4]">
                 <Checkbox
-                  checked={filteredShipments.every((s) => selectedIds.includes(s.id))}
+                  checked={filteredShipments.filter(canSelectShipment).every((s) => selectedIds.includes(s.id))}
                   onCheckedChange={selectAllVisible}
                   className="border-[#D4D4D4] data-[state=checked]:bg-[#C8102E] data-[state=checked]:border-[#C8102E]"
                 />
                 <span className="text-sm text-[#525252] font-medium">Seleccionar todos los visibles</span>
-                <span className="text-xs text-[#A3A3A3] ml-1">({filteredShipments.length})</span>
+                <span className="text-xs text-[#A3A3A3] ml-1">({filteredShipments.filter(canSelectShipment).length})</span>
               </div>
             )}
             {filteredShipments.map((s) => renderShipmentCard(s))}
