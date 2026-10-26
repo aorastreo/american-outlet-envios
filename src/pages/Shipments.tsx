@@ -734,6 +734,7 @@ export default function Shipments() {
   const renderShipmentCard = (shipment: (typeof filteredShipments)[0]) => {
     const cfg = getStatusConfig(shipment.status);
     const place = shipmentPlaceText(shipment);
+    const stuck = Boolean(shipment.stuckAfterRoute);
     const isSelected = selectedIds.includes(shipment.id);
     const selectable = canSelectShipment(shipment);
     return (
@@ -760,7 +761,7 @@ export default function Shipments() {
                   <div className="flex items-center gap-3 flex-wrap">
                     <p className="font-semibold font-mono text-[#C8102E] text-lg">{shipment.trackingNumber}</p>
                     {cfg && (
-                      <Badge variant="secondary" className={cfg.color}>
+                      <Badge variant="secondary" className={stuck ? "bg-red-50 text-red-700" : cfg.color}>
                         <cfg.icon className="w-3 h-3 mr-1" />
                         {place.badge || cfg.label}
                       </Badge>

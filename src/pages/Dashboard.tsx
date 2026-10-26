@@ -54,6 +54,7 @@ function cleanName(name: string | undefined): string {
 function ShipmentCard({ shipment }: { shipment: any }) {
   const cfg = getStatusConfig(shipment.status);
   const place = shipmentPlaceText(shipment);
+  const stuck = Boolean(shipment.stuckAfterRoute);
   return (
     <Link to={`/envios/${shipment.id}`} key={shipment.id}>
       <Card className="hover:shadow-md transition-shadow cursor-pointer border-[#F0F0F0] hover:border-[#C8102E]/20">
@@ -67,7 +68,7 @@ function ShipmentCard({ shipment }: { shipment: any }) {
                     {shipment.trackingNumber}
                   </p>
                 </div>
-                <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${cfg.bg} ${cfg.color}`}>
+                <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${stuck ? "bg-red-50 text-red-700" : `${cfg.bg} ${cfg.color}`}`}>
                   {place.badge || cfg.label}
                 </span>
                 {place.chip && (

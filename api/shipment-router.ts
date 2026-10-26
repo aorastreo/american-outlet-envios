@@ -502,12 +502,39 @@ export const shipmentRouter = createRouter({
         ));
       const reservedIds = new Set(reservedRows.map((row) => row.shipmentId));
 
+      const paradaIds = result.filter((s) => s.status === "EN_PARADA").map((s) => s.id);
+      const stuckIds = new Set<number>();
+      if (paradaIds.length > 0) {
+        const openRows = await db
+          .select({ shipmentId: routeShipments.shipmentId })
+          .from(routeShipments)
+          .innerJoin(deliveryRoutes, eq(deliveryRoutes.id, routeShipments.routeId))
+          .where(and(
+            inArray(routeShipments.shipmentId, paradaIds),
+            inArray(deliveryRoutes.status, ["PLANIFICADA", "EN_RUTA"]),
+          ));
+        const onOpenRoute = new Set(openRows.map((row) => row.shipmentId));
+        const closedRows = await db
+          .select({ shipmentId: routeShipments.shipmentId })
+          .from(routeShipments)
+          .innerJoin(deliveryRoutes, eq(deliveryRoutes.id, routeShipments.routeId))
+          .where(and(
+            inArray(routeShipments.shipmentId, paradaIds),
+            eq(deliveryRoutes.status, "COMPLETADA"),
+            ne(routeShipments.status, "ENTREGADO"),
+          ));
+        for (const row of closedRows) {
+          if (!onOpenRoute.has(row.shipmentId)) stuckIds.add(row.shipmentId);
+        }
+      }
+
       return result.map(s => ({
         ...s,
         originName: cleanFranchiseName(franchiseMap.get(s.originFranchiseId)?.displayName || s.originName),
         destinationName: cleanFranchiseName(franchiseMap.get(s.destinationFranchiseId)?.displayName || s.destinationName),
         currentLocationName: cleanFranchiseName(franchiseMap.get(s.currentLocationId)?.displayName || s.currentLocationName),
         reservedOnRoute: reservedIds.has(s.id),
+        stuckAfterRoute: stuckIds.has(s.id),
       }));
     }),
 
