@@ -1329,14 +1329,13 @@ app.all("/api/*", (c) => c.json({ error: "Not Found" }, 404));
 export default app;
 
 async function clearShipmentsOnce() {
-  const flag = "clear-shipments-2026-10-25";
+  const flag = "clear-shipments-2026-10-26";
   const tables = [
     "shipment_items",
     "shipment_tracking",
     "route_shipments",
     "route_stops",
     "delivery_routes",
-    "national_shipments",
     "shipments",
   ];
   const connection = await mysql.createConnection(env.databaseUrl);
