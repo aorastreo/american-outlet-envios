@@ -306,15 +306,17 @@ export const routeRouter = createRouter({
         for (const stop of routeStopsList) {
           const assigned = await db.select().from(routeShipments).where(eq(routeShipments.stopId, stop.id));
           for (const rs of assigned) {
-            // Insert EN_RUTA tracking entry
+            if (rs.status === "ENTREGADO" || rs.status === "NO_RECOGIDO") continue;
+            const current = await db.select().from(shipments).where(eq(shipments.id, rs.shipmentId)).limit(1);
+            if (current[0]?.status === "RECIBIDO_EN_DESTINO" || current[0]?.status === "CANCELADO") continue;
+            const city = pickupCity(stop.cityName) || stop.cityName;
             await db.insert(shipmentTracking).values({
               shipmentId: rs.shipmentId,
               status: "EN_RUTA",
               locationId: 0,
-              notes: `En ruta hacia ${stop.cityName}`,
+              notes: `En ruta hacia ${city}`,
               createdBy: ctx.franchiseUser!.id,
             });
-            // Update main shipment status to EN_RUTA
             await db.update(shipments).set({ status: "EN_RUTA" }).where(eq(shipments.id, rs.shipmentId));
           }
         }
@@ -613,7 +615,11 @@ export const routeRouter = createRouter({
       for (const stop of stops) {
         const assigned = await db.select().from(routeShipments).where(eq(routeShipments.stopId, stop.id));
         for (const rs of assigned) {
-          // Check if this shipment already has EN_RUTA tracking
+          if (rs.status === "ENTREGADO" || rs.status === "NO_RECOGIDO") continue;
+          const current = await db.select().from(shipments).where(eq(shipments.id, rs.shipmentId)).limit(1);
+          const status = current[0]?.status;
+          if (!status || status === "RECIBIDO_EN_DESTINO" || status === "NO_RECOGIDO" || status === "EN_PARADA" || status === "CANCELADO") continue;
+
           const existingTracking = await db.select().from(shipmentTracking)
             .where(and(
               eq(shipmentTracking.shipmentId, rs.shipmentId),
@@ -621,17 +627,18 @@ export const routeRouter = createRouter({
             ));
 
           if (existingTracking.length === 0) {
-            // Create EN_RUTA tracking entry
+            const city = pickupCity(stop.cityName) || stop.cityName;
             await db.insert(shipmentTracking).values({
               shipmentId: rs.shipmentId,
               status: "EN_RUTA",
               locationId: 0,
-              notes: `En ruta hacia ${stop.cityName}`,
+              notes: `En ruta hacia ${city}`,
               createdBy: ctx.franchiseUser!.id,
             });
 
-            // Update main shipment status to EN_RUTA
-            await db.update(shipments).set({ status: "EN_RUTA" }).where(eq(shipments.id, rs.shipmentId));
+            if (status !== "EN_RUTA") {
+              await db.update(shipments).set({ status: "EN_RUTA" }).where(eq(shipments.id, rs.shipmentId));
+            }
 
             results.push({ shipmentId: rs.shipmentId, action: "created_EN_RUTA" });
           }
