@@ -367,32 +367,45 @@ export const routeRouter = createRouter({
           ? await db.select().from(routeStops).where(eq(routeStops.id, rsData[0].stopId)).limit(1)
           : [];
         const city = pickupCity(stopRows[0]?.cityName);
+        const stopIsOpen = stopRows[0]?.status === "LLEGADO" || stopRows[0]?.status === "COMPLETADO";
+
+        // Undoing a mark after the driver already left reopens the stop,
+        // so the route cannot close while this package is unmarked again.
+        if (input.status === "ASIGNADO" && stopRows[0]?.status === "COMPLETADO") {
+          await db.update(routeStops)
+            .set({ status: "LLEGADO", departureTime: null })
+            .where(eq(routeStops.id, stopRows[0].id));
+        }
 
         // 3. Map route status to shipments.status (valid enum values)
         const shipmentStatus = input.status === "ENTREGADO" ? "RECIBIDO_EN_DESTINO"
           : input.status === "NO_RECOGIDO" ? "NO_RECOGIDO"
-          : "EN_PARADA"; // ASIGNADO -> back to EN_PARADA
+          : stopIsOpen ? "EN_PARADA" : "EN_RUTA";
 
         await db.update(shipments)
           .set({ status: shipmentStatus, updatedAt: new Date() })
           .where(eq(shipments.id, shipmentId));
         console.log("[updateShipmentStatus] shipments.status updated to:", shipmentStatus);
 
-        // 4. Insert tracking history (only for ENTREGADO/NO_RECOGIDO, not for revert)
-        if (input.status !== "ASIGNADO") {
-          await db.insert(shipmentTracking).values({
-            shipmentId,
-            status: input.status === "ENTREGADO" ? "RECIBIDO_EN_DESTINO" : "NO_RECOGIDO",
-            locationId: 0,
-            notes: input.status === "ENTREGADO"
-              ? (city
-                ? `Entregado al cliente en ${city}${input.notes?.trim() ? ` - ${input.notes.trim()}` : ""}`
-                : (input.notes?.trim() ? `Recibido por el cliente: ${input.notes.trim()}` : "Recibido por el cliente en punto de recogida"))
-              : (city ? `No recogido en ${city}` : "Cliente no se presento a recoger el paquete en el punto de recogida"),
-            createdBy: ctx.franchiseUser!.id,
-          });
-          console.log("[updateShipmentStatus] tracking inserted:", input.status);
-        }
+        // 4. Insert tracking history, including when the driver undoes a mark
+        const trackingNotes = input.status === "ENTREGADO"
+          ? (city
+            ? `Entregado al cliente en ${city}${input.notes?.trim() ? ` - ${input.notes.trim()}` : ""}`
+            : (input.notes?.trim() ? `Recibido por el cliente: ${input.notes.trim()}` : "Recibido por el cliente en punto de recogida"))
+          : input.status === "NO_RECOGIDO"
+            ? (city ? `No recogido en ${city}` : "Cliente no se presento a recoger el paquete en el punto de recogida")
+            : shipmentStatus === "EN_PARADA"
+              ? (city ? `Camion llego a ${city} - punto de referencia` : "Camion en el punto de recogida")
+              : (city ? `En ruta hacia ${city}` : "En ruta hacia el punto de recogida");
+
+        await db.insert(shipmentTracking).values({
+          shipmentId,
+          status: input.status === "ENTREGADO" ? "RECIBIDO_EN_DESTINO" : input.status === "NO_RECOGIDO" ? "NO_RECOGIDO" : shipmentStatus,
+          locationId: 0,
+          notes: trackingNotes,
+          createdBy: ctx.franchiseUser!.id,
+        });
+        console.log("[updateShipmentStatus] tracking inserted:", input.status);
 
         return { success: true, status: input.status };
       } catch (error: any) {
