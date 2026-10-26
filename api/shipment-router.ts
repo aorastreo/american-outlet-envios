@@ -692,7 +692,12 @@ export const shipmentRouter = createRouter({
       }
 
       let newLocationId = shipment.currentLocationId;
-      if (input.newStatus === "ENVIADO_A_BODEGA") newLocationId = targetBodegaId || shipment.currentLocationId;
+      if (input.newStatus === "ENVIADO_A_BODEGA") {
+        const goingTo = (input.warehouseLocation || shipment.warehouseLocation || "").toLowerCase();
+        if (goingTo.includes("cedi") && bodegaCedi) newLocationId = bodegaCedi.id;
+        else if (goingTo.includes("pavon") && bodegaPavon) newLocationId = bodegaPavon.id;
+        else newLocationId = targetBodegaId || shipment.currentLocationId;
+      }
       else if (input.newStatus === "RECIBIDO_EN_BODEGA") newLocationId = targetBodegaId || shipment.currentLocationId;
       else if (input.newStatus === "ENVIADO_A_DESTINO") newLocationId = shipment.destinationFranchiseId;
       else if (input.newStatus === "RECIBIDO_EN_DESTINO") newLocationId = shipment.destinationFranchiseId;
@@ -1262,9 +1267,18 @@ export const shipmentRouter = createRouter({
 
       // Inter-bodega: set warehouseLocation to TARGET bodega so it appears
       // in the destination bodega's "Por Recibir" filter
+      const targetWarehouse = allFranchises.find((franchise) =>
+        input.targetBodega.toLowerCase().includes("cedi")
+          ? franchise.code === "bodega_cedi"
+          : franchise.code === "bodega"
+      );
       await db
         .update(shipments)
-        .set({ status: "ENVIADO_A_BODEGA", warehouseLocation: input.targetBodega })
+        .set({
+          status: "ENVIADO_A_BODEGA",
+          warehouseLocation: input.targetBodega,
+          ...(targetWarehouse ? { currentLocationId: targetWarehouse.id } : {}),
+        })
         .where(inArray(shipments.id, input.ids));
 
       for (const envio of envios) {
