@@ -341,18 +341,35 @@ export default function RutaDetail() {
           const pendingForRoute = allPending.filter(g =>
             routeCityNames.some((city: string) => g.cityName.toLowerCase().includes(city) || city.includes(g.cityName.toLowerCase()))
           );
-          const totalUnassigned = pendingForRoute.reduce((sum, g) => sum + g.count, 0);
-          if (totalUnassigned > 0) {
+          const readyForRoute = pendingForRoute
+            .map((g) => ({ ...g, readyCount: g.shipments.filter((s) => s.status !== "NO_RECOGIDO").length }))
+            .filter((g) => g.readyCount > 0);
+          const readyTotal = readyForRoute.reduce((sum, g) => sum + g.readyCount, 0);
+          const againTotal = pendingForRoute.reduce(
+            (sum, g) => sum + g.shipments.filter((s) => s.status === "NO_RECOGIDO").length,
+            0,
+          );
+          if (readyTotal > 0 || againTotal > 0) {
             return (
               <Card className="border-amber-300 bg-amber-50">
                 <CardContent className="p-4 flex items-start gap-3">
                   <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-                  <div className="flex-1">
-                    <p className="font-semibold text-amber-800">Hay {totalUnassigned} envio{totalUnassigned !== 1 ? "s" : ""} pendiente{totalUnassigned !== 1 ? "s" : ""} por asignar</p>
-                    <p className="text-sm text-amber-700 mt-1">
-                      {pendingForRoute.map(g => `${g.cityName}: ${g.count}`).join(" | ")}
+                  <div className="flex-1 space-y-1">
+                    {readyTotal > 0 && (
+                      <p className="font-semibold text-amber-800">Hay {readyTotal} envio{readyTotal !== 1 ? "s" : ""} en bodega por asignar</p>
+                    )}
+                    {againTotal > 0 && (
+                      <p className="font-semibold text-red-800">
+                        {againTotal === 1 ? "1 no recogido se puede asignar de nuevo" : `${againTotal} no recogidos se pueden asignar de nuevo`}
+                      </p>
+                    )}
+                    <p className="text-sm text-amber-700">
+                      {[
+                        ...readyForRoute.map((g) => `${g.cityName}: ${g.readyCount}`),
+                        ...(againTotal > 0 ? [`No recogidos: ${againTotal}`] : []),
+                      ].join(" | ")}
                     </p>
-                    <p className="text-xs text-amber-600 mt-1">Seleccionelos abajo y toque Asignar.</p>
+                    <p className="text-xs text-amber-600">Seleccionelos abajo y toque Asignar.</p>
                   </div>
                 </CardContent>
               </Card>
@@ -466,6 +483,9 @@ export default function RutaDetail() {
                               <MapPin className="w-3 h-3 mr-1" />
                               {destName}
                             </Badge>
+                            {s.status === "NO_RECOGIDO" && (
+                              <Badge className="bg-red-50 text-red-700 border-red-200">No recogido</Badge>
+                            )}
                           </div>
                           <div className="flex items-center gap-3 mt-1 text-xs text-[#525252]">
                             <span className="flex items-center gap-1"><User className="w-3 h-3" />{s.senderName}</span>

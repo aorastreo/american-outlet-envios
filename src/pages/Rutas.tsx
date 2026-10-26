@@ -791,6 +791,9 @@ export default function Rutas() {
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
                               <span className="text-sm font-mono font-bold text-[#C8102E]">{s.trackingNumber}</span>
+                              {s.status === "NO_RECOGIDO" && (
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-red-50 text-red-700 border border-red-200">No recogido</span>
+                              )}
                               {s.invoiceNumber && (
                                 <span className="inline-block bg-[#C8102E] text-white text-[10px] font-mono font-bold px-2 py-0.5 rounded tracking-wide">FACT: {s.invoiceNumber}</span>
                               )}
