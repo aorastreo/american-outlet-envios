@@ -488,11 +488,13 @@ export default function Rutas() {
           </Card>
         )}
 
-        {/* ─── Routes list (only for EN_RUTA tab, shows active routes) ── */}
-        {activeTab === "EN_RUTA" && routes && routes.length > 0 && (
+        {/* Routes stay visible on every tab. A planned route does not raise the En ruta count. */}
+        {(activeRoutes.length > 0 || completedRoutes.length > 0) && (
           <div className="space-y-2">
-            <p className="text-xs font-semibold text-[#8A8A8A] uppercase tracking-wider">Rutas Activas</p>
-            {activeRoutes.length === 0 && (
+            {(activeRoutes.length > 0 || activeTab === "EN_RUTA") && (
+              <p className="text-xs font-semibold text-[#8A8A8A] uppercase tracking-wider">Rutas Activas</p>
+            )}
+            {activeRoutes.length === 0 && activeTab === "EN_RUTA" && (
               <p className="text-sm text-[#8A8A8A] text-center py-4">No hay rutas activas</p>
             )}
             {activeRoutes.map((route) => {
