@@ -333,7 +333,9 @@ export default function Rutas() {
           <div>
             <h1 className="text-2xl font-bold text-[#1A1A1A]">Envios de Ruta</h1>
             <p className="text-sm text-[#404040] mt-1">
-              {filteredShipments.length} envio{filteredShipments.length !== 1 ? "s" : ""} - {currentTab.label}
+              {activeTab === "EN_RUTA" && filteredShipments.length === 0 && waitingOnPlannedRoute
+                ? "En la ruta planificada, hasta que el camion salga"
+                : `${filteredShipments.length} envio${filteredShipments.length !== 1 ? "s" : ""} - ${currentTab.label}`}
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -540,7 +542,7 @@ export default function Rutas() {
               </p>
               <p className="text-xs text-[#8A8A8A] mt-1">
                 {activeTab === "EN_BODEGA"
-                  ? "Aparecen aqui cuando ya estan en Bodega Cedi y todavia no se han puesto en una ruta"
+                  ? "Aparecen aqui cuando ya estan en Bodega Cedi. Si ya se pusieron en una ruta, abra la pestana En ruta"
                   : activeTab === "EN_RUTA" && waitingOnPlannedRoute
                   ? "Abra la ruta de arriba. Salen en esta lista cuando el camion ya salio"
                   : activeTab === "EN_RUTA"
