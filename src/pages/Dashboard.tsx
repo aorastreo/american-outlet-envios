@@ -195,6 +195,12 @@ export default function Dashboard() {
     return shipments.filter((s) => s.status === "RECIBIDO_EN_DESTINO");
   }, [shipments, isBodega]);
 
+  const cancelledShipments = useMemo(
+    () => (shipments || []).filter((s) => s.status === "CANCELADO"),
+    [shipments],
+  );
+  const activeTotal = Math.max(0, (shipments?.length || 0) - cancelledShipments.length);
+
   // RECEIVING WAREHOUSE FILTERS (Sabana — only receives)
   const receivingToReceive = useMemo(() => {
     if (!isReceivingWarehouse || !shipments) return [];
@@ -277,14 +283,14 @@ export default function Dashboard() {
     ...(isCediWarehouse ? [{ label: "Para el camion", value: waitingForTruck.length, icon: Route, color: "text-[#B8860B]", bg: "bg-amber-50", border: "border-amber-200/50" }] : []),
     { label: "En camino", value: warehouseInRoute.length, icon: Truck, color: "text-[#D4730E]", bg: "bg-orange-50", border: "border-orange-200/50" },
     { label: "Entregados", value: warehouseDelivered.length, icon: CheckCircle, color: "text-[#1B6B3E]", bg: "bg-emerald-50", border: "border-emerald-200/50" },
-    { label: "Total", value: shipments?.length || 0, icon: Package, color: "text-[#1A1A1A]", bg: "bg-gray-50", border: "border-gray-200/50" },
+    { label: "Total", value: activeTotal, icon: Package, color: "text-[#1A1A1A]", bg: "bg-gray-50", border: "border-gray-200/50" },
   ] : [
     { label: "Por Enviar", value: storeCreated.length, icon: Send, color: "text-[#C8102E]", bg: "bg-[#FFF5F5]", border: "border-[#C8102E]/10" },
     { label: "Enviados", value: storeSent.length, icon: Truck, color: "text-[#D4730E]", bg: "bg-orange-50", border: "border-orange-200/50" },
     { label: "Por Recibir", value: storeToReceive.length, icon: Inbox, color: "text-[#B8860B]", bg: "bg-amber-50", border: "border-amber-200/50" },
     { label: "En Tienda", value: storeInStore.length, icon: Store, color: "text-[#1B6B3E]", bg: "bg-emerald-50", border: "border-emerald-200/50" },
     { label: "Completados", value: storeCompleted.length, icon: CheckCircle, color: "text-blue-700", bg: "bg-blue-50", border: "border-blue-200/50" },
-    { label: "Total", value: shipments?.length || 0, icon: Package, color: "text-[#1A1A1A]", bg: "bg-gray-50", border: "border-gray-200/50" },
+    { label: "Total", value: activeTotal, icon: Package, color: "text-[#1A1A1A]", bg: "bg-gray-50", border: "border-gray-200/50" },
   ];
 
   return (
@@ -569,6 +575,23 @@ export default function Dashboard() {
               </div>
             )}
           </>
+        )}
+
+        {cancelledShipments.length > 0 && (
+          <div className="space-y-3">
+            <SectionHeader
+              icon={AlertTriangle}
+              title="Cancelados"
+              count={cancelledShipments.length}
+              iconColor="text-red-600"
+              badgeColor="bg-red-50 text-red-700"
+            />
+            <div className="space-y-3">
+              {cancelledShipments.slice(0, 10).map((s) => (
+                <ShipmentCard key={s.id} shipment={s} />
+              ))}
+            </div>
+          </div>
         )}
 
         {/* QUICK ACTIONS */}
