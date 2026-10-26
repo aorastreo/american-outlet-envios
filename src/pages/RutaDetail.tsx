@@ -193,11 +193,19 @@ export default function RutaDetail() {
     return digits.startsWith("506") && digits.length > 8 ? digits : `506${digits}`;
   };
 
-  const handleWhatsApp = (phone: string, trackingNumber: string, cityName: string, arrived: boolean) => {
+  const handleWhatsApp = (phone: string, trackingNumber: string, cityName: string, stopStatus: string, packageStatus: string) => {
     const cleanPhone = costaRicaNumber(phone);
-    const message = arrived
-      ? `Hola! Su pedido con guia ${trackingNumber} ya esta en ${cityName}. El camion esta en el punto de referencia. Por favor pase a recogerlo. Gracias! - American Outlet`
-      : `Hola! Su pedido con guia ${trackingNumber} va en camino hacia ${cityName}. Le avisamos cuando pueda pasar a recogerlo. Gracias! - American Outlet`;
+    const message = packageStatus === "ENTREGADO"
+      ? `Hola! Su pedido con guia ${trackingNumber} ya fue entregado en ${cityName}. Gracias! - American Outlet`
+      : packageStatus === "NO_RECOGIDO" && stopStatus === "COMPLETADO"
+        ? `Hola! Su pedido con guia ${trackingNumber} no se pudo entregar en ${cityName}. El camion ya salio de ese punto. - American Outlet`
+        : packageStatus === "NO_RECOGIDO"
+          ? `Hola! Su pedido con guia ${trackingNumber} no se pudo entregar en ${cityName}. - American Outlet`
+          : stopStatus === "LLEGADO"
+            ? `Hola! Su pedido con guia ${trackingNumber} ya esta en ${cityName}. El camion esta en el punto de referencia. Por favor pase a recogerlo. Gracias! - American Outlet`
+            : stopStatus === "COMPLETADO"
+              ? `Hola! Su pedido con guia ${trackingNumber} no se pudo entregar en ${cityName}. El camion ya salio de ese punto. - American Outlet`
+              : `Hola! Su pedido con guia ${trackingNumber} va en camino hacia ${cityName}. Le avisamos cuando pueda pasar a recogerlo. Gracias! - American Outlet`;
     window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`, "_blank");
   };
 
@@ -646,7 +654,8 @@ export default function RutaDetail() {
                                           shipment.shipment.senderPhone,
                                           shipment.shipment.trackingNumber,
                                           stop.cityName,
-                                          stop.status !== "PENDIENTE"
+                                          stop.status,
+                                          visualStatus,
                                         );
                                       }}
                                     >
@@ -805,7 +814,7 @@ export default function RutaDetail() {
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  onClick={() => handleWhatsApp(s.senderPhone, s.trackingNumber, stop.cityName, stop.status !== "PENDIENTE")}
+                                  onClick={() => handleWhatsApp(s.senderPhone, s.trackingNumber, stop.cityName, stop.status, rs.status)}
                                   className="h-9 px-3 bg-[#25D366]/10 border-[#25D366]/30 text-[#25D366] hover:bg-[#25D366] hover:text-white"
                                 >
                                   <MessageCircle className="w-4 h-4 mr-1.5" />

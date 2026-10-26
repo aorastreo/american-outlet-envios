@@ -375,9 +375,13 @@ export default function ShipmentDetail() {
                       const ready = shipment.status === "EN_PARADA"
                         || (shipment.status === "RECIBIDO_EN_BODEGA" && (shipment.destinationFranchise as any)?.isWarehouse === 1 && !isPickup)
                         || (shipment.status === "RECIBIDO_EN_DESTINO" && !isPickup);
-                      const message = ready
-                        ? `Hola! Soy el encargado de American Outlet. Su pedido *${shipment.trackingNumber}* ya esta disponible para retirar en *${place}*. Por favor pasar a recogerlo. Gracias!`
-                        : `Hola! Soy el encargado de American Outlet. Su pedido *${shipment.trackingNumber}* va en camino hacia *${place}*. Le avisamos cuando pueda pasar a recogerlo. Gracias!`;
+                      const message = shipment.status === "NO_RECOGIDO"
+                        ? `Hola! Soy el encargado de American Outlet. Su pedido *${shipment.trackingNumber}* no se pudo entregar en *${place}*.`
+                        : shipment.status === "RECIBIDO_EN_DESTINO" && isPickup
+                          ? `Hola! Soy el encargado de American Outlet. Su pedido *${shipment.trackingNumber}* ya fue entregado en *${place}*. Gracias!`
+                          : ready
+                            ? `Hola! Soy el encargado de American Outlet. Su pedido *${shipment.trackingNumber}* ya esta disponible para retirar en *${place}*. Por favor pasar a recogerlo. Gracias!`
+                            : `Hola! Soy el encargado de American Outlet. Su pedido *${shipment.trackingNumber}* va en camino hacia *${place}*. Le avisamos cuando pueda pasar a recogerlo. Gracias!`;
                       window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, "_blank");
                     }}
                     className="h-7 px-2 text-xs bg-[#25D366]/10 border-[#25D366]/30 text-[#25D366] hover:bg-[#25D366] hover:text-white"
