@@ -421,12 +421,12 @@ export const shipmentRouter = createRouter({
           : or(eq(shipments.warehouseLocation, normalizedName), sql`${shipments.warehouseLocation} IS NULL`);
         whereClause = and(atThisWarehouse, leftTheStore);
       } else {
-        // STORE USER: see shipments related to this store
+        // STORE USER: own packages, plus packages already sent toward this store.
+        // Another store's unsent package stays on that store's list.
         whereClause = or(
           eq(shipments.originFranchiseId, franchiseId),
-          eq(shipments.destinationFranchiseId, franchiseId),
+          and(eq(shipments.destinationFranchiseId, franchiseId), ne(shipments.status, "CREADO")),
           eq(shipments.currentLocationId, franchiseId),
-          sql`${shipments.status} = 'ENVIADO_A_DESTINO' AND ${shipments.destinationFranchiseId} = ${franchiseId}`,
         );
       }
 

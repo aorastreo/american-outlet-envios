@@ -233,7 +233,8 @@ export default function Dashboard() {
     return shipments.filter(
       (s) =>
         s.destinationFranchiseId === myFranchiseId &&
-        ["ENVIADO_A_DESTINO"].includes(s.status)
+        s.originFranchiseId !== myFranchiseId &&
+        ["ENVIADO_A_BODEGA", "RECIBIDO_EN_BODEGA", "ENVIADO_A_DESTINO"].includes(s.status)
     );
   }, [shipments, isBodega, myFranchiseId]);
 

@@ -91,8 +91,8 @@ const STORE_TABS: TabDef<StoreTabKey>[] = [
     key: "POR_RECIBIR",
     label: "Por Recibir",
     icon: Inbox,
-    statuses: ["ENVIADO_A_DESTINO"],
-    description: "Viniendo hacia esta tienda",
+    statuses: ["ENVIADO_A_BODEGA", "RECIBIDO_EN_BODEGA", "ENVIADO_A_DESTINO"],
+    description: "En bodega o ya en camino hacia esta tienda",
     color: "text-[#525252]",
     activeColor: "text-[#B8860B]",
     activeBg: "bg-amber-50",
@@ -477,7 +477,7 @@ export default function Shipments() {
         // ENVIADOS: only show shipments SENT FROM this store
         if (activeTab === "ENVIADOS" && s.originFranchiseId !== myFranchiseId) return false;
         // POR_RECIBIR: only show shipments coming TO the current store
-        if (activeTab === "POR_RECIBIR" && s.destinationFranchiseId !== myFranchiseId) return false;
+        if (activeTab === "POR_RECIBIR" && (s.destinationFranchiseId !== myFranchiseId || s.originFranchiseId === myFranchiseId)) return false;
         // EN_TIENDA: only show shipments received IN the current store (destino)
         if (activeTab === "EN_TIENDA" && s.destinationFranchiseId !== myFranchiseId) return false;
         // COMPLETADOS: only show shipments SENT FROM the current store that arrived
@@ -554,7 +554,7 @@ export default function Shipments() {
             counts[tab.key]++;
           } else if (tab.key === "ENVIADOS" && s.originFranchiseId === myFranchiseId) {
             counts[tab.key]++;
-          } else if (tab.key === "POR_RECIBIR" && s.destinationFranchiseId === myFranchiseId) {
+          } else if (tab.key === "POR_RECIBIR" && s.destinationFranchiseId === myFranchiseId && s.originFranchiseId !== myFranchiseId) {
             counts[tab.key]++;
           } else if (tab.key === "EN_TIENDA" && s.destinationFranchiseId === myFranchiseId) {
             counts[tab.key]++;
