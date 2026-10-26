@@ -157,12 +157,9 @@ export default function RutaDetail() {
 
   const assignMutation = trpc.route.assignShipments.useMutation({
     onSuccess: () => {
-      toast.success("Envios asignados");
-      // Invalidate queries to refresh the lists
       utils.route.getById.invalidate({ id: routeId });
       utils.route.list.invalidate();
       refreshWherePackagesAre();
-      // Clear selection
       setAvailableSelectedIds([]);
     },
     onError: (err) => toast.error(err.message),
@@ -272,13 +269,23 @@ export default function RutaDetail() {
         }
       }
     }
-    // Assign to each stop and wait for all to complete
+    const placed = [...shipmentsByStop.values()].reduce((sum, ids) => sum + ids.length, 0);
+    const skipped = availableSelectedIds.length - placed;
+    if (placed === 0) {
+      toast.error("Ningun envio coincide con las paradas de esta ruta");
+      return;
+    }
     const promises = [];
     for (const [stopId, shipmentIds] of shipmentsByStop) {
       promises.push(assignMutation.mutateAsync({ routeId, stopId, shipmentIds }));
     }
     try {
       await Promise.all(promises);
+      toast.success(
+        skipped > 0
+          ? `${placed} envio(s) asignado(s). ${skipped} no coincide${skipped === 1 ? "" : "n"} con las paradas.`
+          : `${placed} envio(s) asignado(s)`
+      );
       // After all assignments complete, invalidate queries
       utils.route.availableShipments.invalidate();
       utils.route.getById.invalidate({ id: routeId });
