@@ -1232,21 +1232,20 @@ export const shipmentRouter = createRouter({
         throw new TRPCError({ code: "BAD_REQUEST", message: `${onTruck.length} envio(s) salen en la ruta del camion. No se envian como una tienda.` });
       }
 
-      // Determine this warehouse's name for tracking
-      const myBodegaName = userFranchise[0]?.name || "";
-      const normalizedName = myBodegaName.toLowerCase().includes("cedi") ? "Bodega Cedi" : "Bodega Pavon";
-
-      await db
-        .update(shipments)
-        .set({ status: "ENVIADO_A_DESTINO" })
-        .where(inArray(shipments.id, input.ids));
-
       for (const envio of envios) {
+        const destLabel = cleanFranchiseName(
+          franchiseById.get(envio.destinationFranchiseId)?.displayName ||
+          franchiseById.get(envio.destinationFranchiseId)?.name
+        ).replace(/^Recogida\s*-\s*/i, "");
+        await db
+          .update(shipments)
+          .set({ status: "ENVIADO_A_DESTINO", currentLocationId: envio.destinationFranchiseId })
+          .where(eq(shipments.id, envio.id));
         await db.insert(shipmentTracking).values({
           shipmentId: envio.id,
           status: "ENVIADO_A_DESTINO",
-          locationId: franchiseId,
-          notes: `Enviado hacia ${cleanFranchiseName(franchiseById.get(envio.destinationFranchiseId)?.displayName || franchiseById.get(envio.destinationFranchiseId)?.name).replace(/^Recogida\s*-\s*/i, "")}`,
+          locationId: envio.destinationFranchiseId,
+          notes: `Enviado hacia ${destLabel}`,
           createdBy: ctx.franchiseUser!.id,
         });
       }
