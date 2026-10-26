@@ -165,6 +165,15 @@ export default function Dashboard() {
     });
   }, [shipments, isBodega, isReceivingWarehouse, myFranchiseId]);
 
+  const waitingForTruck = useMemo(() => {
+    if (!isBodega || isReceivingWarehouse || !shipments) return [];
+    return shipments.filter((s) => {
+      if (!isRouteDestinationName(s.destinationName) || s.warehouseLocation !== "Bodega Cedi") return false;
+      if (s.status === "RECIBIDO_EN_BODEGA" || s.status === "NO_RECOGIDO") return true;
+      return s.status === "CREADO" && (s.originName || "").toLowerCase().includes("bodega");
+    });
+  }, [shipments, isBodega, isReceivingWarehouse]);
+
   const warehouseCustomerPickup = useMemo(() => {
     if (!isBodega || isReceivingWarehouse || !shipments) return [];
     return shipments.filter((s) => s.status === "RECIBIDO_EN_BODEGA" && s.destinationFranchiseId === myFranchiseId);
@@ -494,6 +503,28 @@ export default function Dashboard() {
                 />
                 <div className="space-y-3">
                   {warehouseCustomerPickup.map((s) => (
+                    <ShipmentCard key={s.id} shipment={s} />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {waitingForTruck.length > 0 && (
+              <div className="space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <SectionHeader
+                    icon={Truck}
+                    title="Esperan la ruta del camion"
+                    count={waitingForTruck.length}
+                    iconColor="text-[#B8860B]"
+                    badgeColor="bg-amber-50 text-[#B8860B]"
+                  />
+                  <Link to="/rutas" className="text-sm font-semibold text-[#C8102E] hover:underline mb-4">
+                    Abrir Rutas
+                  </Link>
+                </div>
+                <div className="space-y-3">
+                  {waitingForTruck.map((s) => (
                     <ShipmentCard key={s.id} shipment={s} />
                   ))}
                 </div>
