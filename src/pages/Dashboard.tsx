@@ -174,6 +174,14 @@ export default function Dashboard() {
       return s.status === "CREADO" && (s.originName || "").toLowerCase().includes("bodega");
     });
   }, [shipments, isBodega, isReceivingWarehouse]);
+  const waitingToAssign = useMemo(
+    () => waitingForTruck.filter((s) => !s.reservedOnRoute),
+    [waitingForTruck],
+  );
+  const alreadyOnTruckRoute = useMemo(
+    () => waitingForTruck.filter((s) => s.reservedOnRoute),
+    [waitingForTruck],
+  );
 
   const warehouseCustomerPickup = useMemo(() => {
     if (!isBodega || isReceivingWarehouse || !shipments) return [];
@@ -524,13 +532,13 @@ export default function Dashboard() {
               </div>
             )}
 
-            {waitingForTruck.length > 0 && (
+            {waitingToAssign.length > 0 && (
               <div className="space-y-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <SectionHeader
                     icon={Truck}
-                    title="Esperan la ruta del camion"
-                    count={waitingForTruck.length}
+                    title="Falta asignarlos a una ruta"
+                    count={waitingToAssign.length}
                     iconColor="text-[#B8860B]"
                     badgeColor="bg-amber-50 text-[#B8860B]"
                   />
@@ -539,7 +547,29 @@ export default function Dashboard() {
                   </Link>
                 </div>
                 <div className="space-y-3">
-                  {waitingForTruck.map((s) => (
+                  {waitingToAssign.map((s) => (
+                    <ShipmentCard key={s.id} shipment={s} />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {alreadyOnTruckRoute.length > 0 && (
+              <div className="space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <SectionHeader
+                    icon={Route}
+                    title="Ya estan en una ruta"
+                    count={alreadyOnTruckRoute.length}
+                    iconColor="text-blue-600"
+                    badgeColor="bg-blue-50 text-blue-600"
+                  />
+                  <Link to="/rutas" className="text-sm font-semibold text-[#C8102E] hover:underline mb-4">
+                    Abrir Rutas
+                  </Link>
+                </div>
+                <div className="space-y-3">
+                  {alreadyOnTruckRoute.map((s) => (
                     <ShipmentCard key={s.id} shipment={s} />
                   ))}
                 </div>

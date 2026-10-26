@@ -462,11 +462,23 @@ export const shipmentRouter = createRouter({
       const allFranchises = await db.select().from(franchises);
       const franchiseMap = new Map(allFranchises.map(f => [f.id, { ...f, displayName: cleanFranchiseName(f.displayName) }]));
 
+      const reservedRows = result.length === 0 ? [] : await db
+        .select({ shipmentId: routeShipments.shipmentId })
+        .from(routeShipments)
+        .innerJoin(deliveryRoutes, eq(deliveryRoutes.id, routeShipments.routeId))
+        .where(and(
+          inArray(routeShipments.shipmentId, result.map((s) => s.id)),
+          eq(routeShipments.status, "ASIGNADO"),
+          inArray(deliveryRoutes.status, ["PLANIFICADA", "EN_RUTA"]),
+        ));
+      const reservedIds = new Set(reservedRows.map((row) => row.shipmentId));
+
       return result.map(s => ({
         ...s,
         originName: cleanFranchiseName(franchiseMap.get(s.originFranchiseId)?.displayName || s.originName),
         destinationName: cleanFranchiseName(franchiseMap.get(s.destinationFranchiseId)?.displayName || s.destinationName),
         currentLocationName: cleanFranchiseName(franchiseMap.get(s.currentLocationId)?.displayName || s.currentLocationName),
+        reservedOnRoute: reservedIds.has(s.id),
       }));
     }),
 
