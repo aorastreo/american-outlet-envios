@@ -810,7 +810,9 @@ export default function Shipments() {
                   )}
                   {!selectable && !isBodega && activeTab === "POR_RECIBIR" && (
                     <p className="text-[11px] leading-snug text-amber-700 font-medium max-w-[200px] ml-auto">
-                      Sigue en bodega. Se recibe cuando ya va hacia la tienda.
+                      {shipment.status === "RECIBIDO_EN_BODEGA"
+                        ? "Sigue en bodega. Se recibe cuando ya va hacia la tienda."
+                        : "Todavia va hacia la bodega. Se recibe cuando ya va hacia la tienda."}
                     </p>
                   )}
                   {isBodega && activeTab === "POR_RECIBIR" && shipment.status === "ENVIADO_A_BODEGA" && (() => {
