@@ -152,22 +152,12 @@ export default function Rutas() {
       );
     }
     if (activeTab === "EN_RUTA") {
-      return routeOnly.filter((s) => s.status === "EN_RUTA" || s.status === "EN_PARADA");
+      return routeOnly.filter((s) => (s.status === "EN_RUTA" || s.status === "EN_PARADA") && !s.stuckAfterRoute);
     }
     if (activeTab === "NO_RECOGIDOS") {
-      // NO_RECOGIDO + EN_PARADA shipments whose route is completed (stuck)
       return routeOnly.filter((s) => {
+        if (s.stuckAfterRoute) return true;
         if (s.status === "NO_RECOGIDO") return !s.reservedOnRoute;
-        if (s.status === "EN_PARADA") {
-          // Check if this shipment is on a completed route
-          const route = routes?.find((r) =>
-            r.status === "COMPLETADA" &&
-            r.stops?.some((stop: any) =>
-              stop.shipments?.some((rs: any) => rs.shipmentId === s.id)
-            )
-          );
-          return !!route;
-        }
         return false;
       });
     }
@@ -187,18 +177,10 @@ export default function Rutas() {
             ((s.status === "RECIBIDO_EN_BODEGA" && s.warehouseLocation === "Bodega Cedi") ||
               (s.status === "CREADO" && s.originFranchise?.isWarehouse === 1 && s.warehouseLocation === "Bodega Cedi"))
         ).length,
-      EN_RUTA: routeOnly.filter((s) => s.status === "EN_RUTA" || s.status === "EN_PARADA").length,
+      EN_RUTA: routeOnly.filter((s) => (s.status === "EN_RUTA" || s.status === "EN_PARADA") && !s.stuckAfterRoute).length,
       NO_RECOGIDOS: routeOnly.filter((s) => {
+        if (s.stuckAfterRoute) return true;
         if (s.status === "NO_RECOGIDO") return !s.reservedOnRoute;
-        if (s.status === "EN_PARADA") {
-          const route = routes?.find((r) =>
-            r.status === "COMPLETADA" &&
-            r.stops?.some((stop: any) =>
-              stop.shipments?.some((rs: any) => rs.shipmentId === s.id)
-            )
-          );
-          return !!route;
-        }
         return false;
       }).length,
       ENTREGADOS: routeOnly.filter((s) => s.status === "RECIBIDO_EN_DESTINO").length,
@@ -419,16 +401,7 @@ export default function Rutas() {
         </div>
 
         {/* Fix stuck EN_PARADA shipments button */}
-        {routeShipments?.some((s) => {
-          if (s.status !== "EN_PARADA") return false;
-          const route = routes?.find((r) =>
-            r.status === "COMPLETADA" &&
-            r.stops?.some((stop: any) =>
-              stop.shipments?.some((rs: any) => rs.shipmentId === s.id)
-            )
-          );
-          return !!route;
-        }) && (
+        {routeShipments?.some((s) => s.stuckAfterRoute) && (
           <Card className="border-red-200 bg-red-50">
             <CardContent className="p-3 flex items-center justify-between">
               <div className="flex items-center gap-2">

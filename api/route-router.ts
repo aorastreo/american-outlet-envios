@@ -632,6 +632,17 @@ export const routeRouter = createRouter({
         ));
       const reservedIds = new Set(reservedRows.map((row) => row.shipmentId));
 
+      const stuckRows = await db
+        .select({ shipmentId: shipments.id })
+        .from(routeShipments)
+        .innerJoin(deliveryRoutes, eq(deliveryRoutes.id, routeShipments.routeId))
+        .innerJoin(shipments, eq(shipments.id, routeShipments.shipmentId))
+        .where(and(
+          eq(deliveryRoutes.status, "COMPLETADA"),
+          eq(shipments.status, "EN_PARADA"),
+        ));
+      const stuckIds = new Set(stuckRows.map((row) => row.shipmentId));
+
       // Get all route shipments (any status, from any origin)
       const pickupShipments = await db.select().from(shipments)
         .where(inArray(shipments.destinationFranchiseId, pickupIds))
@@ -653,6 +664,7 @@ export const routeRouter = createRouter({
         originFranchise: franchiseMap.get(s.originFranchiseId),
         destinationFranchise: franchiseMap.get(s.destinationFranchiseId),
         reservedOnRoute: reservedIds.has(s.id),
+        stuckAfterRoute: stuckIds.has(s.id),
       }));
     }),
 
