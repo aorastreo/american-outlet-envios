@@ -138,11 +138,9 @@ export default function RutaDetail() {
       utils.route.getById.invalidate({ id: routeId });
       utils.route.list.invalidate();
       refreshWherePackagesAre();
-      toast.success("Estado actualizado correctamente");
     },
     onError: (err) => {
       console.error("updateShipmentStatus error:", err);
-      toast.error(`Error: ${err.message}`);
     },
   });
 
@@ -606,7 +604,7 @@ export default function RutaDetail() {
                           } else {
                             toast.success(`${shipment.shipment?.trackingNumber || "Envio"} marcado como ${newStatus === "ENTREGADO" ? "entregado" : "no recogido"}`);
                           }
-                          utils.route.getById.invalidate({ id: routeId });
+                          await utils.route.getById.invalidate({ id: routeId });
                           if (shipment.shipmentId) {
                             utils.shipment.getById.invalidate({ id: shipment.shipmentId });
                           }
