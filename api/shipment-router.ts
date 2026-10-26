@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { eq, or, and, desc, sql, inArray } from "drizzle-orm";
+import { eq, or, and, desc, sql, inArray, ne } from "drizzle-orm";
 import { createRouter, publicQuery, franchiseAuthedQuery } from "./middleware";
 import { getFranchiseGroup, needsInterBodega } from "../src/lib/franchise-groups";
 import { getDb } from "./queries/connection";
@@ -400,20 +400,26 @@ export const shipmentRouter = createRouter({
       const isWarehouse = userFranchise[0]?.isWarehouse === 1;
 
       let whereClause;
+      // A store package stays on the store's list until they send it.
+      const leftTheStore = or(ne(shipments.status, "CREADO"), eq(shipments.originFranchiseId, franchiseId));
 
       if (isWarehouse && isSabanaWarehouse(userFranchise[0])) {
-        whereClause = or(
-          eq(shipments.destinationFranchiseId, franchiseId),
-          eq(shipments.currentLocationId, franchiseId),
+        whereClause = and(
+          or(
+            eq(shipments.destinationFranchiseId, franchiseId),
+            eq(shipments.currentLocationId, franchiseId),
+          ),
+          leftTheStore,
         );
       } else if (isWarehouse) {
         // WAREHOUSE USER: only see shipments assigned to this warehouse
         const myBodegaName = userFranchise[0]?.name || "";
         const isCedi = myBodegaName.toLowerCase().includes("cedi");
         const normalizedName = isCedi ? "Bodega Cedi" : "Bodega Pavon";
-        whereClause = isCedi
+        const atThisWarehouse = isCedi
           ? eq(shipments.warehouseLocation, normalizedName)
           : or(eq(shipments.warehouseLocation, normalizedName), sql`${shipments.warehouseLocation} IS NULL`);
+        whereClause = and(atThisWarehouse, leftTheStore);
       } else {
         // STORE USER: see shipments related to this store
         whereClause = or(
