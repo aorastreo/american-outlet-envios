@@ -25,6 +25,11 @@ function pickupCity(name: string | null | undefined): string {
   return (name || "").replace(/^Recogida\s*-\s*/i, "").trim();
 }
 
+async function bodegaCediId(db: ReturnType<typeof getDb>): Promise<number | null> {
+  const rows = await db.select({ id: franchises.id }).from(franchises).where(eq(franchises.code, "bodega_cedi")).limit(1);
+  return rows[0]?.id ?? null;
+}
+
 function stopIdForDestination(
   stops: { id: number; cityName: string }[],
   destinationName: string,
@@ -328,6 +333,7 @@ export const routeRouter = createRouter({
         const allRouteShipments = await db.select().from(routeShipments).where(eq(routeShipments.routeId, input.id));
         const stops = await db.select().from(routeStops).where(eq(routeStops.routeId, input.id));
         const cityByStop = new Map(stops.map((stop) => [stop.id, pickupCity(stop.cityName)]));
+        const cediId = await bodegaCediId(db);
         for (const rs of allRouteShipments) {
           if (rs.status === "ASIGNADO") {
             const city = cityByStop.get(rs.stopId) || "";
@@ -339,7 +345,10 @@ export const routeRouter = createRouter({
               notes: city ? `No recogido en ${city}` : "No recogido - cliente no paso a retirar el paquete",
               createdBy: ctx.franchiseUser!.id,
             });
-            await db.update(shipments).set({ status: "NO_RECOGIDO" }).where(eq(shipments.id, rs.shipmentId));
+            await db.update(shipments).set({
+              status: "NO_RECOGIDO",
+              ...(cediId ? { currentLocationId: cediId } : {}),
+            }).where(eq(shipments.id, rs.shipmentId));
           }
         }
       }
@@ -374,7 +383,10 @@ export const routeRouter = createRouter({
             notes: `Camion llego a ${cityName} - punto de referencia`,
             createdBy: ctx.franchiseUser!.id,
           });
-          await db.update(shipments).set({ status: "EN_PARADA" }).where(eq(shipments.id, rs.shipmentId));
+          await db.update(shipments).set({
+            status: "EN_PARADA",
+            ...(current[0]?.destinationFranchiseId ? { currentLocationId: current[0].destinationFranchiseId } : {}),
+          }).where(eq(shipments.id, rs.shipmentId));
         }
       } else if (input.status === "COMPLETADO") {
         const stillAssigned = await db.select().from(routeShipments).where(and(
@@ -444,8 +456,17 @@ export const routeRouter = createRouter({
           : input.status === "NO_RECOGIDO" ? "NO_RECOGIDO"
           : stopIsOpen ? "EN_PARADA" : "EN_RUTA";
 
+        const shipmentRow = await db.select().from(shipments).where(eq(shipments.id, shipmentId)).limit(1);
+        const placeId = shipmentStatus === "RECIBIDO_EN_DESTINO" || shipmentStatus === "EN_PARADA"
+          ? shipmentRow[0]?.destinationFranchiseId
+          : await bodegaCediId(db);
+
         await db.update(shipments)
-          .set({ status: shipmentStatus, updatedAt: new Date() })
+          .set({
+            status: shipmentStatus,
+            updatedAt: new Date(),
+            ...(placeId ? { currentLocationId: placeId } : {}),
+          })
           .where(eq(shipments.id, shipmentId));
         console.log("[updateShipmentStatus] shipments.status updated to:", shipmentStatus);
 
@@ -787,6 +808,7 @@ export const routeRouter = createRouter({
 
       if (completedRoutes.length === 0) return { fixed: 0, message: "No rutas completadas" };
 
+      const cediId = await bodegaCediId(db);
       let fixed = 0;
       for (const route of completedRoutes) {
         // Get route shipments for this route
@@ -816,7 +838,10 @@ export const routeRouter = createRouter({
             });
 
             await db.update(shipments)
-              .set({ status: "NO_RECOGIDO" })
+              .set({
+                status: "NO_RECOGIDO",
+                ...(cediId ? { currentLocationId: cediId } : {}),
+              })
               .where(eq(shipments.id, rs.shipmentId));
 
             fixed++;
