@@ -44,9 +44,9 @@ import { getFranchiseGroup, mixedShipmentMoveMessage, needsInterBodega, shipment
 
 /* ─── tab definitions ─────────────────────────────────────────── */
 
-type StoreTabKey = "POR_ENVIAR" | "ENVIADOS" | "POR_RECIBIR" | "EN_TIENDA" | "COMPLETADOS";
-type WarehouseTabKey = "POR_RECIBIR" | "EN_BODEGA" | "ENTREGA_CLIENTE" | "EN_RUTA" | "ENTREGADOS";
-type SabanaTabKey = "POR_RECIBIR" | "EN_BODEGA";
+type StoreTabKey = "POR_ENVIAR" | "ENVIADOS" | "POR_RECIBIR" | "EN_TIENDA" | "COMPLETADOS" | "CANCELADOS";
+type WarehouseTabKey = "POR_RECIBIR" | "EN_BODEGA" | "ENTREGA_CLIENTE" | "EN_RUTA" | "ENTREGADOS" | "CANCELADOS";
+type SabanaTabKey = "POR_RECIBIR" | "EN_BODEGA" | "CANCELADOS";
 
 interface TabDef<T extends string> {
   key: T;
@@ -123,6 +123,18 @@ const STORE_TABS: TabDef<StoreTabKey>[] = [
     activeBorder: "border-blue-700",
     badgeColor: "bg-blue-700 text-white",
   },
+  {
+    key: "CANCELADOS",
+    label: "Cancelados",
+    icon: AlertTriangle,
+    statuses: ["CANCELADO"],
+    description: "Envios cancelados. Ya no siguen en camino",
+    color: "text-[#525252]",
+    activeColor: "text-red-700",
+    activeBg: "bg-red-50",
+    activeBorder: "border-red-700",
+    badgeColor: "bg-red-700 text-white",
+  },
 ];
 
 // Tabs for WAREHOUSE (bodega)
@@ -187,6 +199,18 @@ const WAREHOUSE_TABS: TabDef<WarehouseTabKey>[] = [
     activeBorder: "border-[#1B6B3E]",
     badgeColor: "bg-[#1B6B3E] text-white",
   },
+  {
+    key: "CANCELADOS",
+    label: "Cancelados",
+    icon: AlertTriangle,
+    statuses: ["CANCELADO"],
+    description: "Envios cancelados. Ya no siguen en camino",
+    color: "text-[#525252]",
+    activeColor: "text-red-700",
+    activeBg: "bg-red-50",
+    activeBorder: "border-red-700",
+    badgeColor: "bg-red-700 text-white",
+  },
 ];
 
 // Tabs for RECEIVING WAREHOUSE (Sabana) — only receives, simplified
@@ -214,6 +238,18 @@ const SABANA_TABS: TabDef<SabanaTabKey>[] = [
     activeBg: "bg-[#FFF5F5]",
     activeBorder: "border-[#C8102E]",
     badgeColor: "bg-[#C8102E] text-white",
+  },
+  {
+    key: "CANCELADOS",
+    label: "Cancelados",
+    icon: AlertTriangle,
+    statuses: ["CANCELADO"],
+    description: "Envios cancelados. Ya no siguen en camino",
+    color: "text-[#525252]",
+    activeColor: "text-red-700",
+    activeBg: "bg-red-50",
+    activeBorder: "border-red-700",
+    badgeColor: "bg-red-700 text-white",
   },
 ];
 
@@ -1149,7 +1185,7 @@ export default function Shipments() {
         </div>
 
         {/* ─── Tab Buttons ─────────────────────────────────────── */}
-        <div className={`grid grid-cols-2 ${isReceivingWarehouse ? "lg:grid-cols-2" : isBodega ? "lg:grid-cols-4" : "lg:grid-cols-5"} gap-2`}>
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
           {TABS.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.key;
