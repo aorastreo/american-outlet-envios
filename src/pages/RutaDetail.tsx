@@ -315,7 +315,7 @@ export default function RutaDetail() {
         </div>
 
         {/* Alert: Pending shipments for this route's cities */}
-        {allPending && allPending.length > 0 && (() => {
+        {route.status === "PLANIFICADA" && allPending && allPending.length > 0 && (() => {
           const routeCityNames = route.stops.map((s: any) => s.cityName.toLowerCase());
           const pendingForRoute = allPending.filter(g =>
             routeCityNames.some((city: string) => g.cityName.toLowerCase().includes(city) || city.includes(g.cityName.toLowerCase()))
@@ -331,7 +331,7 @@ export default function RutaDetail() {
                     <p className="text-sm text-amber-700 mt-1">
                       {pendingForRoute.map(g => `${g.cityName}: ${g.count}`).join(" | ")}
                     </p>
-                    <p className="text-xs text-amber-600 mt-1">Use "Asignar envios" en cada parada para agregarlos a la ruta</p>
+                    <p className="text-xs text-amber-600 mt-1">Seleccionelos abajo y toque Asignar.</p>
                   </div>
                 </CardContent>
               </Card>
