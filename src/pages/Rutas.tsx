@@ -206,6 +206,16 @@ export default function Rutas() {
     return routeOnly.filter((s) => s.status === "RECIBIDO_EN_DESTINO");
   }, [routeShipments, activeTab]);
 
+  const alreadyOnARoute = useMemo(() => {
+    if (!routeShipments) return [];
+    return routeShipments.filter(isRouteDestination).filter((s) => {
+      if (!s.reservedOnRoute) return false;
+      if (s.status === "NO_RECOGIDO") return true;
+      if (s.status === "RECIBIDO_EN_BODEGA" && s.warehouseLocation === "Bodega Cedi") return true;
+      return s.status === "CREADO" && s.originFranchise?.isWarehouse === 1 && s.warehouseLocation === "Bodega Cedi";
+    });
+  }, [routeShipments]);
+
   // Count per tab
   const tabCounts = useMemo(() => {
     if (!routeShipments) return { EN_BODEGA: 0, EN_RUTA: 0, NO_RECOGIDOS: 0, ENTREGADOS: 0 };
@@ -592,12 +602,26 @@ export default function Rutas() {
           </div>
         )}
 
+        {activeTab === "EN_BODEGA" && alreadyOnARoute.length > 0 && (
+          <div className="space-y-3">
+            <div>
+              <h2 className="text-lg font-semibold text-[#1A1A1A]">Ya estan en una ruta</h2>
+              <p className="text-sm text-[#8A8A8A]">
+                {filteredShipments.length > 0
+                  ? "Se abren en la tarjeta de arriba. Abajo quedan los que todavia no tienen ruta."
+                  : "Se abren en la tarjeta de arriba."}
+              </p>
+            </div>
+            {alreadyOnARoute.map(renderShipmentCard)}
+          </div>
+        )}
+
         {/* ─── Shipment List ────────────────────────────────────── */}
         {isLoading ? (
           <div className="flex justify-center py-12">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#C8102E]" />
           </div>
-        ) : filteredShipments.length === 0 ? (
+        ) : filteredShipments.length === 0 && !(activeTab === "EN_BODEGA" && alreadyOnARoute.length > 0) ? (
           <Card>
             <CardContent className="p-12 text-center">
               <MapPin className="w-12 h-12 text-[#D4D4D4] mx-auto mb-3" />
