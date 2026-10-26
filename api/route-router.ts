@@ -252,6 +252,11 @@ export const routeRouter = createRouter({
       // Get pickup point franchise IDs
       const allFranchises = await db.select().from(franchises);
       const pickupIds = allFranchises.filter(isPickupFranchise).map(f => f.id);
+      const routeStopRows = await db.select().from(routeStops).where(eq(routeStops.routeId, input.routeId));
+      const thisStop = routeStopRows.find((stop) => stop.id === input.stopId);
+      if (!thisStop) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Esa parada no pertenece a esta ruta" });
+      }
 
       for (const shipmentId of input.shipmentIds) {
         // Validate: only pickup point shipments can be assigned to routes
@@ -271,6 +276,16 @@ export const routeRouter = createRouter({
           throw new TRPCError({
             code: "BAD_REQUEST",
             message: `El envio ${shipment[0].trackingNumber} todavia no esta en Bodega Cedi. Primero tiene que llegar ahi.`,
+          });
+        }
+        const destFranchise = allFranchises.find((franchise) => franchise.id === shipment[0].destinationFranchiseId);
+        const destName = `${destFranchise?.displayName || ""} ${destFranchise?.name || ""}`;
+        const bestStopId = stopIdForDestination(routeStopRows, destName);
+        if (bestStopId !== input.stopId) {
+          const city = pickupCity(destFranchise?.displayName || destFranchise?.name) || "otro punto";
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: `El envio ${shipment[0].trackingNumber} va a ${city}, no a ${thisStop.cityName}.`,
           });
         }
 

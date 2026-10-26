@@ -269,19 +269,19 @@ export default function RutaDetail() {
   // Assign selected available shipments to route
   const handleAssignToRoute = async () => {
     if (availableSelectedIds.length === 0 || !route) return;
-    // Group by stop (city) and assign to each stop
-    const stopMap = new Map(route.stops.map((s: any) => [s.cityName.toLowerCase(), s.id]));
+    // Longer city names win, so a short stop cannot take a package for a longer city.
+    const stopsByLength = [...route.stops]
+      .map((stop: any) => ({ id: stop.id, city: String(stop.cityName || "").toLowerCase().trim() }))
+      .filter((stop) => stop.city)
+      .sort((a, b) => b.city.length - a.city.length);
     const shipmentsByStop = new Map<number, number[]>();
     for (const shipment of matchingAvailableShipments) {
       if (!availableSelectedIds.includes(shipment.id)) continue;
       const destName = (shipment.destinationFranchise?.displayName || shipment.destinationFranchise?.name || "").toLowerCase();
-      for (const [cityName, stopId] of stopMap) {
-        if (destName.includes(cityName)) {
-          if (!shipmentsByStop.has(stopId)) shipmentsByStop.set(stopId, []);
-          shipmentsByStop.get(stopId)!.push(shipment.id);
-          break;
-        }
-      }
+      const match = stopsByLength.find((stop) => destName.includes(stop.city));
+      if (!match) continue;
+      if (!shipmentsByStop.has(match.id)) shipmentsByStop.set(match.id, []);
+      shipmentsByStop.get(match.id)!.push(shipment.id);
     }
     const placed = [...shipmentsByStop.values()].reduce((sum, ids) => sum + ids.length, 0);
     const skipped = availableSelectedIds.length - placed;
