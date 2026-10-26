@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   Search, Package, Truck, Warehouse,
   CheckCircle, MapPin, Clock, AlertTriangle,
-  LogIn, User, Phone, Barcode,
+  LogIn, User, Barcode,
   Send, ClipboardCheck, Zap,
 } from "lucide-react";
 import { format } from "date-fns";
@@ -271,10 +271,6 @@ export default function Home() {
                         <User className="w-4 h-4 text-[#C8102E]" />
                         {shipment.senderName}
                       </span>
-                      <span className="flex items-center gap-1">
-                        <Phone className="w-4 h-4 text-[#C8102E]" />
-                        {shipment.senderPhone}
-                      </span>
                     </div>
                     <div className="flex items-center gap-4 mt-2 text-sm text-[#525252] flex-wrap">
                       <span className="flex items-center gap-1">
@@ -533,7 +529,6 @@ export default function Home() {
                   <div>
                     <p className="text-sm text-[#737373]">Factura: {warranty.invoiceNumber}</p>
                     <p className="text-lg font-semibold text-[#1A1A1A]">{warranty.senderName}</p>
-                    <p className="text-sm text-[#525252]">{warranty.senderPhone}</p>
                   </div>
                   <Badge className="bg-[#C8102E] text-white">
                     {warranty.status === "CREADA" && "Creada"}

@@ -248,8 +248,11 @@ export const warrantyRouter = {
       const allFranchises = await db.select().from(franchises);
       const franchiseMap = new Map(allFranchises.map((f) => [f.id, f]));
 
+      const { senderPhone: _hiddenPhone, ...publicWarranty } = result[0];
+      void _hiddenPhone;
+
       return {
-        ...result[0],
+        ...publicWarranty,
         tracking,
         originFranchise: franchiseMap.get(result[0].originFranchiseId),
         currentLocation: franchiseMap.get(result[0].currentLocationId),

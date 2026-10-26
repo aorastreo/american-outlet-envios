@@ -820,8 +820,11 @@ export const shipmentRouter = createRouter({
         destFranchiseData?.displayName
       );
 
+      const { senderPhone: _hiddenPhone, ...publicShipment } = shipment[0];
+      void _hiddenPhone;
+
       return {
-        ...shipment[0],
+        ...publicShipment,
         items,
         tracking: trackingHistory,
         originFranchise: originFranchiseData,

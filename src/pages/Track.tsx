@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   Search, Package, Truck, CheckCircle,
-  MapPin, Clock, AlertTriangle, User, Phone, Barcode,
+  MapPin, Clock, AlertTriangle, User, Barcode,
   Send, ClipboardCheck,
 } from "lucide-react";
 import { format } from "date-fns";
@@ -171,7 +171,6 @@ export default function Track() {
                     </div>
                     <div className="flex items-center gap-4 mt-3 text-sm text-[#525252] flex-wrap">
                       <span className="flex items-center gap-1"><User className="w-4 h-4" />{shipment.senderName}</span>
-                      <span className="flex items-center gap-1"><Phone className="w-4 h-4" />{shipment.senderPhone}</span>
                     </div>
                     <div className="flex items-center gap-4 mt-2 text-sm text-[#525252] flex-wrap">
                       <span className="flex items-center gap-1"><MapPin className="w-4 h-4" />De: {cleanName(shipment.originFranchise?.displayName)}</span>
@@ -274,9 +273,8 @@ export default function Track() {
               <CardContent className="p-6">
                 <div className="flex items-center justify-between mb-4">
                   <div>
-                    <p className="text-sm text-[#737373]\">Factura: {warranty.invoiceNumber}</p>
-                    <p className="text-lg font-semibold text-[#1A1A1A]\">{warranty.senderName}</p>
-                    <p className="text-sm text-[#525252]\">{warranty.senderPhone}</p>
+                    <p className="text-sm text-[#737373]">Factura: {warranty.invoiceNumber}</p>
+                    <p className="text-lg font-semibold text-[#1A1A1A]">{warranty.senderName}</p>
                   </div>
                   <Badge className={getStatusConfig(warranty.status)?.color || "bg-gray-100"}>
                     {getStatusConfig(warranty.status)?.label || warranty.status}
@@ -285,7 +283,7 @@ export default function Track() {
                 <div className="space-y-2">
                   <p className="text-sm"><span className="font-medium">Producto:</span> {warranty.productDescription}</p>
                   <p className="text-sm"><span className="font-medium">Defecto:</span> {warranty.defectDescription}</p>
-                  {warranty.notes && <p className="text-sm text-[#737373]\">Notas: {warranty.notes}</p>}
+                  {warranty.notes && <p className="text-sm text-[#737373]">Notas: {warranty.notes}</p>}
                 </div>
               </CardContent>
             </Card>
