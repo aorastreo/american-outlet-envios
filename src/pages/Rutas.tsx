@@ -143,12 +143,12 @@ export default function Rutas() {
     if (!routeShipments) return [];
     const routeOnly = routeShipments.filter(isRouteDestination);
     if (activeTab === "EN_BODEGA") {
-      // Route shipments must be in Bodega Cedi to be added to a route
-      // (Routes are managed by Cedi. Envios from my stores go: store -> Pavon -> Cedi -> route)
+      // Route shipments must be in Bodega Cedi and not already placed on a truck.
       return routeOnly.filter(
         (s) =>
-          (s.status === "RECIBIDO_EN_BODEGA" && s.warehouseLocation === "Bodega Cedi") ||
-          (s.status === "CREADO" && s.originFranchise?.isWarehouse === 1 && s.warehouseLocation === "Bodega Cedi")
+          !s.reservedOnRoute &&
+          ((s.status === "RECIBIDO_EN_BODEGA" && s.warehouseLocation === "Bodega Cedi") ||
+            (s.status === "CREADO" && s.originFranchise?.isWarehouse === 1 && s.warehouseLocation === "Bodega Cedi"))
       );
     }
     if (activeTab === "EN_RUTA") {
@@ -157,7 +157,7 @@ export default function Rutas() {
     if (activeTab === "NO_RECOGIDOS") {
       // NO_RECOGIDO + EN_PARADA shipments whose route is completed (stuck)
       return routeOnly.filter((s) => {
-        if (s.status === "NO_RECOGIDO") return true;
+        if (s.status === "NO_RECOGIDO") return !s.reservedOnRoute;
         if (s.status === "EN_PARADA") {
           // Check if this shipment is on a completed route
           const route = routes?.find((r) =>
@@ -183,12 +183,13 @@ export default function Rutas() {
       EN_BODEGA:
         routeOnly.filter(
           (s) =>
-            (s.status === "RECIBIDO_EN_BODEGA" && s.warehouseLocation === "Bodega Cedi") ||
-            (s.status === "CREADO" && s.originFranchise?.isWarehouse === 1 && s.warehouseLocation === "Bodega Cedi")
+            !s.reservedOnRoute &&
+            ((s.status === "RECIBIDO_EN_BODEGA" && s.warehouseLocation === "Bodega Cedi") ||
+              (s.status === "CREADO" && s.originFranchise?.isWarehouse === 1 && s.warehouseLocation === "Bodega Cedi"))
         ).length,
       EN_RUTA: routeOnly.filter((s) => s.status === "EN_RUTA" || s.status === "EN_PARADA").length,
       NO_RECOGIDOS: routeOnly.filter((s) => {
-        if (s.status === "NO_RECOGIDO") return true;
+        if (s.status === "NO_RECOGIDO") return !s.reservedOnRoute;
         if (s.status === "EN_PARADA") {
           const route = routes?.find((r) =>
             r.status === "COMPLETADA" &&
@@ -559,7 +560,7 @@ export default function Rutas() {
               <p className="text-[#404040]">No hay envios {currentTab.label.toLowerCase()}</p>
               <p className="text-xs text-[#8A8A8A] mt-1">
                 {activeTab === "EN_BODEGA"
-                  ? "Los envios a Grecia, Palmares o San Ramon apareceran aqui cuando esten en bodega"
+                  ? "Aparecen aqui cuando ya estan en Bodega Cedi y todavia no se han puesto en una ruta"
                   : activeTab === "EN_RUTA"
                   ? "Los envios apareceran aqui cuando el camion salga"
                   : "Los envios entregados apareceran aqui"}

@@ -622,26 +622,37 @@ export const routeRouter = createRouter({
 
       if (pickupIds.length === 0) return [];
 
+      const reservedRows = await db
+        .select({ shipmentId: routeShipments.shipmentId })
+        .from(routeShipments)
+        .innerJoin(deliveryRoutes, eq(deliveryRoutes.id, routeShipments.routeId))
+        .where(and(
+          eq(routeShipments.status, "ASIGNADO"),
+          inArray(deliveryRoutes.status, ["PLANIFICADA", "EN_RUTA"]),
+        ));
+      const reservedIds = new Set(reservedRows.map((row) => row.shipmentId));
+
       // Get all route shipments (any status, from any origin)
-      const routeShipments = await db.select().from(shipments)
+      const pickupShipments = await db.select().from(shipments)
         .where(inArray(shipments.destinationFranchiseId, pickupIds))
         .orderBy(shipments.createdAt);
 
-      if (routeShipments.length === 0) return [];
+      if (pickupShipments.length === 0) return [];
 
       // Get items
-      const shipmentIds = routeShipments.map(s => s.id);
+      const shipmentIds = pickupShipments.map(s => s.id);
       const items = await db.select().from(shipmentItems)
         .where(inArray(shipmentItems.shipmentId, shipmentIds));
 
       // Build franchise map
       const franchiseMap = new Map(allFranchises.map(f => [f.id, f]));
 
-      return routeShipments.map(s => ({
+      return pickupShipments.map(s => ({
         ...s,
         items: items.filter(i => i.shipmentId === s.id),
         originFranchise: franchiseMap.get(s.originFranchiseId),
         destinationFranchise: franchiseMap.get(s.destinationFranchiseId),
+        reservedOnRoute: reservedIds.has(s.id),
       }));
     }),
 
