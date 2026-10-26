@@ -89,11 +89,19 @@ export default function RutaDetail() {
     setConfirmDialog({ open: false, title: "", description: "", action: null });
   };
 
+  const refreshWherePackagesAre = () => {
+    utils.route.getRouteShipments.invalidate();
+    utils.route.availableShipments.invalidate();
+    utils.route.pendingByPickupPoint.invalidate();
+    utils.shipment.list.invalidate();
+  };
+
   // Auto-repair tracking for routes that are EN_RUTA but missing EN_RUTA tracking entries
   const repairMutation = trpc.route.repairTracking.useMutation({
     onSuccess: (data) => {
       if (data.fixed > 0) {
         utils.route.getById.invalidate({ id: routeId });
+        refreshWherePackagesAre();
         toast.success(`${data.fixed} envios actualizados a En Ruta`);
       }
     },
@@ -110,7 +118,7 @@ export default function RutaDetail() {
     onSuccess: () => {
       utils.route.getById.invalidate({ id: routeId });
       utils.route.list.invalidate();
-      utils.route.pendingByPickupPoint.invalidate();
+      refreshWherePackagesAre();
       toast.success("Estado actualizado");
     },
     onError: (err) => toast.error(err.message),
@@ -120,7 +128,7 @@ export default function RutaDetail() {
     onSuccess: () => {
       utils.route.getById.invalidate({ id: routeId });
       utils.route.list.invalidate();
-      utils.shipment.list.invalidate();
+      refreshWherePackagesAre();
     },
     onError: (err) => toast.error(err.message),
   });
@@ -129,6 +137,7 @@ export default function RutaDetail() {
     onSuccess: () => {
       utils.route.getById.invalidate({ id: routeId });
       utils.route.list.invalidate();
+      refreshWherePackagesAre();
       toast.success("Estado actualizado correctamente");
     },
     onError: (err) => {
@@ -152,10 +161,9 @@ export default function RutaDetail() {
     onSuccess: () => {
       toast.success("Envios asignados");
       // Invalidate queries to refresh the lists
-      utils.route.availableShipments.invalidate();
       utils.route.getById.invalidate({ id: routeId });
       utils.route.list.invalidate();
-      utils.route.pendingByPickupPoint.invalidate();
+      refreshWherePackagesAre();
       // Clear selection
       setAvailableSelectedIds([]);
     },
