@@ -620,7 +620,7 @@ export default function RutaDetail() {
                                   <span className="font-medium text-sm">{shipment.shipment?.trackingNumber || "-"}</span>
                                 </div>
                                 <p className="text-sm text-[#525252] font-semibold">{shipment.shipment?.senderName || "-"}</p>
-                                <p className="text-xs text-[#737373]">Para: {shipment.shipment?.destinationName || "-"}</p>
+                                <p className="text-xs text-[#737373]">Para: {(shipment.shipment?.destinationFranchise?.displayName || shipment.shipment?.destinationFranchise?.name || "-").replace(/AMERICAN OUTLET\s*/i, "").replace(/^Recogida\s*-\s*/i, "").trim() || "-"}</p>
                                 {shipment.shipment?.invoiceNumber && (
                                   <p className="text-xs text-[#737373]">Factura: {shipment.shipment.invoiceNumber}</p>
                                 )}
