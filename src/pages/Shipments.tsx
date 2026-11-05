@@ -879,7 +879,7 @@ export default function Shipments() {
           </Card>
     );
     return (
-      <div key={shipment.id} className="relative group">
+      <div id={`envio-${shipment.id}`} key={shipment.id} className="relative group">
         {selectable && (
           <div className="absolute left-2 top-1/2 -translate-y-1/2 z-10" onClick={(event) => event.stopPropagation()}>
             <Checkbox
@@ -1649,8 +1649,14 @@ export default function Shipments() {
             activeGroup={activeReviewGroup}
             onGroup={setReviewGroup}
             shipments={scanPool}
+            waitingShipments={visibleShipments.filter((shipment) => !canSelectShipment(shipment))}
             selectedIds={selectedIds}
-            onMark={(id) => setSelectedIds((prev) => (prev.includes(id) ? prev : [...prev, id]))}
+            onMark={(id) => {
+              setSelectedIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+              requestAnimationFrame(() => {
+                document.getElementById(`envio-${id}`)?.scrollIntoView({ block: "center", behavior: "smooth" });
+              });
+            }}
             onPrint={() => {
               const ids = scanPool.map((shipment) => shipment.id).join(",");
               if (ids) window.open(`/bitacora?ids=${ids}`, "_blank");

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import type { Html5Qrcode } from "html5-qrcode";
+import { flushSync } from "react-dom";
+import { Html5Qrcode } from "html5-qrcode";
 import { Camera, Printer } from "lucide-react";
 import toast from "react-hot-toast";
 import { matchShipmentCode, type CheckableShipment } from "@/lib/shipment-check";
@@ -16,6 +17,7 @@ type Props = {
   activeGroup: string | null;
   onGroup: (key: string | null) => void;
   shipments: CheckableShipment[];
+  waitingShipments?: CheckableShipment[];
   selectedIds: number[];
   onMark: (id: number) => void;
   onPrint: () => void;
@@ -27,6 +29,7 @@ export default function ShipmentCheckBar({
   activeGroup,
   onGroup,
   shipments,
+  waitingShipments = [],
   selectedIds,
   onMark,
   onPrint,
@@ -45,7 +48,12 @@ export default function ShipmentCheckBar({
     const match = matchShipmentCode(raw, shipments);
     if (match.status === "empty") return;
     if (match.status === "none") {
-      toast.error("Ese numero no esta en esta lista");
+      const waiting = matchShipmentCode(raw, waitingShipments);
+      toast.error(
+        waiting.status === "one"
+          ? "Ese paquete sigue en bodega. Se recibe cuando ya va hacia la tienda."
+          : "Ese numero no esta en esta lista",
+      );
       return;
     }
     if (match.status === "many") {
@@ -68,43 +76,57 @@ export default function ShipmentCheckBar({
     applyCode(key);
   };
 
+  const stopCamera = async () => {
+    const scanner = scannerRef.current;
+    scannerRef.current = null;
+    if (!scanner) return;
+    try {
+      if (scanner.isScanning) await scanner.stop();
+      scanner.clear();
+    } catch {
+      // The camera is already closed.
+    }
+  };
+
   useEffect(() => {
-    if (!cameraOn) return;
-    let cancel = false;
-
-    const start = async () => {
-      const { Html5Qrcode } = await import("html5-qrcode");
-      if (cancel) return;
-      const scanner = new Html5Qrcode("shipment-qr-reader");
-      scannerRef.current = scanner;
-      try {
-        await scanner.start(
-          { facingMode: "environment" },
-          { fps: 8, qrbox: { width: 220, height: 220 } },
-          (text) => onCodeRef.current(text),
-          () => {},
-        );
-        if (cancel) {
-          await scanner.stop().catch(() => {});
-        }
-      } catch {
-        if (!cancel) {
-          setCameraError("El celular no dejo usar la camara. Escribe el numero o toca la fila.");
-          setCameraOn(false);
-        }
-      }
-    };
-
-    start();
     return () => {
-      cancel = true;
       const scanner = scannerRef.current;
       scannerRef.current = null;
-      if (scanner) {
-        scanner.stop().then(() => scanner.clear()).catch(() => {});
+      if (scanner?.isScanning) {
+        scanner.stop().catch(() => {});
       }
     };
-  }, [cameraOn]);
+  }, []);
+
+  const toggleCamera = async () => {
+    setCameraError("");
+    if (cameraOn) {
+      await stopCamera();
+      setCameraOn(false);
+      return;
+    }
+    flushSync(() => setCameraOn(true));
+    const scanner = new Html5Qrcode("shipment-qr-reader");
+    scannerRef.current = scanner;
+    try {
+      await scanner.start(
+        { facingMode: "environment" },
+        {
+          fps: 8,
+          qrbox: (width, height) => {
+            const size = Math.max(50, Math.floor(Math.min(width, height) * 0.7));
+            return { width: size, height: size };
+          },
+        },
+        (text) => onCodeRef.current(text),
+        () => {},
+      );
+    } catch {
+      await stopCamera();
+      setCameraOn(false);
+      setCameraError("El celular no dejo usar la camara. Escribe el numero o toca la fila.");
+    }
+  };
 
   return (
     <div className="rounded-xl border border-[#D4D4D4] bg-white p-4 space-y-3">
@@ -160,7 +182,7 @@ export default function ShipmentCheckBar({
       )}
 
       <form
-        className="flex gap-2"
+        className="flex flex-wrap gap-2"
         onSubmit={(event) => {
           event.preventDefault();
           applyCode(code);
@@ -172,7 +194,7 @@ export default function ShipmentCheckBar({
           onChange={(event) => setCode(event.target.value)}
           placeholder="Rastreo o factura"
           autoComplete="off"
-          className="flex-1 h-11 px-3 text-sm border border-[#D4D4D4] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C8102E]/20 focus:border-[#C8102E]"
+          className="min-w-[12rem] flex-1 h-11 px-3 text-sm border border-[#D4D4D4] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C8102E]/20 focus:border-[#C8102E]"
         />
         <button
           type="submit"
@@ -183,8 +205,7 @@ export default function ShipmentCheckBar({
         <button
           type="button"
           onClick={() => {
-            setCameraError("");
-            setCameraOn((open) => !open);
+            void toggleCamera();
           }}
           className="h-11 px-3 rounded-lg border border-[#C8102E] text-[#C8102E] text-sm font-medium inline-flex items-center gap-2"
         >
@@ -198,7 +219,7 @@ export default function ShipmentCheckBar({
 
       {cameraOn && (
         <div className="overflow-hidden rounded-lg border border-[#D4D4D4] bg-black max-w-sm">
-          <div id="shipment-qr-reader" className="w-full" />
+          <div id="shipment-qr-reader" className="w-full min-h-[260px]" />
         </div>
       )}
     </div>
