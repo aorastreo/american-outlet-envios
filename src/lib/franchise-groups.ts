@@ -1,5 +1,25 @@
 export type FranchiseGroup = "mio" | "vendedor" | "route" | "warehouse" | "sabana" | "unknown";
 
+function plainFranchiseText(value: string | null | undefined): string {
+  return (value || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "");
+}
+
+/** Bodega Ganga was closed. Ganga Santa Rosa is the store that remains. */
+export function isRetiredFranchise(franchise: {
+  code?: string | null;
+  name?: string | null;
+  displayName?: string | null;
+}): boolean {
+  const code = plainFranchiseText(franchise.code);
+  if (code === "ganga_santa_rosa") return false;
+  const text = `${code} ${plainFranchiseText(franchise.name)} ${plainFranchiseText(franchise.displayName)}`;
+  if (text.includes("ganga") && text.includes("santa rosa")) return false;
+  return text.includes("ganga") && text.includes("bodega");
+}
+
 export function getFranchiseGroup(name: string | undefined | null): FranchiseGroup {
   if (!name) return "unknown";
   const n = name.toLowerCase();

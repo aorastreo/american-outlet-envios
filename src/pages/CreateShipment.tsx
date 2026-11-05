@@ -12,7 +12,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Plus, Trash2, Send, AlertCircle, Package, Copy, Check, User, FileText, Zap, X } from "lucide-react";
 import { useFranchiseAuth } from "@/hooks/useFranchiseAuth";
-import { needsInterBodega } from "@/lib/franchise-groups";
+import { isRetiredFranchise, needsInterBodega } from "@/lib/franchise-groups";
 
 interface ShipmentItem {
   id: string;
@@ -153,6 +153,7 @@ export default function CreateShipment() {
   // Filter: exclude own store (can send to any other destination including Sabana)
   const availableFranchises = (franchises || []).filter((f) => {
     if (f.id === user?.franchiseId) return false; // No tienda propia
+    if (isRetiredFranchise(f)) return false;
     return true;
   });
   const myWarehouseName = (user?.franchise?.displayName || user?.franchise?.name || "").toLowerCase().includes("cedi")

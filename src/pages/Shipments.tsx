@@ -40,7 +40,7 @@ import {
 import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
 import toast from "react-hot-toast";
-import { getFranchiseGroup, mixedShipmentMoveMessage, needsInterBodega, shipmentPlaceText } from "@/lib/franchise-groups";
+import { getFranchiseGroup, isRetiredFranchise, mixedShipmentMoveMessage, needsInterBodega, shipmentPlaceText } from "@/lib/franchise-groups";
 
 /* ─── tab definitions ─────────────────────────────────────────── */
 
@@ -328,10 +328,14 @@ export default function Shipments() {
     routeCodes.includes(f.code?.toLowerCase() || "") ||
     (f.displayName?.toLowerCase() || "").includes("recogida");
 
-  // Store franchises: exclude warehouses AND route destinations (but include Sabana)
-  const storeFranchises = (allFranchises || []).filter(
-    (f) => (!f.isWarehouse && !isRouteFranchise(f)) || f.code?.toLowerCase() === "bodega_sabana"
-  );
+  // Destinations a warehouse can filter: stores, Sabana, pickup points, and Bodega Cedi.
+  const destinationFranchisesForFilter = (allFranchises || []).filter((f) => {
+    if (isRetiredFranchise(f)) return false;
+    const code = f.code?.toLowerCase() || "";
+    if (code === "bodega_sabana" || code === "bodega_cedi") return true;
+    if (isRouteFranchise(f)) return true;
+    return !f.isWarehouse;
+  });
 
   // Sabana is a receiving warehouse — available as destination for all stores
   const isSabana = (name: string) => name.toLowerCase().includes("sabana");
@@ -344,9 +348,10 @@ export default function Shipments() {
   };
 
   // All origin options for warehouse users: stores + warehouses that can create shipments
-  const originFranchisesForFilter = isBodega
+  const originFranchisesForFilter = (isBodega
     ? (allFranchises || []).filter((f) => !isRouteFranchise(f))
-    : storeFranchises;
+    : destinationFranchisesForFilter
+  ).filter((f) => !isRetiredFranchise(f));
 
   // Select tabs based on user type
   const TABS = isReceivingWarehouse
@@ -1485,7 +1490,7 @@ export default function Shipments() {
                     {destFilter.length === 0
                       ? "Todos los destinos"
                       : destFilter.length === 1
-                        ? cleanName(storeFranchises.find((f) => f.id.toString() === destFilter[0])?.displayName)
+                        ? cleanName(destinationFranchisesForFilter.find((f) => f.id.toString() === destFilter[0])?.displayName)
                         : `${destFilter.length} destinos seleccionados`}
                   </span>
                   <ChevronDown className="w-4 h-4 text-[#8A8A8A] shrink-0 ml-2" />
@@ -1502,7 +1507,7 @@ export default function Shipments() {
                       />
                       <span className="text-sm text-[#1A1A1A]">Todos los destinos</span>
                     </div>
-                    {storeFranchises.map((f) => (
+                    {destinationFranchisesForFilter.map((f) => (
                       <div
                         key={f.id}
                         className="px-3 py-2 flex items-center gap-2 cursor-pointer hover:bg-[#F9F9F9]"
