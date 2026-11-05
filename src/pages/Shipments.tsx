@@ -41,6 +41,7 @@ import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
 import toast from "react-hot-toast";
 import { getFranchiseGroup, isRetiredFranchise, mixedShipmentMoveMessage, needsInterBodega, shipmentPlaceText } from "@/lib/franchise-groups";
+import ShipmentCheckBar from "@/components/ShipmentCheckBar";
 
 /* ─── tab definitions ─────────────────────────────────────────── */
 
@@ -291,6 +292,7 @@ export default function Shipments() {
   );
 
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [reviewGroup, setReviewGroup] = useState<string | null>(null);
 
   // Confirmation dialog state
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -414,6 +416,7 @@ export default function Shipments() {
   const handleTabChange = (tab: ActiveTabKey) => {
     setActiveTab(tab);
     setSelectedIds([]);
+    setReviewGroup(null);
     const newParams = new URLSearchParams(searchParams);
     newParams.set("tab", tab);
     setSearchParams(newParams, { replace: true });
@@ -747,27 +750,34 @@ export default function Shipments() {
     return counts;
   }, [baseShipments, interBodegaEnRuta, TABS, isBodega, myFranchiseId, allFranchises, stuckIds]);
 
+  const checkMode: "salida" | "recepcion" | null =
+    (!isBodega && activeTab === "POR_ENVIAR") || (isBodega && !isReceivingWarehouse && activeTab === "EN_BODEGA")
+      ? "salida"
+      : activeTab === "POR_RECIBIR"
+        ? "recepcion"
+        : null;
+
   const renderShipmentCard = (shipment: (typeof filteredShipments)[0]) => {
     const cfg = getStatusConfig(shipment.status);
     const place = shipmentPlaceText(shipment);
     const stuck = Boolean(shipment.stuckAfterRoute);
     const isSelected = selectedIds.includes(shipment.id);
     const selectable = canSelectShipment(shipment);
-    return (
-      <div key={shipment.id} className="relative group">
-        {selectable && (
-          <div className="absolute left-2 top-1/2 -translate-y-1/2 z-10">
-            <Checkbox
-              checked={isSelected}
-              onCheckedChange={() => toggleSelection(shipment.id)}
-              className="border-[#D4D4D4] data-[state=checked]:bg-[#C8102E] data-[state=checked]:border-[#C8102E]"
-              onClick={(e) => e.stopPropagation()}
-            />
-          </div>
-        )}
-        <Link to={`/envios/${shipment.id}`} className="block">
+    const checking = Boolean(checkMode) && selectable;
+    const card = (
           <Card
-            className={`hover:shadow-md transition-shadow cursor-pointer border-[#F0F0F0] ${
+            onClick={checking ? () => toggleSelection(shipment.id) : undefined}
+            onKeyDown={checking ? (event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                toggleSelection(shipment.id);
+              }
+            } : undefined}
+            role={checking ? "button" : undefined}
+            tabIndex={checking ? 0 : undefined}
+            className={`hover:shadow-md transition-shadow border-[#F0F0F0] ${
+              checking ? "cursor-pointer" : ""
+            } ${
               isSelected ? "ring-2 ring-[#C8102E]/20 border-[#C8102E]/30 bg-[#FFF5F5]/50" : ""
             }`}
           >
@@ -840,22 +850,50 @@ export default function Shipments() {
                       Viene de {getFranchiseGroup(shipment.originName) === "vendedor" ? "Bodega Cedi" : "Bodega Pavon"}
                     </span>
                   )}
-                  <button
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      window.open(`/boleta/${shipment.id}`, "_blank");
-                    }}
-                    className="inline-flex items-center gap-1 text-xs text-[#C8102E] hover:text-[#9B0B22] hover:underline mt-1 font-medium"
-                  >
-                    <Printer className="w-3 h-3" />
-                    Boleta
-                  </button>
+                  <div className="flex justify-end gap-3 mt-1">
+                    {checking && (
+                      <Link
+                        to={`/envios/${shipment.id}`}
+                        onClick={(event) => event.stopPropagation()}
+                        className="inline-flex items-center text-xs text-[#525252] hover:text-[#1A1A1A] hover:underline font-medium"
+                      >
+                        Ver
+                      </Link>
+                    )}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        window.open(`/boleta/${shipment.id}`, "_blank");
+                      }}
+                      className="inline-flex items-center gap-1 text-xs text-[#C8102E] hover:text-[#9B0B22] hover:underline font-medium"
+                    >
+                      <Printer className="w-3 h-3" />
+                      Boleta
+                    </button>
+                  </div>
                 </div>
               </div>
             </CardContent>
           </Card>
-        </Link>
+    );
+    return (
+      <div key={shipment.id} className="relative group">
+        {selectable && (
+          <div className="absolute left-2 top-1/2 -translate-y-1/2 z-10" onClick={(event) => event.stopPropagation()}>
+            <Checkbox
+              checked={isSelected}
+              onCheckedChange={() => toggleSelection(shipment.id)}
+              className="border-[#D4D4D4] data-[state=checked]:bg-[#C8102E] data-[state=checked]:border-[#C8102E]"
+            />
+          </div>
+        )}
+        {checking ? card : (
+          <Link to={`/envios/${shipment.id}`} className="block">
+            {card}
+          </Link>
+        )}
       </div>
     );
   };
@@ -875,8 +913,30 @@ export default function Shipments() {
     setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   };
 
+  const reviewKeyOf = (shipment: { destinationFranchiseId: number; originFranchiseId: number }) =>
+    checkMode === "salida" ? `dest:${shipment.destinationFranchiseId}` : `origin:${shipment.originFranchiseId}`;
+
+  const reviewGroups = !checkMode ? [] : (() => {
+    const map = new Map<string, { key: string; label: string; count: number }>();
+    for (const shipment of filteredShipments) {
+      if (!canSelectShipment(shipment)) continue;
+      const key = reviewKeyOf(shipment);
+      const label = (checkMode === "salida" ? shipment.destinationName : shipment.originName) || "Sin nombre";
+      const current = map.get(key);
+      if (current) current.count += 1;
+      else map.set(key, { key, label, count: 1 });
+    }
+    return [...map.values()].sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, "es"));
+  })();
+
+  const activeReviewGroup = reviewGroups.some((group) => group.key === reviewGroup) ? reviewGroup : null;
+  const visibleShipments = activeReviewGroup
+    ? filteredShipments.filter((shipment) => reviewKeyOf(shipment) === activeReviewGroup)
+    : filteredShipments;
+  const scanPool = visibleShipments.filter(canSelectShipment);
+
   const selectAllVisible = () => {
-    const selectable = filteredShipments.filter(canSelectShipment);
+    const selectable = visibleShipments.filter(canSelectShipment);
     const allSelected = selectable.length > 0 && selectable.every((s) => selectedIds.includes(s.id));
     if (allSelected) {
       setSelectedIds((prev) => prev.filter((id) => !selectable.find((s) => s.id === id)));
@@ -1239,9 +1299,7 @@ export default function Shipments() {
         <div className="flex items-center gap-2 px-4 py-2.5 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700">
           <ClipboardCheck className="w-4 h-4 shrink-0" />
           <span className="font-medium">Flujo recomendado:</span>
-          <span>1) Generar Bitacora para revisar</span>
-          <span className="text-blue-400">→</span>
-          <span>2) Confirmar Salida a Bodega</span>
+          <span>Confirma solo los paquetes marcados.</span>
         </div>
       );
     }
@@ -1252,9 +1310,7 @@ export default function Shipments() {
         <div className="flex items-center gap-2 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700">
           <ClipboardCheck className="w-4 h-4 shrink-0" />
           <span className="font-medium">Flujo de recepcion:</span>
-          <span>1) Revisar paquetes contra la bitacora</span>
-          <span className="text-amber-400">→</span>
-          <span>2) Confirmar Recepcion Masiva</span>
+          <span>Confirma solo los paquetes marcados.</span>
         </div>
       );
     }
@@ -1265,9 +1321,7 @@ export default function Shipments() {
         <div className="flex items-center gap-2 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700">
           <ClipboardCheck className="w-4 h-4 shrink-0" />
           <span className="font-medium">Flujo de bodega:</span>
-          <span>1) Generar Bitacora para revisar</span>
-          <span className="text-amber-400">→</span>
-          <span>2) Confirmar Recepcion Masiva</span>
+          <span>Confirma solo los paquetes marcados.</span>
         </div>
       );
     }
@@ -1278,9 +1332,7 @@ export default function Shipments() {
         <div className="flex items-center gap-2 px-4 py-2.5 bg-purple-50 border border-purple-200 rounded-lg text-sm text-purple-700">
           <ClipboardCheck className="w-4 h-4 shrink-0" />
           <span className="font-medium">Flujo de bodega:</span>
-          <span>1) Generar Bitacora para el camion</span>
-          <span className="text-purple-400">→</span>
-          <span>2) Confirmar Envio a Destino</span>
+          <span>Confirma solo los paquetes marcados.</span>
         </div>
       );
     }
@@ -1302,8 +1354,8 @@ export default function Shipments() {
               {isBodega ? cleanName(user?.franchise?.displayName || user?.franchise?.name) || "Bodega" : "Mis Envios"}
             </h1>
             <p className="text-[#8A8A8A] mt-1">
-              {filteredShipments.length} envio{filteredShipments.length !== 1 ? "s" : ""} encontrado
-              {filteredShipments.length !== 1 ? "s" : ""}
+              {visibleShipments.length} envio{visibleShipments.length !== 1 ? "s" : ""} encontrado
+              {visibleShipments.length !== 1 ? "s" : ""}
               {selectedIds.length > 0 && (
                 <span className="ml-2 text-[#C8102E] font-medium">
                   ({selectedIds.length} seleccionado{selectedIds.length !== 1 ? "s" : ""})
@@ -1590,6 +1642,22 @@ export default function Shipments() {
           </div>
         )}
 
+        {checkMode && scanPool.length > 0 && (
+          <ShipmentCheckBar
+            mode={checkMode}
+            groups={reviewGroups}
+            activeGroup={activeReviewGroup}
+            onGroup={setReviewGroup}
+            shipments={scanPool}
+            selectedIds={selectedIds}
+            onMark={(id) => setSelectedIds((prev) => (prev.includes(id) ? prev : [...prev, id]))}
+            onPrint={() => {
+              const ids = scanPool.map((shipment) => shipment.id).join(",");
+              if (ids) window.open(`/bitacora?ids=${ids}`, "_blank");
+            }}
+          />
+        )}
+
         {/* ─── Shipment List ───────────────────────────────────── */}
         {isLoading ? (
           <div className="flex justify-center py-12">
@@ -1614,18 +1682,18 @@ export default function Shipments() {
         ) : (
           <div className="space-y-3">
             {/* Select all */}
-            {filteredShipments.filter(canSelectShipment).length > 1 && (
+            {scanPool.length > 1 && (
               <div className="flex items-center gap-2 px-4 py-2 bg-[#F7F7F7] rounded-lg border border-[#D4D4D4]">
                 <Checkbox
-                  checked={filteredShipments.filter(canSelectShipment).every((s) => selectedIds.includes(s.id))}
+                  checked={scanPool.every((s) => selectedIds.includes(s.id))}
                   onCheckedChange={selectAllVisible}
                   className="border-[#D4D4D4] data-[state=checked]:bg-[#C8102E] data-[state=checked]:border-[#C8102E]"
                 />
-                <span className="text-sm text-[#525252] font-medium">Seleccionar todos los visibles</span>
-                <span className="text-xs text-[#A3A3A3] ml-1">({filteredShipments.filter(canSelectShipment).length})</span>
+                <span className="text-sm text-[#525252] font-medium">{checkMode ? "Marcar todos" : "Seleccionar todos los visibles"}</span>
+                <span className="text-xs text-[#A3A3A3] ml-1">({scanPool.length})</span>
               </div>
             )}
-            {filteredShipments.map((s) => renderShipmentCard(s))}
+            {visibleShipments.map((s) => renderShipmentCard(s))}
           </div>
         )}
 

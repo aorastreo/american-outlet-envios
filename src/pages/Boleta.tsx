@@ -1,4 +1,6 @@
+import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router";
+import QRCode from "qrcode";
 import { trpc } from "@/providers/trpc";
 import { useFranchiseAuth } from "@/hooks/useFranchiseAuth";import { Printer, Package, ArrowRight } from "lucide-react";
 import { format } from "date-fns";
@@ -28,7 +30,20 @@ export default function Boleta() {
     { enabled: shipmentId > 0 }
   );
 
+  const [qrUrl, setQrUrl] = useState("");
   const handlePrint = () => window.print();
+
+  useEffect(() => {
+    const trackingNumber = shipment?.trackingNumber;
+    if (!trackingNumber) return;
+    let cancel = false;
+    QRCode.toDataURL(trackingNumber, { margin: 1, width: 280 }).then((url) => {
+      if (!cancel) setQrUrl(url);
+    }).catch(() => {});
+    return () => {
+      cancel = true;
+    };
+  }, [shipment?.trackingNumber]);
 
   if (isLoading) {
     return (
@@ -109,7 +124,11 @@ export default function Boleta() {
                 </p>
               </div>
             </div>
-            <div className="text-right">
+            <div className="text-right flex items-center gap-3">
+              {qrUrl && (
+                <img src={qrUrl} alt={shipment.trackingNumber} className="w-[92px] h-[92px]" />
+              )}
+              <div>
               <p className="text-[10px] text-[#525252] uppercase tracking-wider">
                 Rastreo
               </p>
@@ -123,6 +142,7 @@ export default function Boleta() {
                     })
                   : ""}
               </p>
+              </div>
             </div>
           </div>
 
