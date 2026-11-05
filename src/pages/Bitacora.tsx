@@ -1,6 +1,7 @@
 import { Link, useSearchParams } from "react-router";
 import { trpc } from "@/providers/trpc";
-import { useFranchiseAuth } from "@/hooks/useFranchiseAuth";import { Truck, Package, MapPin, Printer, ArrowRight } from "lucide-react";
+import { useFranchiseAuth } from "@/hooks/useFranchiseAuth";
+import { Truck, Package, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -13,7 +14,7 @@ function cleanName(name: string | undefined): string {
   if (!name) return "Tienda";
   const upper = name.toUpperCase();
   if (upper.includes("GANGA")) return "Ganga Santa Rosa";
-  return name.replace(/AMERICAN OUTLET\s*/i, "").trim() || name;
+  return name.replace(/AMERICAN OUTLET\s*/i, "").replace(/^Recogida\s*-\s*/i, "").trim() || name;
 }
 
 export default function Bitacora() {
@@ -49,26 +50,37 @@ export default function Bitacora() {
   }
 
   const { shipments, totalPackages, generatedAt } = data;
-
-  // Compute common origin and destination
-  const origins = [...new Set(shipments.map((s) => s.originFranchiseId))];
-  const destinations = [...new Set(shipments.map((s) => s.destinationFranchiseId))];
-  const originName = origins.length === 1
-    ? cleanName(shipments[0]?.originDisplayName || shipments[0]?.originName)
-    : "Multiples origenes";
-  const destinationName = destinations.length === 1
-    ? cleanName(shipments[0]?.destinationDisplayName || shipments[0]?.destinationName)
-    : "Multiples destinos";
+  const when = new Date(generatedAt);
+  const origins = [...new Set(shipments.map((s) => cleanName(s.originDisplayName || s.originName)))];
+  const destinations = [...new Set(shipments.map((s) => cleanName(s.destinationDisplayName || s.destinationName)))];
+  const originName = origins.length === 1 ? origins[0] : "Varios origenes";
+  const destinationName = destinations.length === 1 ? destinations[0] : "Varios destinos";
+  const brand = isGanga(myFranchiseName) ? "Ganga Santa Rosa" : "American Outlet";
 
   return (
-    <div className="min-h-screen bg-white">
-      {/* Print button */}
-      <div className="print:hidden p-4 bg-[#F7F7F7] border-b border-[#D4D4D4] flex items-center justify-between sticky top-0 z-50">
+    <div className="min-h-screen bg-[#F3F3F3] print:min-h-0 print:bg-white">
+      <style>{`
+        @media print {
+          .bitacora-sheet {
+            max-width: none !important;
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            border: 0 !important;
+            box-shadow: none !important;
+          }
+          .bitacora-sheet thead { display: table-header-group; }
+          .bitacora-sheet tr,
+          .bitacora-sign { break-inside: avoid; page-break-inside: avoid; }
+        }
+      `}</style>
+
+      <div className="print:hidden p-4 bg-white border-b border-[#D4D4D4] flex items-center justify-between sticky top-0 z-50">
         <div className="flex items-center gap-3">
           <Truck className="w-5 h-5 text-[#404040]" />
           <div>
-            <h1 className="text-base font-semibold text-[#1A1A1A]">Bitácora de Entrega</h1>
-            <p className="text-xs text-[#404040]">{totalPackages} paquete{totalPackages !== 1 ? "s" : ""}</p>
+            <h1 className="text-base font-semibold text-[#1A1A1A]">Bitacora</h1>
+            <p className="text-xs text-[#404040]">{totalPackages} paquete{totalPackages !== 1 ? "s" : ""}. Asi sale en una hoja.</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -76,158 +88,87 @@ export default function Bitacora() {
             <Link to="/envios">Volver al panel</Link>
           </Button>
           <Button onClick={handlePrint} className="bg-slate-800 hover:bg-slate-900">
-          <Printer className="w-4 h-4 mr-2" />
-          Imprimir
-        </Button>
+            <Printer className="w-4 h-4 mr-2" />
+            Imprimir
+          </Button>
         </div>
       </div>
 
-      <div className="max-w-[900px] mx-auto p-4 print:p-0">
-        {/* === HEADER === */}
-        <div className="border-[3px] border-slate-900 rounded-lg overflow-hidden mb-4">
-          <div className="px-6 py-4 flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <img
-                src={isGanga(myFranchiseName) ? "/logo-ganga.jpg" : "/logo.jpg"}
-                alt={isGanga(myFranchiseName) ? "Ganga Santa Rosa" : "American Outlet"}
-                className="w-16 h-16 object-contain rounded-lg"
-              />
-              <div>
-                <h1 className="text-2xl font-black text-[#1A1A1A] tracking-tight leading-none">
-                  {isGanga(myFranchiseName) ? "Ganga Santa Rosa" : `American Outlet ${myFranchiseName}`}                </h1>
-                <p className="text-base font-bold text-[#8A8A8A] leading-none mt-1">Bitacora de Entrega</p>
-              </div>
-            </div>
-            <div className="text-right">
-              <p className="text-[10px] text-[#525252] uppercase tracking-wider font-semibold">Fecha</p>
-              <p className="text-lg font-mono font-bold text-[#1A1A1A]">
-                {format(new Date(generatedAt), "dd/MM/yyyy", { locale: es })}
-              </p>
-              <p className="text-[10px] text-[#525252] font-semibold">{format(new Date(generatedAt), "HH:mm", { locale: es })}</p>
-            </div>
-          </div>
-        </div>
-
-        {/* === ROUTE INFO === */}
-        <div className="grid grid-cols-[1fr_auto_1fr] border-[3px] border-slate-900 rounded-lg overflow-hidden mb-4">
-          <div className="px-5 py-3 border-r border-[#F0F0F0]">
-            <p className="text-[9px] uppercase tracking-[0.15em] text-[#525252] font-bold mb-1 flex items-center gap-1">
-              <MapPin className="w-3 h-3" /> Origen
-            </p>
-            <p className="text-lg font-bold text-[#1A1A1A]">{originName}</p>
-          </div>
-          <div className="flex items-center justify-center px-3">
-            <ArrowRight className="w-5 h-5 text-[#A3A3A3]" />
-          </div>
-          <div className="px-5 py-3 border-l border-[#F0F0F0]">
-            <p className="text-[9px] uppercase tracking-[0.15em] text-[#525252] font-bold mb-1 flex items-center gap-1">
-              <MapPin className="w-3 h-3" /> Destino
-            </p>
-            <p className="text-lg font-bold text-[#1A1A1A]">{destinationName}</p>
-          </div>
-        </div>
-
-        {/* === SHIPMENTS TABLE === */}
-        <div className="border-[3px] border-slate-900 rounded-lg overflow-hidden mb-4">
-          <div className="bg-[#F7F7F7] border-b-[3px] border-slate-900 px-4 py-2.5 flex items-center justify-between">
-            <p className="text-xs font-black text-[#1A1A1A] uppercase tracking-wider">Paquetes ({totalPackages})</p>
-            <p className="text-[10px] text-[#8A8A8A]">{shipments.length} envio{shipments.length !== 1 ? "s" : ""}</p>
-          </div>
-          <table className="w-full">
-            <thead>
-              <tr className="border-b-2 border-[#F0F0F0]">
-                <th className="text-left text-[9px] uppercase tracking-wider text-[#404040] font-bold px-4 py-2 w-8">#</th>
-                <th className="text-left text-[9px] uppercase tracking-wider text-[#404040] font-bold px-4 py-2">Rastreo</th>
-                <th className="text-left text-[9px] uppercase tracking-wider text-[#404040] font-bold px-4 py-2">Remitente</th>
-                <th className="text-left text-[9px] uppercase tracking-wider text-[#404040] font-bold px-4 py-2">Articulos</th>
-                <th className="text-left text-[9px] uppercase tracking-wider text-[#404040] font-bold px-4 py-2 w-24">Destino</th>
-              </tr>
-            </thead>
-            <tbody>
-              {shipments.map((s, idx) => (
-                <tr key={s.id} className="border-b border-slate-100 last:border-0">
-                  <td className="px-4 py-2.5 text-sm font-mono text-[#525252] font-semibold">{idx + 1}</td>
-                  <td className="px-4 py-2.5">
-                    <p className="text-sm font-mono font-bold text-[#1A1A1A]">{s.trackingNumber}</p>
-                    {s.invoiceNumber && (
-                      <span className="inline-block bg-[#C8102E] text-white text-xs font-mono font-bold px-2 py-1 rounded mt-1 tracking-wide">
-                        FACT: {s.invoiceNumber}
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-4 py-2.5">
-                    <p className="text-sm font-semibold text-[#1A1A1A]">{s.senderName}</p>
-                    <p className="text-[10px] text-[#525252] font-medium">{s.senderPhone}</p>
-                  </td>
-                  <td className="px-4 py-2.5">
-                    <p className="text-sm text-[#404040]">
-                      {s.items?.map((item: { description: string; quantity: number }) => `${item.description} x${item.quantity}`).join(", ")}
-                    </p>
-                    <p className="text-[10px] text-[#525252] font-medium">
-                      {s.items?.reduce((sum: number, item: { quantity: number }) => sum + item.quantity, 0) || 0} unidad{((s.items?.reduce((sum: number, item: { quantity: number }) => sum + item.quantity, 0) || 0)) !== 1 ? "es" : ""}
-                    </p>
-                  </td>
-                  <td className="px-4 py-2.5">
-                    <p className="text-sm font-semibold text-[#1A1A1A]">
-                      {s.destinationDisplayName || s.destinationName || "-"}
-                    </p>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {/* === SIGNATURES === */}
-        <div className="grid grid-cols-2 gap-4 mb-4">
-          {/* Entregue */}
-          <div className="border-[3px] border-slate-900 rounded-lg p-4">
-            <p className="text-[10px] uppercase tracking-wider text-[#404040] font-bold mb-3">Entregue Conforme</p>
-            <div className="border-b-2 border-[#D4D4D4] h-14 mb-2"></div>
-            <div className="grid grid-cols-2 gap-2 text-xs text-[#404040]">
-              <div>
-                <p className="text-[9px] uppercase text-[#525252] font-semibold">Nombre completo</p>
-                <div className="border-b border-[#F0F0F0] h-5"></div>
-              </div>
-              <div>
-                <p className="text-[9px] uppercase text-[#525252] font-semibold">Fecha y hora</p>
-                <div className="border-b border-[#F0F0F0] h-5"></div>
-              </div>
-            </div>
-          </div>
-
-          {/* Recibio */}
-          <div className="border-[3px] border-slate-900 rounded-lg p-4">
-            <p className="text-[10px] uppercase tracking-wider text-[#404040] font-bold mb-3">Recibio Conforme</p>
-            <div className="border-b-2 border-[#D4D4D4] h-14 mb-2"></div>
-            <div className="grid grid-cols-2 gap-2 text-xs text-[#404040]">
-              <div>
-                <p className="text-[9px] uppercase text-[#525252] font-semibold">Nombre completo</p>
-                <div className="border-b border-[#F0F0F0] h-5"></div>
-              </div>
-              <div>
-                <p className="text-[9px] uppercase text-[#525252] font-semibold">Fecha y hora</p>
-                <div className="border-b border-[#F0F0F0] h-5"></div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* === CHOFER === */}
-        <div className="border-[3px] border-slate-900 rounded-lg p-4 mb-4">
-          <p className="text-[10px] uppercase tracking-wider text-[#404040] font-bold mb-3">Informacion del Chofer</p>
+      <article className="bitacora-sheet max-w-[760px] mx-auto my-6 bg-white text-[#1A1A1A] border border-[#D4D4D4] shadow-sm px-6 py-5 print:my-0">
+        <header className="flex items-end justify-between gap-4 border-b-2 border-[#1A1A1A] pb-2">
           <div>
-            <p className="text-[9px] text-[#525252] uppercase mb-1 font-semibold">Nombre</p>
-            <div className="border-b-2 border-[#D4D4D4] h-6"></div>
+            <p className="text-[11px] font-bold tracking-[0.18em] uppercase">{brand}</p>
+            <h2 className="text-xl font-black leading-none mt-1">Bitacora de entrega</h2>
+            <p className="text-sm mt-1">
+              <span className="font-semibold">{originName}</span>
+              <span className="mx-1.5 text-[#737373]">→</span>
+              <span className="font-semibold">{destinationName}</span>
+            </p>
           </div>
-        </div>
+          <div className="text-right text-sm leading-tight">
+            <p className="font-mono">{format(when, "dd/MM/yyyy HH:mm", { locale: es })}</p>
+            <p className="text-base font-black">{totalPackages} paquete{totalPackages !== 1 ? "s" : ""}</p>
+          </div>
+        </header>
 
-        {/* === FOOTER === */}
-        <div className="flex items-center justify-between text-[10px] text-[#525252] pt-2 border-t border-[#D4D4D4]">
-          <p className="font-medium">{isGanga(myFranchiseName) ? "Ganga Santa Rosa" : "American Outlet"} - Sistema de Envios</p>
-          <p className="font-medium">Generada: {format(new Date(generatedAt), "dd/MM/yyyy HH:mm", { locale: es })}</p>
-        </div>
-      </div>
+        <table className="w-full mt-2 border-collapse text-[12px]">
+          <thead>
+            <tr className="border-b border-[#1A1A1A] text-left">
+              <th className="py-1 pr-2 w-6 font-semibold">#</th>
+              <th className="py-1 pr-2 font-semibold">Rastreo</th>
+              <th className="py-1 pr-2 font-semibold">Factura</th>
+              <th className="py-1 pr-2 font-semibold">Remitente</th>
+              <th className="py-1 pr-2 font-semibold">Articulos</th>
+              <th className="py-1 font-semibold">Destino</th>
+            </tr>
+          </thead>
+          <tbody>
+            {shipments.map((shipment, index) => {
+              const units = shipment.items?.reduce((sum: number, item: { quantity: number }) => sum + item.quantity, 0) || 0;
+              const articles = shipment.items
+                ?.map((item: { description: string; quantity: number }) => `${item.description} x${item.quantity}`)
+                .join(", ");
+              return (
+                <tr key={shipment.id} className="border-b border-[#E5E5E5] align-top">
+                  <td className="py-1 pr-2 text-[#525252]">{index + 1}</td>
+                  <td className="py-1 pr-2 font-mono font-semibold whitespace-nowrap">{shipment.trackingNumber}</td>
+                  <td className="py-1 pr-2 font-mono whitespace-nowrap">{shipment.invoiceNumber || "—"}</td>
+                  <td className="py-1 pr-2">
+                    <span className="font-medium">{shipment.senderName}</span>
+                    {shipment.senderPhone && <span className="text-[#525252]"> · {shipment.senderPhone}</span>}
+                  </td>
+                  <td className="py-1 pr-2">
+                    {articles || "—"}
+                    {units > 0 && <span className="text-[#525252]"> ({units})</span>}
+                  </td>
+                  <td className="py-1 whitespace-nowrap">{cleanName(shipment.destinationDisplayName || shipment.destinationName)}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+
+        <section className="bitacora-sign mt-5 text-[11px]">
+          <div className="grid grid-cols-[auto_1fr_auto_1fr_auto_72px] gap-x-2 gap-y-2 items-end">
+            <span className="font-semibold">Entrega</span>
+            <span className="border-b border-[#1A1A1A] h-4" />
+            <span>Nombre</span>
+            <span className="border-b border-[#1A1A1A] h-4" />
+            <span>Hora</span>
+            <span className="border-b border-[#1A1A1A] h-4" />
+            <span className="font-semibold">Recibe</span>
+            <span className="border-b border-[#1A1A1A] h-4" />
+            <span>Nombre</span>
+            <span className="border-b border-[#1A1A1A] h-4" />
+            <span>Hora</span>
+            <span className="border-b border-[#1A1A1A] h-4" />
+            <span className="font-semibold">Chofer</span>
+            <span className="border-b border-[#1A1A1A] h-4 col-span-5" />
+          </div>
+        </section>
+
+        <p className="mt-3 text-[10px] text-[#737373]">{brand} · Manifiesto de salida</p>
+      </article>
     </div>
   );
 }
