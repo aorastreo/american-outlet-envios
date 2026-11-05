@@ -55,7 +55,9 @@ export default function Bitacora() {
   const destinations = [...new Set(shipments.map((s) => cleanName(s.destinationDisplayName || s.destinationName)))];
   const originName = origins.length === 1 ? origins[0] : "Varios origenes";
   const destinationName = destinations.length === 1 ? destinations[0] : "Varios destinos";
-  const brand = isGanga(myFranchiseName) ? "Ganga Santa Rosa" : "American Outlet";
+  const ganga = isGanga(myFranchiseName);
+  const brand = ganga ? "Ganga Santa Rosa" : "American Outlet";
+  const logoUrl = ganga ? "/logo-ganga.jpg" : "/logo.jpg";
 
   return (
     <div className="min-h-screen bg-[#F3F3F3] print:min-h-0 print:bg-white">
@@ -72,6 +74,10 @@ export default function Bitacora() {
           .bitacora-sheet thead { display: table-header-group; }
           .bitacora-sheet tr,
           .bitacora-sign { break-inside: avoid; page-break-inside: avoid; }
+          .bitacora-head, .bitacora-sheet thead {
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
         }
       `}</style>
 
@@ -87,33 +93,41 @@ export default function Bitacora() {
           <Button asChild variant="outline">
             <Link to="/envios">Volver al panel</Link>
           </Button>
-          <Button onClick={handlePrint} className="bg-slate-800 hover:bg-slate-900">
+          <Button onClick={handlePrint} className="bg-[#C8102E] hover:bg-[#9B0B22]">
             <Printer className="w-4 h-4 mr-2" />
             Imprimir
           </Button>
         </div>
       </div>
 
-      <article className="bitacora-sheet max-w-[760px] mx-auto my-6 bg-white text-[#1A1A1A] border border-[#D4D4D4] shadow-sm px-6 py-5 print:my-0">
-        <header className="flex items-end justify-between gap-4 border-b-2 border-[#1A1A1A] pb-2">
-          <div>
-            <p className="text-[11px] font-bold tracking-[0.18em] uppercase">{brand}</p>
-            <h2 className="text-xl font-black leading-none mt-1">Bitacora de entrega</h2>
-            <p className="text-sm mt-1">
-              <span className="font-semibold">{originName}</span>
-              <span className="mx-1.5 text-[#737373]">→</span>
-              <span className="font-semibold">{destinationName}</span>
-            </p>
+      <article className="bitacora-sheet max-w-[760px] mx-auto my-6 bg-white text-[#1A1A1A] border border-[#D4D4D4] shadow-sm overflow-hidden print:my-0">
+        <header className="bitacora-head bg-[#C8102E] text-white px-4 py-3 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <img
+              src={logoUrl}
+              alt={brand}
+              className="w-12 h-12 object-contain bg-white rounded-md shrink-0"
+            />
+            <div className="min-w-0">
+              <p className="text-[10px] font-bold tracking-[0.16em] uppercase text-white/80">{brand}</p>
+              <h2 className="text-lg font-black leading-none mt-0.5">Bitacora de entrega</h2>
+              <p className="text-sm mt-1 truncate">
+                <span className="font-semibold">{originName}</span>
+                <span className="mx-1.5 text-white/70">→</span>
+                <span className="font-semibold">{destinationName}</span>
+              </p>
+            </div>
           </div>
-          <div className="text-right text-sm leading-tight">
+          <div className="text-right text-sm leading-tight shrink-0">
             <p className="font-mono">{format(when, "dd/MM/yyyy HH:mm", { locale: es })}</p>
             <p className="text-base font-black">{totalPackages} paquete{totalPackages !== 1 ? "s" : ""}</p>
           </div>
         </header>
 
+        <div className="px-4 pb-4">
         <table className="w-full mt-2 border-collapse text-[12px]">
           <thead>
-            <tr className="border-b border-[#1A1A1A] text-left">
+            <tr className="border-b-2 border-[#C8102E] text-left text-[#9B0B22]">
               <th className="py-1 pr-2 w-6 font-semibold">#</th>
               <th className="py-1 pr-2 font-semibold">Rastreo</th>
               <th className="py-1 pr-2 font-semibold">Factura</th>
@@ -148,26 +162,15 @@ export default function Bitacora() {
           </tbody>
         </table>
 
-        <section className="bitacora-sign mt-5 text-[11px]">
-          <div className="grid grid-cols-[auto_1fr_auto_1fr_auto_72px] gap-x-2 gap-y-2 items-end">
-            <span className="font-semibold">Entrega</span>
-            <span className="border-b border-[#1A1A1A] h-4" />
-            <span>Nombre</span>
-            <span className="border-b border-[#1A1A1A] h-4" />
-            <span>Hora</span>
-            <span className="border-b border-[#1A1A1A] h-4" />
-            <span className="font-semibold">Recibe</span>
-            <span className="border-b border-[#1A1A1A] h-4" />
-            <span>Nombre</span>
-            <span className="border-b border-[#1A1A1A] h-4" />
-            <span>Hora</span>
-            <span className="border-b border-[#1A1A1A] h-4" />
-            <span className="font-semibold">Chofer</span>
-            <span className="border-b border-[#1A1A1A] h-4 col-span-5" />
-          </div>
+        <section className="bitacora-sign mt-6 grid grid-cols-3 gap-8 text-xs">
+          {["Entrega", "Recibe", "Chofer"].map((label) => (
+            <div key={label}>
+              <p className="font-semibold text-[#C8102E]">{label}</p>
+              <div className="mt-7 border-b border-[#1A1A1A]" />
+            </div>
+          ))}
         </section>
-
-        <p className="mt-3 text-[10px] text-[#737373]">{brand} · Manifiesto de salida</p>
+        </div>
       </article>
     </div>
   );
