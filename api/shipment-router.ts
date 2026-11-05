@@ -216,6 +216,14 @@ function cleanFranchiseName(name: string | null | undefined): string {
   return name.replace(/AMERICAN OUTLET\s*/i, "").trim() || name;
 }
 
+function franchiseRouteName(franchise: { displayName?: string | null; name?: string | null } | undefined): string {
+  return franchise?.displayName || franchise?.name || "";
+}
+
+function canonicalBodega(target: string): "Bodega Cedi" | "Bodega Pavon" {
+  return target.toLowerCase().includes("cedi") ? "Bodega Cedi" : "Bodega Pavon";
+}
+
 const statusEnum = z.enum([
   "CREADO",
   "ENVIADO_A_BODEGA",
@@ -1319,8 +1327,8 @@ export const shipmentRouter = createRouter({
       const allFranchises = await db.select().from(franchises);
       const franchiseById = new Map(allFranchises.map((franchise) => [franchise.id, franchise]));
       const mustTransfer = envios.filter((envio) => needsInterBodega({
-        originName: franchiseById.get(envio.originFranchiseId)?.displayName,
-        destinationName: franchiseById.get(envio.destinationFranchiseId)?.displayName,
+        originName: franchiseRouteName(franchiseById.get(envio.originFranchiseId)),
+        destinationName: franchiseRouteName(franchiseById.get(envio.destinationFranchiseId)),
         warehouseLocation: envio.warehouseLocation,
       }).needsTransfer);
       if (mustTransfer.length > 0) {
@@ -1387,18 +1395,19 @@ export const shipmentRouter = createRouter({
 
       const allFranchises = await db.select().from(franchises);
       const franchiseById = new Map(allFranchises.map((franchise) => [franchise.id, franchise]));
+      const targetBodega = canonicalBodega(input.targetBodega);
       const wrongRoute = envios.filter((envio) => {
         const move = needsInterBodega({
-          originName: franchiseById.get(envio.originFranchiseId)?.displayName,
-          destinationName: franchiseById.get(envio.destinationFranchiseId)?.displayName,
+          originName: franchiseRouteName(franchiseById.get(envio.originFranchiseId)),
+          destinationName: franchiseRouteName(franchiseById.get(envio.destinationFranchiseId)),
           warehouseLocation: envio.warehouseLocation,
         });
-        return !move.needsTransfer || move.targetBodega !== input.targetBodega;
+        return !move.needsTransfer || canonicalBodega(move.targetBodega) !== targetBodega;
       });
       if (wrongRoute.length > 0) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: `${wrongRoute.length} envio(s) no deben ir a ${input.targetBodega}. Sepáralos de los que sí siguen hacia esa bodega.`,
+          message: `${wrongRoute.length} envio(s) no deben ir a ${targetBodega}. Sepáralos de los que sí siguen hacia esa bodega.`,
         });
       }
 
@@ -1409,16 +1418,19 @@ export const shipmentRouter = createRouter({
       // Inter-bodega: set warehouseLocation to TARGET bodega so it appears
       // in the destination bodega's "Por Recibir" filter
       const targetWarehouse = allFranchises.find((franchise) =>
-        input.targetBodega.toLowerCase().includes("cedi")
+        targetBodega === "Bodega Cedi"
           ? franchise.code === "bodega_cedi"
           : franchise.code === "bodega"
       );
+      if (!targetWarehouse) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: `No se encontro ${targetBodega} para recibir estos envios` });
+      }
       await db
         .update(shipments)
         .set({
           status: "ENVIADO_A_BODEGA",
-          warehouseLocation: input.targetBodega,
-          ...(targetWarehouse ? { currentLocationId: targetWarehouse.id } : {}),
+          warehouseLocation: targetBodega,
+          currentLocationId: targetWarehouse.id,
         })
         .where(inArray(shipments.id, input.ids));
 
@@ -1427,7 +1439,7 @@ export const shipmentRouter = createRouter({
           shipmentId: envio.id,
           status: "ENVIADO_A_BODEGA",
           locationId: franchiseId,
-          notes: `Enviado desde ${myName} hacia ${input.targetBodega} (${envios.length} envios en lote)`,
+          notes: `Enviado desde ${myName} hacia ${targetBodega} (${envios.length} envios en lote)`,
           createdBy: ctx.franchiseUser!.id,
         });
       }

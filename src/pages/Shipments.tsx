@@ -297,8 +297,16 @@ export default function Shipments() {
     open: boolean;
     title: string;
     description: string;
-    action: (() => void) | null;
-  }>({ open: false, title: "", description: "", action: null });
+  }>({ open: false, title: "", description: "" });
+  const confirmActionRef = useRef<(() => void) | null>(null);
+  const goToTabRef = useRef<(tab: "EN_RUTA") => void>(() => {});
+  const pendingTargetRef = useRef("la otra bodega");
+  const [bulkMessage, setBulkMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
+  const notify = (tone: "ok" | "error", text: string) => {
+    setBulkMessage({ tone, text });
+    if (tone === "error") toast.error(text);
+    else toast.success(text);
+  };
 
   const isWarehouse = user?.franchise?.isWarehouse === 1;
   const isReceivingWarehouse = user?.username === "bodega_sabana";
@@ -405,6 +413,7 @@ export default function Shipments() {
     newParams.set("tab", tab);
     setSearchParams(newParams, { replace: true });
   };
+  goToTabRef.current = (tab) => handleTabChange(tab as ActiveTabKey);
 
   // Base shipments from list query (always used for tab counts)
   const baseShipments = listQuery.data;
@@ -463,13 +472,15 @@ export default function Shipments() {
   // Warehouse: Enviar a otra bodega (inter-bodega)
   const enviarInterBodegaMutation = trpc.shipment.enviarAInterBodegaMasiva.useMutation({
     onSuccess: (data) => {
-      toast.success(`${data.count} envio(s) enviado(s) a otra bodega`);
+      const text = `${data.count} envio(s) salieron hacia ${pendingTargetRef.current}. Ahora estan en En Ruta.`;
+      notify("ok", text);
       utils.shipment.list.invalidate();
       utils.shipment.listSent.invalidate();
       setSelectedIds([]);
+      goToTabRef.current("EN_RUTA");
     },
     onError: (error) => {
-      toast.error(error.message || "Error al enviar a otra bodega");
+      notify("error", error.message || "No se pudo enviar a la otra bodega");
     },
   });
 
@@ -878,11 +889,13 @@ export default function Shipments() {
   // ─── Confirmation dialog helper ───────────────────────────────
 
   const openConfirmDialog = (title: string, description: string, onConfirm: () => void) => {
-    setConfirmDialog({ open: true, title, description, action: onConfirm });
+    confirmActionRef.current = onConfirm;
+    setConfirmDialog({ open: true, title, description });
   };
 
   const closeConfirmDialog = () => {
-    setConfirmDialog({ open: false, title: "", description: "", action: null });
+    confirmActionRef.current = null;
+    setConfirmDialog({ open: false, title: "", description: "" });
   };
 
   // ─── Action handlers ──────────────────────────────────────────
@@ -892,7 +905,7 @@ export default function Shipments() {
     const seleccionados = filteredShipments.filter((s) => selectedIds.includes(s.id));
     const noCreados = seleccionados.filter((s) => s.status !== "CREADO");
     if (noCreados.length > 0) {
-      toast.error(`${noCreados.length} envio(s) no estan en estado CREADO`);
+      notify("error", `${noCreados.length} envio(s) no estan en estado CREADO`);
       return;
     }
     openConfirmDialog(
@@ -907,7 +920,7 @@ export default function Shipments() {
     const seleccionados = filteredShipments.filter((s) => selectedIds.includes(s.id));
     const invalidos = seleccionados.filter((s) => s.status !== "ENVIADO_A_BODEGA");
     if (invalidos.length > 0) {
-      toast.error(`${invalidos.length} envio(s) no estan en estado ENVIADO_A_BODEGA`);
+      notify("error", `${invalidos.length} envio(s) no estan en estado ENVIADO_A_BODEGA`);
       return;
     }
     openConfirmDialog(
@@ -933,7 +946,7 @@ export default function Shipments() {
       });
 
       if (conOrigenBodega.length > 0 && conOrigenTienda.length > 0) {
-        toast.error("No se puede procesar envios de bodega y recolecciones de tiendas juntos. Selecciona solo uno de los dos tipos.");
+        notify("error", "No se puede procesar envios de bodega y recolecciones de tiendas juntos. Selecciona solo uno de los dos tipos.");
         return;
       }
     }
@@ -944,19 +957,19 @@ export default function Shipments() {
       const vaDirecto = seleccionados.filter((s) => getFranchiseGroup(s.destinationName) !== "mio");
 
       if (vaAPavon.length > 0 && vaDirecto.length > 0) {
-        toast.error("No se puede procesar envios hacia tiendas Mio y tiendas Vendedor juntos. Selecciona solo uno de los dos grupos.");
+        notify("error", "No se puede procesar envios hacia tiendas Mio y tiendas Vendedor juntos. Selecciona solo uno de los dos grupos.");
         return;
       }
     }
     const invalidos = seleccionados.filter((s) => s.status !== "RECIBIDO_EN_BODEGA" && s.status !== "CREADO");
     if (invalidos.length > 0) {
-      toast.error(`${invalidos.length} envio(s) no estan en estado valido para enviar`);
+      notify("error", `${invalidos.length} envio(s) no estan en estado valido para enviar`);
       return;
     }
 
     const mixedMove = mixedShipmentMoveMessage(seleccionados);
     if (mixedMove) {
-      toast.error(mixedMove);
+      notify("error", mixedMove);
       return;
     }
 
@@ -966,7 +979,14 @@ export default function Shipments() {
       openConfirmDialog(
         "Confirmar Envio a Otra Bodega",
         `Esta seguro de enviar ${selectedIds.length} envio(s) hacia ${interBodega.targetBodega}? Esta accion no se puede deshacer.`,
-        () => enviarInterBodegaMutation.mutate({ ids: selectedIds, targetBodega: interBodega.targetBodega })
+        () => {
+          pendingTargetRef.current = interBodega.targetBodega;
+          setBulkMessage({
+            tone: "ok",
+            text: `Enviando ${selectedIds.length} envio(s) a ${interBodega.targetBodega}...`,
+          });
+          enviarInterBodegaMutation.mutate({ ids: selectedIds, targetBodega: interBodega.targetBodega });
+        }
       );
     } else {
       openConfirmDialog(
@@ -1134,6 +1154,7 @@ export default function Shipments() {
             <span className="text-sm text-orange-700 max-w-sm">{mixedMove}</span>
           ) : hasInterBodega ? (
             <Button
+              type="button"
               onClick={enviarADestino}
               disabled={enviarDestinoMutation.isPending || enviarInterBodegaMutation.isPending}
               variant="outline"
@@ -1298,6 +1319,18 @@ export default function Shipments() {
             )}
           </div>
         </div>
+
+        {bulkMessage && (
+          <div
+            className={`px-4 py-3 rounded-lg border text-sm font-medium ${
+              bulkMessage.tone === "error"
+                ? "bg-red-50 border-red-200 text-red-700"
+                : "bg-emerald-50 border-emerald-200 text-emerald-800"
+            }`}
+          >
+            {bulkMessage.text}
+          </div>
+        )}
 
         {/* ─── Tab Buttons ─────────────────────────────────────── */}
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
@@ -1593,19 +1626,24 @@ export default function Shipments() {
 
         {/* ─── Confirmation Dialog ─────────────────────────────── */}
         <Dialog open={confirmDialog.open} onOpenChange={(open) => !open && closeConfirmDialog()}>
-          <DialogContent>
+          <DialogContent
+            onPointerDownOutside={(event) => event.preventDefault()}
+            onInteractOutside={(event) => event.preventDefault()}
+          >
             <DialogHeader>
               <DialogTitle>{confirmDialog.title}</DialogTitle>
               <DialogDescription>{confirmDialog.description}</DialogDescription>
             </DialogHeader>
             <DialogFooter>
-              <Button variant="outline" onClick={closeConfirmDialog}>
+              <Button type="button" variant="outline" onClick={closeConfirmDialog}>
                 Cancelar
               </Button>
               <Button
+                type="button"
                 className="bg-[#C8102E] hover:bg-[#9B0B22] text-white"
                 onClick={() => {
-                  confirmDialog.action?.();
+                  const action = confirmActionRef.current;
+                  action?.();
                   closeConfirmDialog();
                 }}
               >
