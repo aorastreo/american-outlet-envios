@@ -18,6 +18,7 @@ import { useState } from "react";
 import { useFranchiseAuth } from "@/hooks/useFranchiseAuth";
 import toast from "react-hot-toast";
 import { buildShipmentTimeline, getCurrentStepIndex, showClosedRouteOnTimeline } from "../lib/timeline";
+import { ShipmentProgress } from "@/components/ShipmentProgress";
 import { getFranchiseGroup, historyStepLabel, needsInterBodega, shipmentPlaceText } from "../lib/franchise-groups";
 
 // Safe helper to get status config - never returns undefined
@@ -495,28 +496,7 @@ export default function ShipmentDetail() {
           <Card>
             <CardHeader><CardTitle className="text-base">Progreso del Envio</CardTitle></CardHeader>
             <CardContent>
-              <div className="relative">
-                <div className="flex items-center justify-between">
-                  {timelineSteps.map((step, index) => {
-                    const isCompleted = index <= currentStepIndex;
-                    const isCurrent = index === currentStepIndex;
-                    return (
-                      <div key={`${step.status}-${index}`} className="flex flex-col items-center relative z-10 flex-1">
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-colors ${
-                          isCompleted ? "bg-[#C8102E] border-[#C8102E] text-white" : "bg-white border-[#D4D4D4] text-[#A3A3A3]"
-                        } ${isCurrent ? "ring-4 ring-[#C8102E]/20" : ""}`}>
-                          {step.status === "RECIBIDO_EN_DESTINO" ? <CheckCircle className="w-5 h-5" /> : step.status === "RECIBIDO_EN_BODEGA" ? <ClipboardCheck className="w-5 h-5" /> : step.status === "ENVIADO_A_DESTINO" ? <Truck className="w-5 h-5" /> : step.status === "ENVIADO_A_BODEGA" ? <Send className="w-5 h-5" /> : step.status === "EN_RUTA" ? <Truck className="w-5 h-5" /> : step.status === "EN_PARADA" ? <MapPin className="w-5 h-5" /> : <Package className="w-5 h-5" />}
-                        </div>
-                        <span className={`text-xs mt-2 text-center font-medium leading-tight ${isCompleted ? "text-[#1A1A1A]" : "text-[#A3A3A3]"}`}>{step.label}</span>
-                        {step.desc && <span className={`text-[10px] text-center mt-0.5 leading-tight ${isCompleted ? "text-[#8A8A8A]" : "text-[#A3A3A3]"}`}>{step.desc}</span>}
-                      </div>
-                    );
-                  })}
-                </div>
-                <div className="absolute top-5 left-6 right-6 h-0.5 bg-[#F0F0F0] -z-0">
-                  <div className="h-full bg-[#C8102E]" style={{ width: timelineSteps.length > 1 ? `${Math.max(0, (currentStepIndex / (timelineSteps.length - 1)) * 100)}%` : "0%" }} />
-                </div>
-              </div>
+              <ShipmentProgress steps={timelineSteps} currentIndex={currentStepIndex} />
             </CardContent>
           </Card>
         )}

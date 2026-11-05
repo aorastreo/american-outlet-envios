@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { buildShipmentTimeline, getCurrentStepIndex, showClosedRouteOnTimeline } from "../lib/timeline";
+import { ShipmentProgress } from "@/components/ShipmentProgress";
 import { historyStepLabel, shipmentPlaceText } from "../lib/franchise-groups";
 import { es } from "date-fns/locale";
 
@@ -109,18 +110,18 @@ export default function Home() {
     <div className="min-h-screen bg-white">
       {/* Header */}
       <header className="border-b border-gray-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
             <img
               src={logoUrl}
               alt="American Outlet"
-              className="w-11 h-11 rounded-xl object-contain bg-white shadow-sm"
+              className="w-11 h-11 rounded-xl object-contain bg-white shadow-sm shrink-0"
             />
-            <div>
+            <div className="min-w-0">
               <h1 className="font-bold text-lg text-[#1A1A1A] leading-tight">
                 American Outlet
               </h1>
-              <p className="text-[11px] text-[#8A8A8A] uppercase tracking-wider">
+              <p className="text-[11px] text-[#8A8A8A] uppercase tracking-wider truncate">
                 Sistema de Envíos
               </p>
             </div>
@@ -128,7 +129,7 @@ export default function Home() {
           <Link to="/login">
             <Button
               variant="outline"
-              className="gap-2 border-[#C8102E] text-[#C8102E] hover:bg-[#FFF5F5]"
+              className="gap-2 shrink-0 border-[#C8102E] text-[#C8102E] hover:bg-[#FFF5F5]"
             >
               <LogIn className="w-4 h-4" />
               Acceso Franquicias
@@ -155,8 +156,8 @@ export default function Home() {
         {/* Search */}
         <Card className="max-w-2xl mx-auto mb-12 border-[#D4D4D4] shadow-sm">
           <CardContent className="p-6">
-            <form onSubmit={handleSearch} className="flex gap-3">
-              <div className="relative flex-1">
+            <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-3">
+              <div className="relative flex-1 min-w-0">
                 <Barcode className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#A3A3A3]" />
                 <Input
                   placeholder="Ej: AO84729153X"
@@ -169,7 +170,7 @@ export default function Home() {
               </div>
               <Button
                 type="submit"
-                className="h-12 px-8 bg-[#C8102E] hover:bg-[#9B0B22] text-white"
+                className="h-12 w-full sm:w-auto px-8 bg-[#C8102E] hover:bg-[#9B0B22] text-white"
                 disabled={isLoading || !trackingNumber.trim()}
               >
                 {isLoading ? (
@@ -208,7 +209,7 @@ export default function Home() {
               <p className="text-white/80 text-sm mb-1">
                 Numero de Rastreo
               </p>
-              <p className="text-3xl font-bold font-mono tracking-wider">
+              <p className="text-2xl sm:text-3xl font-bold font-mono tracking-wide break-all">
                 {shipment.trackingNumber}
               </p>
             </div>
@@ -308,69 +309,7 @@ export default function Home() {
                 <h3 className="font-semibold text-[#1A1A1A] mb-6">
                   Progreso del Envio
                 </h3>
-                <div className="relative">
-                  <div className="flex items-center justify-between">
-                    {timelineSteps.map((step, index) => {
-                      const isCompleted = index <= currentStepIndex;
-                      const isCurrent = index === currentStepIndex;
-                      return (
-                        <div
-                          key={`${step.status}-${index}`}
-                          className="flex flex-col items-center relative z-10 flex-1"
-                        >
-                          <div
-                            className={`w-12 h-12 rounded-full flex items-center justify-center border-2 transition-colors ${
-                              isCompleted
-                                ? "bg-[#C8102E] border-[#C8102E] text-white"
-                                : "bg-white border-[#D4D4D4] text-[#A3A3A3]"
-                            } ${isCurrent ? "ring-4 ring-[#C8102E]/20" : ""}`}
-                          >
-                            {step.status === "RECIBIDO_EN_DESTINO" ? (
-                              <CheckCircle className="w-6 h-6" />
-                            ) : step.status === "RECIBIDO_EN_BODEGA" ? (
-                              <ClipboardCheck className="w-6 h-6" />
-                            ) : step.status === "CREADO" ? (
-                              <Package className="w-6 h-6" />
-                            ) : (
-                              <Truck className="w-6 h-6" />
-                            )}
-                          </div>
-                          <span
-                            className={`text-xs mt-3 text-center font-medium ${
-                              isCompleted
-                                ? "text-[#1A1A1A]"
-                                : "text-[#A3A3A3]"
-                            }`}
-                          >
-                            {step.label}
-                          </span>
-                          <span
-                            className={`text-[10px] text-center ${
-                              isCompleted
-                                ? "text-[#8A8A8A]"
-                                : "text-[#A3A3A3]"
-                            }`}
-                          >
-                            {step.desc}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <div className="absolute top-6 left-6 right-6 h-1 bg-[#F0F0F0] -z-0">
-                    <div
-                      className="h-full bg-[#C8102E] transition-all duration-500"
-                      style={{
-                        width: `${Math.max(
-                          0,
-                          (currentStepIndex /
-                            (timelineSteps.length - 1)) *
-                            100
-                        )}%`,
-                      }}
-                    />
-                  </div>
-                </div>
+                <ShipmentProgress steps={timelineSteps} currentIndex={currentStepIndex} />
               </CardContent>
             </Card>
 
@@ -526,7 +465,7 @@ export default function Home() {
           <div className="max-w-4xl mx-auto space-y-6">
             <div className="bg-[#C8102E] text-white rounded-xl p-6 text-center">
               <p className="text-blue-100 text-sm mb-1">Numero de Garantia</p>
-              <p className="text-3xl font-bold font-mono tracking-wider">{warranty.trackingNumber}</p>
+              <p className="text-2xl sm:text-3xl font-bold font-mono tracking-wide break-all">{warranty.trackingNumber}</p>
             </div>
 
             <Card>

@@ -13,6 +13,7 @@ import {
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { buildShipmentTimeline, getCurrentStepIndex, showClosedRouteOnTimeline } from "../lib/timeline";
+import { ShipmentProgress } from "@/components/ShipmentProgress";
 import { historyStepLabel, shipmentPlaceText } from "../lib/franchise-groups";
 
 function cleanName(name: string | undefined): string {
@@ -105,15 +106,15 @@ export default function Track() {
     <div className="min-h-screen bg-white">
       {/* Public Header */}
       <header className="border-b border-gray-100">
-        <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <div className="max-w-4xl mx-auto px-4 py-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
             <img src="/logo.jpg" alt="American Outlet" className="w-10 h-10 rounded-xl object-contain" />
             <div>
               <h1 className="font-bold text-sm text-[#1A1A1A]">American Outlet</h1>
               <p className="text-[10px] text-[#8A8A8A] uppercase tracking-wider">Sistema de Envios</p>
             </div>
           </div>
-          <a href="/login" className="text-sm text-[#C8102E] font-medium hover:underline">Acceso Franquicias →</a>
+          <a href="/login" className="shrink-0 text-sm text-[#C8102E] font-medium hover:underline">Acceso Franquicias →</a>
         </div>
       </header>
 
@@ -125,12 +126,12 @@ export default function Track() {
 
         <Card>
           <CardContent className="p-6">
-            <form onSubmit={handleSearch} className="flex gap-3">
-              <div className="relative flex-1">
+            <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-3">
+              <div className="relative flex-1 min-w-0">
                 <Barcode className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#A3A3A3]" />
                 <Input placeholder="Ej: AO84729153X" value={trackingNumber} onChange={(e) => setTrackingNumber(e.target.value.toUpperCase())} className="pl-12 h-12 text-lg font-mono" />
               </div>
-              <Button type="submit" className="h-12 px-8 bg-[#C8102E] hover:bg-[#9B0B22]" disabled={isLoading || !trackingNumber.trim()}>
+              <Button type="submit" className="h-12 w-full sm:w-auto px-8 bg-[#C8102E] hover:bg-[#9B0B22]" disabled={isLoading || !trackingNumber.trim()}>
                 {isLoading ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <><Search className="w-5 h-5 mr-2" />Rastrear</>}
               </Button>
             </form>
@@ -151,7 +152,7 @@ export default function Track() {
           <div className="space-y-6">
             <div className="bg-[#C8102E] text-white rounded-xl p-6 text-center">
               <p className="text-blue-100 text-sm mb-1">Numero de Rastreo</p>
-              <p className="text-3xl font-bold font-mono tracking-wider">{shipment.trackingNumber}</p>
+              <p className="text-2xl sm:text-3xl font-bold font-mono tracking-wide break-all">{shipment.trackingNumber}</p>
             </div>
 
             <Card className="border-[#C8102E]/20">
@@ -191,29 +192,7 @@ export default function Track() {
             <Card>
               <CardContent className="p-6">
                 <h3 className="font-semibold text-[#1A1A1A] mb-6">Progreso del Envio</h3>
-                <div className="relative">
-                  <div className="flex items-center justify-between">
-                    {displaySteps.map((step, index) => {
-                      const isCompleted = index <= currentStepIndex;
-                      const isCurrent = index === currentStepIndex;
-                      return (
-                        <div key={step.status + index} className="flex flex-col items-center relative z-10 flex-1">
-                          <div className={`w-12 h-12 rounded-full flex items-center justify-center border-2 transition-colors ${isCompleted ? "bg-[#C8102E] border-[#C8102E] text-white" : "bg-white border-[#D4D4D4] text-[#A3A3A3]"} ${isCurrent ? "ring-4 ring-[#C8102E]/20" : ""}`}>
-                            {step.status === "RECIBIDO_EN_DESTINO" ? <CheckCircle className="w-6 h-6" /> :
-                             step.status === "RECIBIDO_EN_BODEGA" ? <ClipboardCheck className="w-6 h-6" /> :
-                             step.status === "CREADO" ? <Package className="w-6 h-6" /> :
-                             <Truck className="w-6 h-6" />}
-                          </div>
-                          <span className={`text-xs mt-3 text-center font-medium ${isCompleted ? "text-[#1A1A1A]" : "text-[#A3A3A3]"}`}>{step.label}</span>
-                          <span className={`text-[10px] text-center ${isCompleted ? "text-[#8A8A8A]" : "text-[#A3A3A3]"}`}>{step.desc}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <div className="absolute top-6 left-6 right-6 h-1 bg-[#F0F0F0] -z-0">
-                    <div className="h-full bg-[#C8102E] transition-all duration-500" style={{ width: `${displaySteps.length > 1 ? Math.max(0, (currentStepIndex / (displaySteps.length - 1)) * 100) : 0}%` }} />
-                  </div>
-                </div>
+                <ShipmentProgress steps={displaySteps} currentIndex={currentStepIndex} />
               </CardContent>
             </Card>
 
@@ -273,7 +252,7 @@ export default function Track() {
           <div className="space-y-6">
             <div className="bg-[#C8102E] text-white rounded-xl p-6 text-center">
               <p className="text-blue-100 text-sm mb-1">Numero de Garantia</p>
-              <p className="text-3xl font-bold font-mono tracking-wider">{warranty.trackingNumber}</p>
+              <p className="text-2xl sm:text-3xl font-bold font-mono tracking-wide break-all">{warranty.trackingNumber}</p>
             </div>
 
             <Card>
