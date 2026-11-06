@@ -1,10 +1,11 @@
 import { z } from "zod";
 import { createHash } from "crypto";
 import { SignJWT, jwtVerify } from "jose";
-import { and, eq, ne } from "drizzle-orm";
+import { and, asc, eq, ne } from "drizzle-orm";
 import { createRouter, franchiseAuthedQuery, publicQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { franchiseUsers, franchises } from "@db/schema";
+import { isRetiredFranchise } from "../src/lib/franchise-groups";
 import { TRPCError } from "@trpc/server";
 import * as cookie from "cookie";
 
@@ -82,6 +83,22 @@ export async function getFranchiseUserFromRequest(headers: Headers) {
   if (users.length === 0 || !users[0].isActive) return null;
 
   return users[0];
+}
+
+function cleanFranchiseLabel(name: string | null | undefined): string {
+  if (!name) return "";
+  const upper = name.toUpperCase();
+  if (upper.includes("GANGA")) return "Ganga Santa Rosa";
+  return name.replace(/AMERICAN OUTLET\s*/i, "").trim() || name;
+}
+
+async function assertPasswordManager(franchiseId: number) {
+  const db = getDb();
+  const rows = await db.select().from(franchises).where(eq(franchises.id, franchiseId)).limit(1);
+  const code = rows[0]?.code?.toLowerCase();
+  if (code !== "bodega" && code !== "bodega_cedi") {
+    throw new TRPCError({ code: "FORBIDDEN", message: "Solo Bodega Pavon y Bodega Cedi cambian claves." });
+  }
 }
 
 export const franchiseAuthRouter = createRouter({
@@ -194,64 +211,54 @@ export const franchiseAuthRouter = createRouter({
     return { success: true };
   }),
 
-  team: franchiseAuthedQuery.query(async ({ ctx }) => {
+  passwordFranchises: franchiseAuthedQuery.query(async ({ ctx }) => {
+    await assertPasswordManager(ctx.franchiseUser!.franchiseId);
     const db = getDb();
-    const rows = await db
-      .select({
-        id: franchiseUsers.id,
-        username: franchiseUsers.username,
-        displayName: franchiseUsers.displayName,
-        isActive: franchiseUsers.isActive,
-      })
-      .from(franchiseUsers)
-      .where(eq(franchiseUsers.franchiseId, ctx.franchiseUser!.franchiseId));
-    return rows;
+    const rows = await db.select().from(franchises).orderBy(asc(franchises.displayName));
+    return rows
+      .filter((franchise) => !isRetiredFranchise(franchise))
+      .map((franchise) => ({
+        id: franchise.id,
+        name: cleanFranchiseLabel(franchise.displayName),
+        username: franchise.code,
+      }));
   }),
 
-  addTeamMember: franchiseAuthedQuery
+  setFranchisePassword: franchiseAuthedQuery
     .input(z.object({
-      displayName: z.string().trim().min(2).max(80),
-      username: z.string().trim().min(3).max(30).regex(/^[a-z0-9_]+$/),
+      franchiseId: z.number().int().positive(),
       password: z.string().min(4).max(80),
     }))
     .mutation(async ({ input, ctx }) => {
+      await assertPasswordManager(ctx.franchiseUser!.franchiseId);
       const db = getDb();
-      const existing = await db.select({ id: franchiseUsers.id }).from(franchiseUsers).where(eq(franchiseUsers.username, input.username)).limit(1);
-      if (existing.length > 0) {
-        throw new TRPCError({ code: "CONFLICT", message: "Ese usuario ya existe. Elige otro." });
+      const franchiseRows = await db.select().from(franchises).where(eq(franchises.id, input.franchiseId)).limit(1);
+      const franchise = franchiseRows[0];
+      if (!franchise || isRetiredFranchise(franchise)) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Franquicia no encontrada" });
       }
-      await db.insert(franchiseUsers).values({
-        franchiseId: ctx.franchiseUser!.franchiseId,
-        username: input.username,
-        passwordHash: hashPassword(input.password),
-        displayName: input.displayName,
-        role: "staff",
-        isActive: 1,
-      });
-      return { success: true };
-    }),
 
-  setTeamMemberActive: franchiseAuthedQuery
-    .input(z.object({ id: z.number().int().positive(), active: z.boolean() }))
-    .mutation(async ({ input, ctx }) => {
-      const db = getDb();
-      if (input.id === ctx.franchiseUser!.id && !input.active) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "No puedes desactivar tu propio usuario." });
+      const accounts = await db.select().from(franchiseUsers)
+        .where(eq(franchiseUsers.franchiseId, franchise.id))
+        .orderBy(asc(franchiseUsers.id));
+      const main = accounts.find((account) => account.username === franchise.code) || accounts[0];
+      if (!main) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Esa franquicia no tiene usuario" });
       }
-      const rows = await db.select().from(franchiseUsers).where(and(
-        eq(franchiseUsers.id, input.id),
-        eq(franchiseUsers.franchiseId, ctx.franchiseUser!.franchiseId),
-      )).limit(1);
-      if (rows.length === 0) throw new TRPCError({ code: "NOT_FOUND", message: "Persona no encontrada" });
-      const activeCount = await db.select({ id: franchiseUsers.id }).from(franchiseUsers).where(and(
-        eq(franchiseUsers.franchiseId, ctx.franchiseUser!.franchiseId),
-        eq(franchiseUsers.isActive, 1),
-        ne(franchiseUsers.id, input.id),
-      ));
-      if (!input.active && activeCount.length === 0) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Tiene que quedar al menos una persona activa." });
+
+      await db.update(franchiseUsers).set({
+        passwordHash: hashPassword(input.password),
+        isActive: 1,
+      }).where(eq(franchiseUsers.id, main.id));
+
+      const extras = accounts.filter((account) => account.id !== main.id);
+      if (extras.length > 0) {
+        await db.update(franchiseUsers).set({ isActive: 0 }).where(and(
+          eq(franchiseUsers.franchiseId, franchise.id),
+          ne(franchiseUsers.id, main.id),
+        ));
       }
-      await db.update(franchiseUsers).set({ isActive: input.active ? 1 : 0 }).where(eq(franchiseUsers.id, input.id));
-      return { success: true };
+
+      return { success: true, username: main.username };
     }),
 });

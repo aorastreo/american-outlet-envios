@@ -20,7 +20,7 @@ import Warranties from "./pages/Warranties";
 import WarrantyDetail from "./pages/WarrantyDetail";
 import BoletaGarantia from "./pages/BoletaGarantia";
 import BitacoraGarantia from "./pages/BitacoraGarantia";
-import Equipo from "./pages/Equipo";
+import Configuracion from "./pages/Configuracion";
 import NotFound from "./pages/NotFound";
 
 export default function App() {
@@ -31,7 +31,7 @@ export default function App() {
       <Route path="/rastrear/:trackingNumber?" element={<Track />} />
       <Route element={<RequireFranchise />}>
         <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/equipo" element={<Equipo />} />
+        <Route path="/configuracion" element={<Configuracion />} />
         <Route path="/enviar" element={<CreateShipment />} />
         <Route path="/envios" element={<Shipments />} />
         <Route path="/envios/:id" element={<ShipmentDetail />} />

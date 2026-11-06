@@ -12,7 +12,7 @@ import {
   Search,
   Globe,
   ShieldCheck,
-  Users,
+  Settings,
 } from "lucide-react";
 
 export function RequireFranchise() {
@@ -54,6 +54,12 @@ export function RequireFranchise() {
     return <Navigate to="/dashboard" replace />;
   }
 
+  const franchiseCode = user.franchise?.code?.toLowerCase();
+  const canManagePasswords = franchiseCode === "bodega" || franchiseCode === "bodega_cedi";
+  if (path.startsWith("/configuracion") && !canManagePasswords) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
   return <Outlet />;
 }
 
@@ -73,7 +79,6 @@ const storeNavItems = [
   { path: "/enviar", label: "Crear Envío", icon: Plus },
   { path: "/envios-nacionales", label: "Envíos Nacionales", icon: Globe },
   { path: "/garantias", label: "Garantías", icon: ShieldCheck },
-  { path: "/equipo", label: "Personas", icon: Users },
   { path: "/rastrear", label: "Rastrear", icon: Search },
 ];
 
@@ -82,10 +87,9 @@ const warehouseNavItems = [
   { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { path: "/envios", label: "Mis Envíos", icon: Package },
   { path: "/enviar", label: "Crear Envío", icon: Plus },
-  { path: "/envios-nacionales", label: "Envíos Nacionales", icon: Globe },
   { path: "/rutas", label: "Rutas", icon: Truck },
+  { path: "/envios-nacionales", label: "Envíos Nacionales", icon: Globe },
   { path: "/garantias", label: "Garantías", icon: ShieldCheck },
-  { path: "/equipo", label: "Personas", icon: Users },
   { path: "/rastrear", label: "Rastrear", icon: Search },
 ];
 
@@ -98,7 +102,6 @@ const driverNavItems = [
 const receivingWarehouseNavItems = [
   { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { path: "/envios", label: "Mis Envíos", icon: Package },
-  { path: "/equipo", label: "Personas", icon: Users },
   { path: "/rastrear", label: "Rastrear", icon: Search },
 ];
 
@@ -179,23 +182,28 @@ export default function FranchiseLayout({
         </div>
 
           <nav className="flex-1 px-3 py-4 space-y-5 overflow-y-auto">
-            {(user?.username === "chofer"
-              ? [{ label: "", items: driverNavItems }]
-              : user?.username === "bodega_sabana"
-              ? [
-                  { label: "Trabajo", items: receivingWarehouseNavItems.slice(0, 2) },
-                  { label: "Consulta", items: receivingWarehouseNavItems.slice(2) },
-                ]
-              : user?.franchise?.isWarehouse
-              ? [
-                  { label: "Trabajo", items: warehouseNavItems.slice(0, 4) },
-                  { label: "Consulta", items: warehouseNavItems.slice(4) },
-                ]
-              : [
-                  { label: "Trabajo", items: storeNavItems.slice(0, 3) },
-                  { label: "Consulta", items: storeNavItems.slice(3) },
-                ]
-            ).map((group) => (
+            {(() => {
+              const managesPasswords = user?.franchise?.code === "bodega" || user?.franchise?.code === "bodega_cedi";
+              const settingsItem = { path: "/configuracion", label: "Configuraciones", icon: Settings };
+              const withSettings = (items: typeof storeNavItems) => managesPasswords ? [...items, settingsItem] : items;
+              const groups = user?.username === "chofer"
+                ? [{ label: "", items: driverNavItems }]
+                : user?.username === "bodega_sabana"
+                ? [
+                    { label: "Trabajo", items: receivingWarehouseNavItems.slice(0, 2) },
+                    { label: "Consulta", items: receivingWarehouseNavItems.slice(2) },
+                  ]
+                : user?.franchise?.isWarehouse
+                ? [
+                    { label: "Trabajo", items: warehouseNavItems.slice(0, 4) },
+                    { label: "Consulta", items: withSettings(warehouseNavItems.slice(4)) },
+                  ]
+                : [
+                    { label: "Trabajo", items: storeNavItems.slice(0, 3) },
+                    { label: "Consulta", items: withSettings(storeNavItems.slice(3)) },
+                  ];
+              return groups;
+            })().map((group) => (
               <div key={group.label || "solo"} className="space-y-1">
                 {group.label && (
                   <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-white/35">
