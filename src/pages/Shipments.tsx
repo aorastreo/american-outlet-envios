@@ -116,7 +116,7 @@ const STORE_TABS: TabDef<StoreTabKey>[] = [
     key: "COMPLETADOS",
     label: "Completados",
     icon: CheckCircle,
-    statuses: ["RECIBIDO_EN_DESTINO"],
+    statuses: ["RECIBIDO_EN_DESTINO", "ENTREGADO_AL_CLIENTE"],
     description: "Enviados por esta tienda, ya entregados en destino",
     color: "text-[#525252]",
     activeColor: "text-blue-700",
@@ -265,6 +265,7 @@ function getStatusConfig(status: string) {
     EN_PARADA: { color: "bg-orange-50 text-orange-700 hover:bg-orange-100", label: "En Punto de Recogida", icon: MapPin },
     ENVIADO_A_DESTINO: { color: "bg-[#FFF5F5] text-[#C8102E] hover:bg-[#FFE0E0]", label: "Enviado a Destino", icon: Truck },
     RECIBIDO_EN_DESTINO: { color: "bg-emerald-50 text-[#1B6B3E] hover:bg-emerald-100", label: "Recibido en Tienda", icon: CheckCircle },
+    ENTREGADO_AL_CLIENTE: { color: "bg-emerald-50 text-[#1B6B3E] hover:bg-emerald-100", label: "Entregado al cliente", icon: CheckCircle },
     NO_RECOGIDO: { color: "bg-red-50 text-red-700 hover:bg-red-100", label: "No recogido", icon: AlertTriangle },
     CANCELADO: { color: "bg-red-50 text-red-700 hover:bg-red-100", label: "Cancelado", icon: Package },
   };
@@ -293,14 +294,18 @@ export default function Shipments() {
 
   const [reviewGroup, setReviewGroup] = useState<string | null>(null);
   const [showTrips, setShowTrips] = useState(false);
+  const [handoffIds, setHandoffIds] = useState<number[]>([]);
+  const [receiverDraft, setReceiverDraft] = useState("");
 
   // Confirmation dialog state
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean;
     title: string;
     description: string;
-  }>({ open: false, title: "", description: "" });
+    askName: boolean;
+  }>({ open: false, title: "", description: "", askName: false });
   const confirmActionRef = useRef<(() => void) | null>(null);
+  const receiverDraftRef = useRef("");
   const goToTabRef = useRef<(tab: "EN_RUTA") => void>(() => {});
   const pendingTargetRef = useRef("la otra bodega");
   const [bulkMessage, setBulkMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
@@ -416,6 +421,7 @@ export default function Shipments() {
   const handleTabChange = (tab: ActiveTabKey) => {
     setActiveTab(tab);
     setReviewGroup(null);
+    setHandoffIds([]);
     const newParams = new URLSearchParams(searchParams);
     newParams.set("tab", tab);
     setSearchParams(newParams, { replace: true });
@@ -566,6 +572,17 @@ export default function Shipments() {
     },
   });
 
+  const entregarEnTiendaMutation = trpc.shipment.entregarEnTiendaMasiva.useMutation({
+    onSuccess: (data) => {
+      toast.success(`${data.count} envio(s) entregado(s) al cliente`);
+      setHandoffIds([]);
+      utils.shipment.list.invalidate();
+    },
+    onError: (error) => {
+      toast.error(error.message || "No se pudo entregar al cliente");
+    },
+  });
+
   const recibirDestinoMutation = trpc.shipment.recibirEnDestinoMasiva.useMutation({
     onSuccess: (data, variables) => {
       toast.success(`${data.count} envio(s) recibido(s) en tienda`);
@@ -610,7 +627,11 @@ export default function Shipments() {
         // EN_TIENDA: only show shipments received IN the current store (destino)
         if (activeTab === "EN_TIENDA" && s.destinationFranchiseId !== myFranchiseId) return false;
         // COMPLETADOS: only show shipments SENT FROM the current store that arrived
-        if (activeTab === "COMPLETADOS" && s.originFranchiseId !== myFranchiseId) return false;
+        if (activeTab === "COMPLETADOS") {
+          const sentByMe = s.originFranchiseId === myFranchiseId;
+          const handedHere = s.destinationFranchiseId === myFranchiseId && s.status === "ENTREGADO_AL_CLIENTE";
+          if (!sentByMe && !handedHere) return false;
+        }
       }
 
       // Warehouse-specific: EN_BODEGA tab — CREADO only if created FROM warehouse, exclude if dest IS this warehouse.
@@ -775,7 +796,7 @@ export default function Shipments() {
             counts[tab.key]++;
           } else if (tab.key === "EN_TIENDA" && s.destinationFranchiseId === myFranchiseId) {
             counts[tab.key]++;
-          } else if (tab.key === "COMPLETADOS" && s.originFranchiseId === myFranchiseId) {
+          } else if (tab.key === "COMPLETADOS" && (s.originFranchiseId === myFranchiseId || (s.destinationFranchiseId === myFranchiseId && s.status === "ENTREGADO_AL_CLIENTE"))) {
             counts[tab.key]++;
           } else if (
             tab.key !== "POR_ENVIAR" &&
@@ -816,12 +837,13 @@ export default function Shipments() {
     const cfg = getStatusConfig(shipment.status);
     const place = shipmentPlaceText(shipment);
     const stuck = Boolean(shipment.stuckAfterRoute);
-    const isSelected = selectedIds.includes(shipment.id);
+    const handoff = !isBodega && activeTab === "EN_TIENDA" && shipment.destinationFranchiseId === myFranchiseId && shipment.status === "RECIBIDO_EN_DESTINO";
+    const isSelected = handoff ? handoffIds.includes(shipment.id) : selectedIds.includes(shipment.id);
     const selectable = canSelectShipment(shipment);
-    const checking = Boolean(checkMode) && selectable;
+    const checking = handoff || (Boolean(checkMode) && selectable);
     const card = (
           <Card
-            onClick={checking ? () => toggleSelection(shipment.id) : undefined}
+            onClick={handoff ? () => toggleHandoff(shipment.id) : checking ? () => toggleSelection(shipment.id) : undefined}
             onKeyDown={checking ? (event) => {
               if (event.key === "Enter" || event.key === " ") {
                 event.preventDefault();
@@ -836,7 +858,7 @@ export default function Shipments() {
               isSelected ? "ring-2 ring-[#C8102E]/20 border-[#C8102E]/30 bg-[#FFF5F5]/50" : ""
             }`}
           >
-            <CardContent className={`p-4 ${selectable ? "pl-10" : ""}`}>
+            <CardContent className={`p-4 ${selectable || handoff ? "pl-10" : ""}`}>
               <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-3 flex-wrap">
@@ -935,11 +957,11 @@ export default function Shipments() {
     );
     return (
       <div id={`envio-${shipment.id}`} key={shipment.id} className="relative group">
-        {selectable && (
+        {(selectable || handoff) && (
           <div className="absolute left-2 top-1/2 -translate-y-1/2 z-10" onClick={(event) => event.stopPropagation()}>
             <Checkbox
               checked={isSelected}
-              onCheckedChange={() => toggleSelection(shipment.id)}
+              onCheckedChange={() => (handoff ? toggleHandoff(shipment.id) : toggleSelection(shipment.id))}
               className="border-[#D4D4D4] data-[state=checked]:bg-[#C8102E] data-[state=checked]:border-[#C8102E]"
             />
           </div>
@@ -963,6 +985,10 @@ export default function Shipments() {
 
   const canSelectShipment = (shipment: { status: string }) =>
     isBodega || activeTab !== "POR_RECIBIR" || shipment.status === "ENVIADO_A_DESTINO";
+
+  const toggleHandoff = (id: number) => {
+    setHandoffIds((ids) => (ids.includes(id) ? ids.filter((item) => item !== id) : [...ids, id]));
+  };
 
   const toggleSelection = (id: number) => {
     if (!markTab || !checkMode) return;
@@ -1012,14 +1038,26 @@ export default function Shipments() {
 
   // ─── Confirmation dialog helper ───────────────────────────────
 
-  const openConfirmDialog = (title: string, description: string, onConfirm: () => void) => {
+  const unmarkedWarning = () => {
+    if (!checkMode) return "";
+    const left = scanPool.filter((shipment) => !selectedIds.includes(shipment.id));
+    if (left.length === 0) return " Todos los de la lista estan marcados.";
+    const sample = left.slice(0, 6).map((shipment) => `${shipment.trackingNumber} (${shipment.senderName})`).join(", ");
+    const extra = left.length > 6 ? ` y ${left.length - 6} mas` : "";
+    return ` En la lista hay ${scanPool.length}. Sin marcar quedan ${left.length}: ${sample}${extra}. Esos no entran en este viaje.`;
+  };
+
+  const openConfirmDialog = (title: string, description: string, onConfirm: () => void, askName = false) => {
     confirmActionRef.current = onConfirm;
-    setConfirmDialog({ open: true, title, description });
+    receiverDraftRef.current = "";
+    setReceiverDraft("");
+    setConfirmDialog({ open: true, title, description, askName });
   };
 
   const closeConfirmDialog = () => {
     confirmActionRef.current = null;
-    setConfirmDialog({ open: false, title: "", description: "" });
+    setReceiverDraft("");
+    setConfirmDialog({ open: false, title: "", description: "", askName: false });
   };
 
   // ─── Action handlers ──────────────────────────────────────────
@@ -1034,7 +1072,7 @@ export default function Shipments() {
     }
     openConfirmDialog(
       "Confirmar Salida a Bodega",
-      `Esta seguro de confirmar la salida a bodega de ${selectedIds.length} envio(s)? Esta accion no se puede deshacer.`,
+      `Confirmar la salida de ${selectedIds.length} envio(s).${unmarkedWarning()}`,
       () => confirmarSalidaMutation.mutate({ ids: selectedIds })
     );
   };
@@ -1049,7 +1087,7 @@ export default function Shipments() {
     }
     openConfirmDialog(
       "Confirmar Recepcion en Bodega",
-      `Esta seguro de confirmar la recepcion de ${selectedIds.length} envio(s)? Esta accion no se puede deshacer.`,
+      `Confirmar la recepcion de ${selectedIds.length} envio(s).${unmarkedWarning()}`,
       () => recibirBodegaMutation.mutate({ ids: selectedIds })
     );
   };
@@ -1102,7 +1140,7 @@ export default function Shipments() {
     if (interBodega.needsTransfer) {
       openConfirmDialog(
         "Confirmar Envio a Otra Bodega",
-        `Esta seguro de enviar ${selectedIds.length} envio(s) hacia ${interBodega.targetBodega}? Esta accion no se puede deshacer.`,
+        `Enviar ${selectedIds.length} envio(s) hacia ${interBodega.targetBodega}.${unmarkedWarning()}`,
         () => {
           pendingTargetRef.current = interBodega.targetBodega;
           setBulkMessage({
@@ -1115,7 +1153,7 @@ export default function Shipments() {
     } else {
       openConfirmDialog(
         "Confirmar Envio a Destino",
-        `Esta seguro de confirmar el envio a destino de ${selectedIds.length} envio(s)? Esta accion no se puede deshacer.`,
+        `Confirmar el envio a destino de ${selectedIds.length} envio(s).${unmarkedWarning()}`,
         () => enviarDestinoMutation.mutate({ ids: selectedIds })
       );
     }
@@ -1131,7 +1169,7 @@ export default function Shipments() {
     }
     openConfirmDialog(
       "Entregar al cliente",
-      `El cliente ya retiró ${selectedIds.length} envio(s) en esta bodega? Esta accion no se puede deshacer.`,
+      `El cliente ya retiró ${selectedIds.length} envio(s) en esta bodega.${unmarkedWarning()}`,
       () => entregarClienteMutation.mutate({ ids: selectedIds })
     );
   };
@@ -1146,8 +1184,25 @@ export default function Shipments() {
     }
     openConfirmDialog(
       "Confirmar Recepcion en Tienda",
-      `Esta seguro de confirmar la recepcion de ${selectedIds.length} envio(s) en tienda? Esta accion no se puede deshacer.`,
+      `Confirmar la recepcion de ${selectedIds.length} envio(s) en tienda.${unmarkedWarning()}`,
       () => recibirDestinoMutation.mutate({ ids: selectedIds })
+    );
+  };
+
+  const entregarEnTienda = () => {
+    if (handoffIds.length === 0) return;
+    openConfirmDialog(
+      "Entregar al cliente",
+      `El cliente retira ${handoffIds.length} paquete(s) de esta tienda. Escribe el nombre de quien los recibe.`,
+      () => {
+        const name = receiverDraftRef.current.trim();
+        if (name.length < 2) {
+          toast.error("Escribe el nombre de quien retira");
+          return;
+        }
+        entregarEnTiendaMutation.mutate({ ids: handoffIds, receiverName: name });
+      },
+      true,
     );
   };
 
@@ -1424,6 +1479,16 @@ export default function Shipments() {
           </div>
           <div className="flex gap-2 flex-wrap">
             {renderActionButtons()}
+            {!isBodega && activeTab === "EN_TIENDA" && handoffIds.length > 0 && (
+              <button
+                type="button"
+                onClick={entregarEnTienda}
+                disabled={entregarEnTiendaMutation.isPending}
+                className="inline-flex items-center justify-center px-4 py-2.5 bg-[#1B6B3E] text-white rounded-lg text-sm font-medium"
+              >
+                Entregar al cliente ({handoffIds.length})
+              </button>
+            )}
             {!isBodega && (
               <Link
                 to="/enviar"
@@ -1821,8 +1886,19 @@ export default function Shipments() {
           >
             <DialogHeader>
               <DialogTitle>{confirmDialog.title}</DialogTitle>
-              <DialogDescription>{confirmDialog.description}</DialogDescription>
+              <DialogDescription className="whitespace-pre-line">{confirmDialog.description}</DialogDescription>
             </DialogHeader>
+            {confirmDialog.askName && (
+              <input
+                value={receiverDraft}
+                onChange={(event) => {
+                  receiverDraftRef.current = event.target.value;
+                  setReceiverDraft(event.target.value);
+                }}
+                placeholder="Nombre de quien retira"
+                className="h-11 w-full px-3 text-sm border border-[#D4D4D4] rounded-lg"
+              />
+            )}
             <DialogFooter>
               <Button type="button" variant="outline" onClick={closeConfirmDialog}>
                 Cancelar
@@ -1831,6 +1907,10 @@ export default function Shipments() {
                 type="button"
                 className="bg-[#C8102E] hover:bg-[#9B0B22] text-white"
                 onClick={() => {
+                  if (confirmDialog.askName && receiverDraftRef.current.trim().length < 2) {
+                    toast.error("Escribe el nombre de quien retira");
+                    return;
+                  }
                   const action = confirmActionRef.current;
                   action?.();
                   closeConfirmDialog();

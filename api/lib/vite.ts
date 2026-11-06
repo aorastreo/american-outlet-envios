@@ -10,9 +10,14 @@ export function serveStaticFiles(app: App) {
   const distPath = path.resolve(import.meta.dirname, "../dist/public");
 
   app.use("*", async (c, next) => {
-    c.header("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
-    c.header("Pragma", "no-cache");
-    c.header("Expires", "0");
+    const path = c.req.path;
+    if (path.startsWith("/assets/")) {
+      c.header("Cache-Control", "public, max-age=31536000, immutable");
+    } else if (path.startsWith("/api") || path.startsWith("/trpc")) {
+      c.header("Cache-Control", "no-store");
+    } else {
+      c.header("Cache-Control", "no-cache");
+    }
     await next();
   });
 

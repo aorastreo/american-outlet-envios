@@ -175,6 +175,7 @@ export function historyStepLabel(status: string, notes: string | null | undefine
     if (to) return `En camino a ${to}`;
     if (/sabana/i.test(note)) return "En camino a Bodega Sabana";
   }
+  if (status === "ENTREGADO_AL_CLIENTE") return "Entregado al cliente";
   if (status === "RECIBIDO_EN_DESTINO") {
     const deliveredAt = place(/Entregado al cliente en\s+(.+)$/i)
       .replace(/\s+-.*/, "")

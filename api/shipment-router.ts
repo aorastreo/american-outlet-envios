@@ -1014,6 +1014,125 @@ export const shipmentRouter = createRouter({
       return { success: true };
     }),
 
+  reportGap: franchiseAuthedQuery
+    .input(z.object({
+      id: z.number().int().positive(),
+      kind: z.enum(["no_vino", "no_salio"]),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const db = getDb();
+      const franchiseId = ctx.franchiseUser!.franchiseId;
+      const meRows = await db.select().from(franchises).where(eq(franchises.id, franchiseId)).limit(1);
+      const me = meRows[0];
+      if (!me) throw new TRPCError({ code: "FORBIDDEN", message: "Franquicia no encontrada" });
+
+      const rows = await db.select().from(shipments).where(eq(shipments.id, input.id)).limit(1);
+      if (rows.length === 0) throw new TRPCError({ code: "NOT_FOUND", message: "Envio no encontrado" });
+      const shipment = rows[0];
+
+      const all = await db.select().from(franchises);
+      const origin = all.find((franchise) => franchise.id === shipment.originFranchiseId);
+      const warehouses = all.filter((franchise) => franchise.code === "bodega" || franchise.code === "bodega_cedi");
+      const myLabel = cleanFranchiseName(me.displayName || me.name);
+      let nextStatus: "CREADO" | "RECIBIDO_EN_BODEGA";
+      let nextLocation = shipment.originFranchiseId;
+      let nextWarehouse = shipment.warehouseLocation;
+      let note = "";
+
+      if (shipment.status === "ENVIADO_A_DESTINO") {
+        const holder = warehouses.find((franchise) =>
+          shipment.warehouseLocation?.toLowerCase().includes("cedi")
+            ? franchise.code === "bodega_cedi"
+            : franchise.code === "bodega"
+        );
+        if (!holder) throw new TRPCError({ code: "BAD_REQUEST", message: "No se encontro la bodega que lo envio" });
+        const allowed = (input.kind === "no_vino" && shipment.destinationFranchiseId === franchiseId)
+          || (input.kind === "no_salio" && franchiseId === holder.id);
+        if (!allowed) throw new TRPCError({ code: "FORBIDDEN", message: "No puedes reportar este paquete" });
+        nextStatus = "RECIBIDO_EN_BODEGA";
+        nextLocation = holder.id;
+        nextWarehouse = holder.code === "bodega_cedi" ? "Bodega Cedi" : "Bodega Pavon";
+        note = input.kind === "no_vino" ? `No vino. ${myLabel} no lo recibio` : `No salio. Sigue en ${myLabel}`;
+      } else if (shipment.status === "ENVIADO_A_BODEGA") {
+        if (origin?.isWarehouse !== 1) {
+          const allowed = (input.kind === "no_vino" && shipment.currentLocationId === franchiseId)
+            || (input.kind === "no_salio" && shipment.originFranchiseId === franchiseId);
+          if (!allowed) throw new TRPCError({ code: "FORBIDDEN", message: "No puedes reportar este paquete" });
+          nextStatus = "CREADO";
+          nextLocation = shipment.originFranchiseId;
+          note = input.kind === "no_vino" ? `No vino. ${myLabel} no lo recibio` : `No salio. Sigue en ${myLabel}`;
+        } else {
+          const sender = warehouses.find((franchise) => franchise.id !== shipment.currentLocationId);
+          if (!sender) throw new TRPCError({ code: "BAD_REQUEST", message: "No se encontro la bodega que lo envio" });
+          const allowed = (input.kind === "no_vino" && franchiseId === shipment.currentLocationId)
+            || (input.kind === "no_salio" && franchiseId === sender.id);
+          if (!allowed) throw new TRPCError({ code: "FORBIDDEN", message: "No puedes reportar este paquete" });
+          nextStatus = "RECIBIDO_EN_BODEGA";
+          nextLocation = sender.id;
+          nextWarehouse = sender.code === "bodega_cedi" ? "Bodega Cedi" : "Bodega Pavon";
+          note = input.kind === "no_vino" ? `No vino. ${myLabel} no lo recibio` : `No salio. Sigue en ${myLabel}`;
+        }
+      } else {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Este envio no va en camino. No se puede reportar asi." });
+      }
+
+      await db.update(shipments).set({
+        status: nextStatus,
+        currentLocationId: nextLocation,
+        warehouseLocation: nextWarehouse,
+      }).where(eq(shipments.id, shipment.id));
+
+      await db.insert(shipmentTracking).values({
+        shipmentId: shipment.id,
+        status: nextStatus,
+        locationId: nextLocation,
+        notes: note,
+        createdBy: ctx.franchiseUser!.id,
+      });
+
+      return { success: true };
+    }),
+
+  entregarEnTiendaMasiva: franchiseAuthedQuery
+    .input(z.object({
+      ids: z.array(z.number().int().positive()).min(1).max(100),
+      receiverName: z.string().trim().min(2).max(120),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const db = getDb();
+      const franchiseId = ctx.franchiseUser!.franchiseId;
+      const meRows = await db.select().from(franchises).where(eq(franchises.id, franchiseId)).limit(1);
+      if (meRows[0]?.isWarehouse === 1) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "En bodega la entrega al cliente usa su propio boton" });
+      }
+
+      const envios = await db.select().from(shipments).where(inArray(shipments.id, input.ids));
+      if (envios.length === 0) throw new TRPCError({ code: "NOT_FOUND", message: "No se encontraron envios" });
+      const invalidos = envios.filter((s) => s.status !== "RECIBIDO_EN_DESTINO" || s.destinationFranchiseId !== franchiseId);
+      if (invalidos.length > 0) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Solo se entregan al cliente los paquetes que ya estan en esta tienda" });
+      }
+
+      await db.update(shipments).set({
+        status: "ENTREGADO_AL_CLIENTE",
+        receiverName: input.receiverName,
+        currentLocationId: franchiseId,
+      }).where(inArray(shipments.id, input.ids));
+
+      for (const envio of envios) {
+        await db.insert(shipmentTracking).values({
+          shipmentId: envio.id,
+          status: "ENTREGADO_AL_CLIENTE",
+          locationId: franchiseId,
+          notes: `Entregado al cliente: ${input.receiverName}`,
+          createdBy: ctx.franchiseUser!.id,
+        });
+      }
+
+      await keepShipmentTrip(db, franchiseId, "Entrega al cliente", input.ids);
+      return { success: true, count: envios.length };
+    }),
+
   // ─── Public Track ──────────────────────────────────────────────
   track: publicQuery
     .input(z.object({ trackingNumber: z.string().min(1) }))

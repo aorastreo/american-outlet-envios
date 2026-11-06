@@ -13,6 +13,7 @@ import {
   Search,
   Globe,
   ShieldCheck,
+  Users,
 } from "lucide-react";
 
 export function RequireFranchise() {
@@ -73,6 +74,7 @@ const storeNavItems = [
   { path: "/enviar", label: "Crear Envío", icon: Plus },
   { path: "/envios-nacionales", label: "Envíos Nacionales", icon: Globe },
   { path: "/garantias", label: "Garantías", icon: ShieldCheck },
+  { path: "/equipo", label: "Personas", icon: Users },
   { path: "/rastrear", label: "Rastrear", icon: Search },
 ];
 
@@ -84,6 +86,7 @@ const warehouseNavItems = [
   { path: "/envios-nacionales", label: "Envíos Nacionales", icon: Globe },
   { path: "/rutas", label: "Rutas", icon: Truck },
   { path: "/garantias", label: "Garantías", icon: ShieldCheck },
+  { path: "/equipo", label: "Personas", icon: Users },
   { path: "/rastrear", label: "Rastrear", icon: Search },
 ];
 
@@ -96,6 +99,7 @@ const driverNavItems = [
 const receivingWarehouseNavItems = [
   { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { path: "/envios", label: "Mis Envíos", icon: Package },
+  { path: "/equipo", label: "Personas", icon: Users },
   { path: "/rastrear", label: "Rastrear", icon: Search },
 ];
 

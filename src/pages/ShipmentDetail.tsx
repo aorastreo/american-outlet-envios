@@ -30,7 +30,8 @@ function getStatusConfig(status: string) {
     ENVIADO_A_DESTINO: { color: "bg-[#FFF5F5] text-[#C8102E]", label: "Enviado a Destino", icon: Truck },
     EN_RUTA: { color: "bg-blue-100 text-blue-700", label: "En Ruta de Camion", icon: Truck },
     EN_PARADA: { color: "bg-orange-100 text-orange-700", label: "En Punto de Recogida", icon: MapPin },
-    RECIBIDO_EN_DESTINO: { color: "bg-emerald-100 text-emerald-700", label: "Entregado", icon: CheckCircle },
+    RECIBIDO_EN_DESTINO: { color: "bg-emerald-100 text-emerald-700", label: "En tienda", icon: CheckCircle },
+    ENTREGADO_AL_CLIENTE: { color: "bg-emerald-100 text-emerald-700", label: "Entregado al cliente", icon: CheckCircle },
     NO_RECOGIDO: { color: "bg-red-100 text-red-700", label: "No Recogido", icon: XCircle },
     CANCELADO: { color: "bg-red-100 text-red-700", label: "Cancelado", icon: Ban },
   };
@@ -106,6 +107,25 @@ export default function ShipmentDetail() {
     },
   });
 
+  const handoffMutation = trpc.shipment.entregarEnTiendaMasiva.useMutation({
+    onSuccess: () => {
+      utils.shipment.getById.invalidate({ id: shipmentId });
+      utils.shipment.list.invalidate();
+      toast.success("Entregado al cliente");
+      setDialogOpen(null);
+    },
+    onError: (err) => toast.error(err.message || "No se pudo entregar al cliente"),
+  });
+
+  const gapMutation = trpc.shipment.reportGap.useMutation({
+    onSuccess: (_data, variables) => {
+      utils.shipment.getById.invalidate({ id: shipmentId });
+      utils.shipment.list.invalidate();
+      toast.success(variables.kind === "no_vino" ? "Quedo anotado que no vino" : "Quedo anotado que no salio");
+    },
+    onError: (err) => toast.error(err.message || "No se pudo anotar"),
+  });
+
   const handleStatusUpdate = (newStatus: string) => {
     const myName = (user?.franchise?.displayName || user?.franchise?.name || "").toLowerCase();
     const myWarehouse = myName.includes("cedi")
@@ -163,6 +183,15 @@ export default function ShipmentDetail() {
         notes: actionNotes.trim() || `Enviado hacia ${dest}`,
         receiverName: undefined,
       });
+      return;
+    }
+
+    if (newStatus === "ENTREGADO_AL_CLIENTE") {
+      if (!receiverName.trim()) {
+        toast.error("Escribe el nombre de quien retira");
+        return;
+      }
+      handoffMutation.mutate({ ids: [shipmentId], receiverName: receiverName.trim() });
       return;
     }
 
@@ -270,6 +299,16 @@ export default function ShipmentDetail() {
     }
   }
 
+  if (!isCancelled && isDestination && !isWarehouseUser && !isPickup && shipment.status === "RECIBIDO_EN_DESTINO") {
+    availableActions.push({ label: "Entregar al cliente", status: "ENTREGADO_AL_CLIENTE", icon: <CheckCircle className="w-4 h-4" />, color: "bg-emerald-600 hover:bg-emerald-700", desc: "El cliente ya retiró el paquete en esta tienda", needsReceiver: true });
+  }
+
+  const canReportMissing = (shipment.status === "ENVIADO_A_DESTINO" && isDestination)
+    || (shipment.status === "ENVIADO_A_BODEGA" && isWarehouseUser && shipment.currentLocationId === franchiseId);
+  const canReportNotSent = (shipment.status === "ENVIADO_A_BODEGA" && isOrigin && !originIsWarehouse)
+    || (shipment.status === "ENVIADO_A_DESTINO" && isWarehouseUser && !isDestination)
+    || (shipment.status === "ENVIADO_A_BODEGA" && isWarehouseUser && shipment.currentLocationId !== franchiseId);
+
   // Detect if destination is a warehouse (bodega) — NOT a route pickup point
   const destIsWarehouse = (shipment.destinationFranchise as any)?.isWarehouse === 1;
 
@@ -321,6 +360,16 @@ export default function ShipmentDetail() {
           <Button variant="outline" size="sm" onClick={() => window.open(`/boleta/${shipment.id}`, "_blank")}>
             <Printer className="w-4 h-4 mr-1" />Boleta
           </Button>
+          {canReportMissing && (
+            <Button variant="outline" size="sm" disabled={gapMutation.isPending} onClick={() => gapMutation.mutate({ id: shipmentId, kind: "no_vino" })}>
+              No vino
+            </Button>
+          )}
+          {canReportNotSent && (
+            <Button variant="outline" size="sm" disabled={gapMutation.isPending} onClick={() => gapMutation.mutate({ id: shipmentId, kind: "no_salio" })}>
+              No salio
+            </Button>
+          )}
           {canCancel && (
             <Dialog open={dialogOpen === "CANCEL"} onOpenChange={(open) => { setDialogOpen(open ? "CANCEL" : null); if (!open) setCancelReason(""); }}>
               <DialogTrigger asChild>

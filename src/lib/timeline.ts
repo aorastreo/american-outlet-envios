@@ -177,7 +177,8 @@ export function buildShipmentTimeline(
       steps.push({ status: "RECIBIDO_EN_DESTINO", label: city ? `Entregado en ${city}` : "Entregado", desc: "El cliente recogio el paquete" });
     } else {
       steps.push({ status: "ENVIADO_A_DESTINO", label: "Enviado a Destino", desc: destName ? `Enviado a ${destName}` : "Enviado a tienda" });
-      steps.push({ status: "RECIBIDO_EN_DESTINO", label: "Entregado", desc: destName ? `${destName} recibio` : "Tienda recibio" });
+      steps.push({ status: "RECIBIDO_EN_DESTINO", label: "En tienda", desc: destName ? `${destName} recibio` : "Tienda recibio" });
+      steps.push({ status: "ENTREGADO_AL_CLIENTE", label: "Entregado al cliente", desc: "El cliente retiró el paquete" });
     }
   }
   // --- TIENDA → RUTA (pickup) ---
@@ -216,7 +217,8 @@ export function buildShipmentTimeline(
     }
 
     steps.push({ status: "ENVIADO_A_DESTINO", label: "Enviado a Destino", desc: "Bodega envia a tienda" });
-    steps.push({ status: "RECIBIDO_EN_DESTINO", label: "Entregado", desc: "Tienda recibio" });
+    steps.push({ status: "RECIBIDO_EN_DESTINO", label: "En tienda", desc: "Tienda recibio" });
+    steps.push({ status: "ENTREGADO_AL_CLIENTE", label: "Entregado al cliente", desc: "El cliente retiró el paquete" });
   }
 
   const lastTrackingEntry = trackingHistory.length > 0 ? trackingHistory[trackingHistory.length - 1] : null;

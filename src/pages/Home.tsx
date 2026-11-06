@@ -69,7 +69,8 @@ export default function Home() {
       EN_PARADA: { color: "bg-orange-50 text-orange-700", label: "En Punto de Recogida", icon: MapPin },
       NO_RECOGIDO: { color: "bg-red-50 text-red-700", label: "No Recogido", icon: AlertTriangle },
       ENVIADO_A_DESTINO: { color: "bg-[#FFF5F5] text-[#C8102E]", label: "Enviado a Destino", icon: Truck },
-      RECIBIDO_EN_DESTINO: { color: "bg-emerald-50 text-[#1B6B3E]", label: "Entregado", icon: CheckCircle },
+      RECIBIDO_EN_DESTINO: { color: "bg-emerald-50 text-[#1B6B3E]", label: "En tienda", icon: CheckCircle },
+      ENTREGADO_AL_CLIENTE: { color: "bg-emerald-50 text-[#1B6B3E]", label: "Entregado al cliente", icon: CheckCircle },
       CANCELADO: { color: "bg-red-50 text-red-700", label: "Cancelado", icon: AlertTriangle },
     };
     return configs[status] || { color: "bg-gray-100 text-gray-500", label: status, icon: Package };
@@ -439,7 +440,7 @@ export default function Home() {
               {
                 icon: CheckCircle,
                 title: "Entregado",
-                desc: "La tienda destino confirma la recepcion y el envio esta completo.",
+                desc: "La tienda lo recibe y lo entrega al cliente.",
               },
             ].map((step) => (
               <Card

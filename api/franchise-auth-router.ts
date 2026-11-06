@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { createHash } from "crypto";
 import { SignJWT, jwtVerify } from "jose";
-import { eq } from "drizzle-orm";
-import { createRouter, publicQuery } from "./middleware";
+import { and, eq, ne } from "drizzle-orm";
+import { createRouter, franchiseAuthedQuery, publicQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { franchiseUsers, franchises } from "@db/schema";
 import { TRPCError } from "@trpc/server";
@@ -193,4 +193,65 @@ export const franchiseAuthRouter = createRouter({
 
     return { success: true };
   }),
+
+  team: franchiseAuthedQuery.query(async ({ ctx }) => {
+    const db = getDb();
+    const rows = await db
+      .select({
+        id: franchiseUsers.id,
+        username: franchiseUsers.username,
+        displayName: franchiseUsers.displayName,
+        isActive: franchiseUsers.isActive,
+      })
+      .from(franchiseUsers)
+      .where(eq(franchiseUsers.franchiseId, ctx.franchiseUser!.franchiseId));
+    return rows;
+  }),
+
+  addTeamMember: franchiseAuthedQuery
+    .input(z.object({
+      displayName: z.string().trim().min(2).max(80),
+      username: z.string().trim().min(3).max(30).regex(/^[a-z0-9_]+$/),
+      password: z.string().min(4).max(80),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const db = getDb();
+      const existing = await db.select({ id: franchiseUsers.id }).from(franchiseUsers).where(eq(franchiseUsers.username, input.username)).limit(1);
+      if (existing.length > 0) {
+        throw new TRPCError({ code: "CONFLICT", message: "Ese usuario ya existe. Elige otro." });
+      }
+      await db.insert(franchiseUsers).values({
+        franchiseId: ctx.franchiseUser!.franchiseId,
+        username: input.username,
+        passwordHash: hashPassword(input.password),
+        displayName: input.displayName,
+        role: "staff",
+        isActive: 1,
+      });
+      return { success: true };
+    }),
+
+  setTeamMemberActive: franchiseAuthedQuery
+    .input(z.object({ id: z.number().int().positive(), active: z.boolean() }))
+    .mutation(async ({ input, ctx }) => {
+      const db = getDb();
+      if (input.id === ctx.franchiseUser!.id && !input.active) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "No puedes desactivar tu propio usuario." });
+      }
+      const rows = await db.select().from(franchiseUsers).where(and(
+        eq(franchiseUsers.id, input.id),
+        eq(franchiseUsers.franchiseId, ctx.franchiseUser!.franchiseId),
+      )).limit(1);
+      if (rows.length === 0) throw new TRPCError({ code: "NOT_FOUND", message: "Persona no encontrada" });
+      const activeCount = await db.select({ id: franchiseUsers.id }).from(franchiseUsers).where(and(
+        eq(franchiseUsers.franchiseId, ctx.franchiseUser!.franchiseId),
+        eq(franchiseUsers.isActive, 1),
+        ne(franchiseUsers.id, input.id),
+      ));
+      if (!input.active && activeCount.length === 0) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Tiene que quedar al menos una persona activa." });
+      }
+      await db.update(franchiseUsers).set({ isActive: input.active ? 1 : 0 }).where(eq(franchiseUsers.id, input.id));
+      return { success: true };
+    }),
 });

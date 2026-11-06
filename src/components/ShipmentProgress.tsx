@@ -3,7 +3,7 @@ import type { TimelineStep } from "@/lib/timeline";
 
 function StepIcon({ status }: { status: string }) {
   const className = "w-5 h-5";
-  if (status === "RECIBIDO_EN_DESTINO") return <CheckCircle className={className} />;
+  if (status === "RECIBIDO_EN_DESTINO" || status === "ENTREGADO_AL_CLIENTE") return <CheckCircle className={className} />;
   if (status === "RECIBIDO_EN_BODEGA") return <ClipboardCheck className={className} />;
   if (status === "ENVIADO_A_BODEGA") return <Send className={className} />;
   if (status === "EN_PARADA") return <MapPin className={className} />;

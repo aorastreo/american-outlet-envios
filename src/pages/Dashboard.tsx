@@ -32,7 +32,8 @@ function getStatusConfig(status: string) {
     EN_RUTA: { color: "text-blue-700", label: "En Ruta", bg: "bg-blue-50" },
     EN_PARADA: { color: "text-orange-700", label: "En Parada", bg: "bg-orange-50" },
     ENVIADO_A_DESTINO: { color: "text-[#C8102E]", label: "Enviado a Destino", bg: "bg-[#FFF5F5]" },
-    RECIBIDO_EN_DESTINO: { color: "text-emerald-700", label: "Entregado", bg: "bg-emerald-50" },
+    RECIBIDO_EN_DESTINO: { color: "text-emerald-700", label: "En tienda", bg: "bg-emerald-50" },
+    ENTREGADO_AL_CLIENTE: { color: "text-emerald-700", label: "Entregado al cliente", bg: "bg-emerald-50" },
     NO_RECOGIDO: { color: "text-red-700", label: "No recogido", bg: "bg-red-50" },
     CANCELADO: { color: "text-red-700", label: "Cancelado", bg: "bg-red-50" },
   };

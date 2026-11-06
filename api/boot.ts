@@ -197,6 +197,14 @@ async function initTables() {
       )
     `);
 
+    const statusEnum = "ENUM('CREADO','ENVIADO_A_BODEGA','RECIBIDO_EN_BODEGA','ENVIADO_A_DESTINO','RECIBIDO_EN_DESTINO','ENTREGADO_AL_CLIENTE','EN_RUTA','EN_PARADA','NO_RECOGIDO','CANCELADO')";
+    try {
+      await connection.execute(`ALTER TABLE shipments MODIFY status ${statusEnum} NOT NULL`);
+      await connection.execute(`ALTER TABLE shipment_tracking MODIFY status ${statusEnum} NOT NULL`);
+    } catch (alterErr: any) {
+      console.log("[init] Status enum:", alterErr.message);
+    }
+
     await connection.end();
     console.log("[init] Tables OK!");
   } catch (err: any) {
