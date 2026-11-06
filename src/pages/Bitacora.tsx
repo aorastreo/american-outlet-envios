@@ -1,26 +1,17 @@
 import { Link, useSearchParams } from "react-router";
 import { trpc } from "@/providers/trpc";
-import { useFranchiseAuth } from "@/hooks/useFranchiseAuth";
 import { Truck, Package, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
-function isGanga(name: string | undefined): boolean {
-  return (name || "").toLowerCase().includes("ganga");
-}
-
 function cleanName(name: string | undefined): string {
   if (!name) return "Tienda";
-  const upper = name.toUpperCase();
-  if (upper.includes("GANGA")) return "Ganga Santa Rosa";
   return name.replace(/AMERICAN OUTLET\s*/i, "").replace(/^Recogida\s*-\s*/i, "").trim() || name;
 }
 
 export default function Bitacora() {
   const [searchParams] = useSearchParams();
-  const { user } = useFranchiseAuth();
-  const myFranchiseName = cleanName(user?.franchise?.displayName || user?.franchise?.name);
   const idsParam = searchParams.get("ids");
   const ids = idsParam ? idsParam.split(",").map(Number).filter(Boolean) : [];
 
@@ -55,9 +46,8 @@ export default function Bitacora() {
   const destinations = [...new Set(shipments.map((s) => cleanName(s.destinationDisplayName || s.destinationName)))];
   const originName = origins.length === 1 ? origins[0] : "Varios origenes";
   const destinationName = destinations.length === 1 ? destinations[0] : "Varios destinos";
-  const ganga = isGanga(myFranchiseName);
-  const brand = ganga ? "Ganga Santa Rosa" : "American Outlet";
-  const logoUrl = ganga ? "/logo-ganga.jpg" : "/logo.jpg";
+  const brand = "American Outlet";
+  const logoUrl = "/logo.jpg";
 
   return (
     <div className="min-h-screen bg-[#F3F3F3] print:min-h-0 print:bg-white">

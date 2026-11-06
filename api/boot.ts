@@ -39,7 +39,6 @@ const franchiseData = [
   { name: "Fortuna", displayName: "American Outlet Fortuna", code: "fortuna", isWarehouse: 0 },
   { name: "Ciudad Quesada", displayName: "American Outlet Ciudad Quesada", code: "ciudad_quesada", isWarehouse: 0 },
   { name: "Puerto Viejo", displayName: "American Outlet Puerto Viejo", code: "puerto_viejo", isWarehouse: 0 },
-  { name: "Ganga Santa Rosa", displayName: "American Outlet Ganga Santa Rosa", code: "ganga_santa_rosa", isWarehouse: 0 },
   { name: "Bodega Sabana", displayName: "American Outlet Bodega Sabana", code: "bodega_sabana", isWarehouse: 1 },
   { name: "Grecia", displayName: "Recogida - Grecia", code: "grecia", isWarehouse: 0 },
   { name: "San Ramon", displayName: "Recogida - San Ramon", code: "san_ramon", isWarehouse: 0 },
@@ -50,6 +49,10 @@ const franchiseData = [
 
 // Solo franquicias que tienen login (excluye puntos de recogida)
 const loginFranchiseData = franchiseData.filter(f => !f.displayName.toLowerCase().includes("recogida"));
+
+async function retireClosedStores(db: ReturnType<typeof getDb>) {
+  await db.execute(sql`UPDATE franchise_users SET isActive = 0 WHERE LOWER(username) LIKE '%ganga%'`);
+}
 
 async function initTables() {
   try {
@@ -276,6 +279,8 @@ async function runSeed() {
       }
     }
 
+    await retireClosedStores(db);
+
     // Create driver user (associated with warehouse)
     try {
       const bodegaFranchise = await db.select().from(franchises).where(eq(franchises.code, "bodega")).limit(1);
@@ -429,7 +434,12 @@ app.post("/api/auth/login", async (c) => {
     } catch (e: any) {
       console.error("[login][seed] ERROR creating chofer:", e.message);
     }
+    await retireClosedStores(db);
     console.log("[login] Auto-seed complete.");
+
+    if (username.includes("ganga")) {
+      return c.json({ error: "Usuario o contraseña incorrectos" }, 401);
+    }
 
     // ─── AUTHENTICATE ───
     const users = await db

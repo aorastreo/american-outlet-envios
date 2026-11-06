@@ -21,8 +21,6 @@ const logoUrl = "/logo.jpg";
 
 function cleanName(name: string | undefined): string {
   if (!name) return "";
-  const upper = name.toUpperCase();
-  if (upper.includes("GANGA")) return "Ganga Santa Rosa";
   return name.replace(/AMERICAN OUTLET\s*/i, "").trim() || name;
 }
 
@@ -226,7 +224,7 @@ export default function Home() {
                       const originIsCedi = (s?.originFranchise?.name || "").toLowerCase().includes("cedi");
                       const originIsPavon = (s?.originFranchise?.name || "").toLowerCase().includes("pavon");
                       const destN = (s?.destinationFranchise?.name || "").toLowerCase();
-                      const destIsMio = destN.includes("chiles") || destN.includes("pavon") || destN.includes("santa rosa") || destN.includes("ganga");
+                      const destIsMio = !destN.includes("ganga") && (destN.includes("chiles") || destN.includes("pavon") || destN.includes("santa rosa"));
                       const destIsVendedor = destN.includes("boca arenal") || destN.includes("florencia") || destN.includes("fortuna") || destN.includes("quesada") || destN.includes("puerto viejo");
                       if (destIsWarehouse) return "Envio entre Bodegas";
                       if (originIsCedi && destIsMio) return "Envio desde CEDI (Pasa por Pavon)";

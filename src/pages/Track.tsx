@@ -18,8 +18,6 @@ import { historyStepLabel, shipmentPlaceText } from "../lib/franchise-groups";
 
 function cleanName(name: string | undefined): string {
   if (!name) return "";
-  const upper = name.toUpperCase();
-  if (upper.includes("GANGA")) return "Ganga Santa Rosa";
   return name.replace(/AMERICAN OUTLET\s*/i, "").trim() || name;
 }
 

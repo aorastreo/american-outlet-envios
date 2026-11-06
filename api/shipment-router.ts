@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { eq, or, and, desc, sql, inArray, ne } from "drizzle-orm";
 import { createRouter, publicQuery, franchiseAuthedQuery } from "./middleware";
-import { getFranchiseGroup, needsInterBodega } from "../src/lib/franchise-groups";
+import { getFranchiseGroup, isRetiredFranchise, needsInterBodega } from "../src/lib/franchise-groups";
 import { getDb } from "./queries/connection";
 import {
   shipments,
@@ -146,7 +146,7 @@ function buildTimelineSteps(
 
   const originIsCedi = originNameLower.includes("cedi");
   const originIsPavon = originNameLower.includes("pavon");
-  const destIsMio = destNameLower.includes("chiles") || destNameLower.includes("pavon") || destNameLower.includes("santa rosa") || destNameLower.includes("ganga");
+  const destIsMio = !destNameLower.includes("ganga") && (destNameLower.includes("chiles") || destNameLower.includes("pavon") || destNameLower.includes("santa rosa"));
   const destIsVendedor = destNameLower.includes("boca arenal") || destNameLower.includes("florencia") || destNameLower.includes("fortuna") || destNameLower.includes("quesada") || destNameLower.includes("puerto viejo");
   const destIsSabana = destNameLower.includes("sabana");
 
@@ -183,7 +183,7 @@ function buildTimelineSteps(
     }
   } else if (destIsWarehouse) {
     // Tienda -> Bodega
-    const originIsMioStore = originNameLower.includes("chiles") || originNameLower.includes("pavon") || originNameLower.includes("santa rosa") || originNameLower.includes("ganga");
+    const originIsMioStore = !originNameLower.includes("ganga") && (originNameLower.includes("chiles") || originNameLower.includes("pavon") || originNameLower.includes("santa rosa"));
     const originIsVendedorStore = originNameLower.includes("boca arenal") || originNameLower.includes("florencia") || originNameLower.includes("fortuna") || originNameLower.includes("quesada") || originNameLower.includes("puerto viejo");
     const firstBodegaName = originIsMioStore ? "Bodega Pavon" : originIsVendedorStore ? "CEDI" : "Bodega";
     const destBodegaName = destName || (destNameLower.includes("cedi") ? "CEDI" : destNameLower.includes("pavon") ? "Bodega Pavon" : destIsSabana ? "Bodega Sabana" : "Bodega");
@@ -230,7 +230,7 @@ function buildTimelineSteps(
     }
   } else if (isPickup) {
     // Tienda -> Ruta
-    const originIsMioStore = originNameLower.includes("chiles") || originNameLower.includes("pavon") || originNameLower.includes("santa rosa") || originNameLower.includes("ganga");
+    const originIsMioStore = !originNameLower.includes("ganga") && (originNameLower.includes("chiles") || originNameLower.includes("pavon") || originNameLower.includes("santa rosa"));
     const originIsVendedorStore = originNameLower.includes("boca arenal") || originNameLower.includes("florencia") || originNameLower.includes("fortuna") || originNameLower.includes("quesada") || originNameLower.includes("puerto viejo");
     const firstBodegaName = originIsMioStore ? "Bodega Pavon" : originIsVendedorStore ? "CEDI" : "Bodega";
 
@@ -247,7 +247,7 @@ function buildTimelineSteps(
     steps.push({ status: "RECIBIDO_EN_DESTINO", label: city ? `Entregado en ${city}` : "Entregado", desc: "El cliente recogio el paquete" });
   } else {
     // Tienda -> Tienda
-    const originIsMio = originNameLower.includes("chiles") || originNameLower.includes("pavon") || originNameLower.includes("santa rosa") || originNameLower.includes("ganga");
+    const originIsMio = !originNameLower.includes("ganga") && (originNameLower.includes("chiles") || originNameLower.includes("pavon") || originNameLower.includes("santa rosa"));
     const originIsVendedor = originNameLower.includes("boca arenal") || originNameLower.includes("florencia") || originNameLower.includes("fortuna") || originNameLower.includes("quesada") || originNameLower.includes("puerto viejo");
     const isCrossGroup = (originIsMio && destIsVendedor) || (originIsVendedor && destIsMio);
     const firstBodegaName = originIsMio ? "Bodega Pavon" : originIsVendedor ? "CEDI" : "Bodega";
@@ -273,8 +273,6 @@ function buildTimelineSteps(
 // Helper: limpiar nombres de franquicia
 function cleanFranchiseName(name: string | null | undefined): string {
   if (!name) return "Tienda";
-  const upper = name.toUpperCase();
-  if (upper.includes("GANGA")) return "Ganga Santa Rosa";
   return name.replace(/AMERICAN OUTLET\s*/i, "").trim() || name;
 }
 
@@ -305,11 +303,11 @@ function randomDigit(): string {
 
 // ─── Helper: determine target warehouse based on origin/destination ───
 // Returns which warehouse handles this shipment
-// - "Bodega Pavon" for shipments from/to: Los Chiles, Pavon, Santa Rosa, Ganga
+// - "Bodega Pavon" for shipments from/to: Los Chiles, Pavon, Santa Rosa
 // - "Bodega Cedi" for shipments from/to: Boca Arenal, Florencia, Fortuna, Ciudad Quesada, Puerto Viejo
 // - Cross-group: starts at origin's warehouse, then transfers to destination's warehouse
 function getTargetBodega(originName?: string | null, destName?: string | null): { firstBodega: string; finalBodega: string; needsInterBodega: boolean } {
-  const MY_STORES = ["los chiles", "pavon", "santa rosa", "ganga"];
+  const MY_STORES = ["los chiles", "pavon", "santa rosa"];
   const VENDOR_STORES = ["boca arenal", "florencia", "fortuna", "ciudad quesada", "puerto viejo"];
 
   const originLower = (originName || "").toLowerCase();
@@ -325,9 +323,9 @@ function getTargetBodega(originName?: string | null, destName?: string | null): 
   const destIsBodegaPavon = destLower.includes("pavon") && destLower.includes("bodega");
   const destIsBodegaCedi = destLower.includes("cedi") && destLower.includes("bodega");
 
-  const originIsMineStore = MY_STORES.some(s => originLower.includes(s));
+  const originIsMineStore = !originLower.includes("ganga") && MY_STORES.some(s => originLower.includes(s));
   const originIsVendorStore = VENDOR_STORES.some(s => originLower.includes(s));
-  const destIsMineStore = MY_STORES.some(s => destLower.includes(s)) && !destIsSabana && !destIsRoute;
+  const destIsMineStore = !destLower.includes("ganga") && MY_STORES.some(s => destLower.includes(s)) && !destIsSabana && !destIsRoute;
   const destIsVendorStore = VENDOR_STORES.some(s => destLower.includes(s)) || destIsSabana || destIsRoute;
 
   // Determine group (store or bodega)
@@ -438,6 +436,9 @@ export const shipmentRouter = createRouter({
 
       // Get destination franchise name for bodega assignment
       const destFranchise = await db.select().from(franchises).where(eq(franchises.id, input.destinationFranchiseId)).limit(1);
+      if (!destFranchise[0] || isRetiredFranchise(destFranchise[0])) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Esa tienda ya no recibe envios." });
+      }
       const destName = destFranchise[0]?.name || "";
       const originName = userFranchise[0]?.name || "";
 

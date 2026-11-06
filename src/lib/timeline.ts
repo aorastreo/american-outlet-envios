@@ -93,7 +93,7 @@ export function buildShipmentTimeline(
   const originIsCedi = originNameLower.includes("cedi");
   const originIsPavon = originNameLower.includes("pavon");
   const originIsSabana = originNameLower.includes("sabana");
-  const destIsMio = destNameLower.includes("chiles") || destNameLower.includes("pavon") || destNameLower.includes("santa rosa") || destNameLower.includes("ganga");
+  const destIsMio = !destNameLower.includes("ganga") && (destNameLower.includes("chiles") || destNameLower.includes("pavon") || destNameLower.includes("santa rosa"));
   const destIsVendedor = destNameLower.includes("boca arenal") || destNameLower.includes("florencia") || destNameLower.includes("fortuna") || destNameLower.includes("quesada") || destNameLower.includes("puerto viejo");
 
      // --- BODEGA → BODEGA ---
@@ -132,7 +132,7 @@ export function buildShipmentTimeline(
   }
   // --- TIENDA → BODEGA ---
   else if (destIsWarehouse) {
-    const originIsMioStore = originNameLower.includes("chiles") || originNameLower.includes("pavon") || originNameLower.includes("santa rosa") || originNameLower.includes("ganga");
+    const originIsMioStore = !originNameLower.includes("ganga") && (originNameLower.includes("chiles") || originNameLower.includes("pavon") || originNameLower.includes("santa rosa"));
     const originIsVendedorStore = originNameLower.includes("boca arenal") || originNameLower.includes("florencia") || originNameLower.includes("fortuna") || originNameLower.includes("quesada") || originNameLower.includes("puerto viejo");
     const firstBodegaName = originIsMioStore ? "Bodega Pavon" : originIsVendedorStore ? "CEDI" : "Bodega";
     const destBodegaName = destName || (destIsCedi ? "CEDI" : destIsPavon ? "Bodega Pavon" : destIsSabana ? "Bodega Sabana" : "Bodega");
@@ -183,7 +183,7 @@ export function buildShipmentTimeline(
   }
   // --- TIENDA → RUTA (pickup) ---
   else if (isPickup) {
-    const originIsMioStore = originNameLower.includes("chiles") || originNameLower.includes("pavon") || originNameLower.includes("santa rosa") || originNameLower.includes("ganga");
+    const originIsMioStore = !originNameLower.includes("ganga") && (originNameLower.includes("chiles") || originNameLower.includes("pavon") || originNameLower.includes("santa rosa"));
     const originIsVendedorStore = originNameLower.includes("boca arenal") || originNameLower.includes("florencia") || originNameLower.includes("fortuna") || originNameLower.includes("quesada") || originNameLower.includes("puerto viejo");
     const firstBodegaName = originIsMioStore ? "Bodega Pavon" : originIsVendedorStore ? "CEDI" : "Bodega";
 
@@ -201,7 +201,7 @@ export function buildShipmentTimeline(
   }
   // --- TIENDA → TIENDA ---
   else {
-    const originIsMio = originNameLower.includes("chiles") || originNameLower.includes("pavon") || originNameLower.includes("santa rosa") || originNameLower.includes("ganga");
+    const originIsMio = !originNameLower.includes("ganga") && (originNameLower.includes("chiles") || originNameLower.includes("pavon") || originNameLower.includes("santa rosa"));
     const originIsVendedor = originNameLower.includes("boca arenal") || originNameLower.includes("florencia") || originNameLower.includes("fortuna") || originNameLower.includes("quesada") || originNameLower.includes("puerto viejo");
     const isCrossGroup = (originIsMio && destIsVendedor) || (originIsVendedor && destIsMio);
     const firstBodegaName = originIsMio ? "Bodega Pavon" : originIsVendedor ? "CEDI" : "Bodega";

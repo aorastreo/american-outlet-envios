@@ -87,16 +87,12 @@ export async function getFranchiseUserFromRequest(headers: Headers) {
 
 function canChangeFranchisePassword(franchise: { code?: string | null; name?: string | null; displayName?: string | null }) {
   if (isRetiredFranchise(franchise)) return false;
-  const code = (franchise.code || "").toLowerCase();
-  const text = `${code} ${franchise.name || ""} ${franchise.displayName || ""}`.toLowerCase();
-  if (code === "ganga_santa_rosa" || (text.includes("ganga") && text.includes("santa rosa"))) return false;
+  const text = `${franchise.code || ""} ${franchise.name || ""} ${franchise.displayName || ""}`.toLowerCase();
   return getFranchiseGroup(text) !== "route";
 }
 
 function cleanFranchiseLabel(name: string | null | undefined): string {
   if (!name) return "";
-  const upper = name.toUpperCase();
-  if (upper.includes("GANGA")) return "Ganga Santa Rosa";
   return name.replace(/AMERICAN OUTLET\s*/i, "").trim() || name;
 }
 
@@ -128,6 +124,9 @@ export const franchiseAuthRouter = createRouter({
       }
 
       const db = getDb();
+      if (input.username.trim().toLowerCase().includes("ganga")) {
+        throw new TRPCError({ code: "UNAUTHORIZED", message: "Usuario o contrasena incorrectos" });
+      }
       const users = await db
         .select()
         .from(franchiseUsers)

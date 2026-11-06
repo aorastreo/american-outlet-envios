@@ -6,16 +6,9 @@ import { useFranchiseAuth } from "@/hooks/useFranchiseAuth";import { Printer, Pa
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
-const logoUrl = "/logo.jpg";
-
-function isGanga(name: string | undefined): boolean {
-  return (name || "").toLowerCase().includes("ganga");
-}
 
 function cleanName(name: string | undefined): string {
   if (!name) return "Tienda";
-  const upper = name.toUpperCase();
-  if (upper.includes("GANGA")) return "Ganga Santa Rosa";
   return name.replace(/AMERICAN OUTLET\s*/i, "").trim() || name;
 }
 
@@ -112,13 +105,13 @@ export default function Boleta() {
             <div className="flex items-center gap-4">
               {/* Logo */}
               <img
-                src={isGanga(myFranchiseName) ? "/logo-ganga.jpg" : "/logo.jpg"}
-                alt={isGanga(myFranchiseName) ? "Ganga Santa Rosa" : "American Outlet"}
+                src="/logo.jpg"
+                alt="American Outlet"
                 className="w-16 h-16 object-contain rounded-lg"
               />
               <div>
                 <h1 className="text-2xl font-black text-[#1A1A1A] tracking-tight leading-none">
-                  {isGanga(myFranchiseName) ? "Ganga Santa Rosa" : `American Outlet ${myFranchiseName}`}                </h1>
+                  American Outlet {myFranchiseName}</h1>
                 <p className="text-base font-bold text-[#404040] leading-none mt-1">
                   {myFranchiseName}
                 </p>

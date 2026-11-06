@@ -7,27 +7,25 @@ function plainFranchiseText(value: string | null | undefined): string {
     .replace(/\p{M}/gu, "");
 }
 
-/** Bodega Ganga was closed. Ganga Santa Rosa is the store that remains. */
+/** Ganga, including Ganga Santa Rosa, is closed. */
 export function isRetiredFranchise(franchise: {
   code?: string | null;
   name?: string | null;
   displayName?: string | null;
 }): boolean {
-  const code = plainFranchiseText(franchise.code);
-  if (code === "ganga_santa_rosa") return false;
-  const text = `${code} ${plainFranchiseText(franchise.name)} ${plainFranchiseText(franchise.displayName)}`;
-  if (text.includes("ganga") && text.includes("santa rosa")) return false;
-  return text.includes("ganga") && text.includes("bodega");
+  const text = `${plainFranchiseText(franchise.code)} ${plainFranchiseText(franchise.name)} ${plainFranchiseText(franchise.displayName)}`;
+  return text.includes("ganga");
 }
 
 export function getFranchiseGroup(name: string | undefined | null): FranchiseGroup {
   if (!name) return "unknown";
   const n = name.toLowerCase();
+  if (n.includes("ganga")) return "unknown";
   if (n.includes("sabana")) return "sabana";
   if (n.includes("grecia") || n.includes("palmares") || n.includes("san ramon")) return "route";
   if (n.includes("pavon") && n.includes("bodega")) return "mio";
   if (n.includes("cedi") && n.includes("bodega")) return "vendedor";
-  if (n.includes("chiles") || n.includes("pavon") || n.includes("santa rosa") || n.includes("ganga")) return "mio";
+  if (n.includes("chiles") || n.includes("pavon") || n.includes("santa rosa")) return "mio";
   if (n.includes("boca arenal") || n.includes("florencia") || n.includes("fortuna") || n.includes("quesada") || n.includes("puerto viejo")) return "vendedor";
   if (n.includes("cedi")) return "vendedor";
   if (n.includes("bodega")) return "warehouse";

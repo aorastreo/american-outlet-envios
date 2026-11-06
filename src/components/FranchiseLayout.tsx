@@ -63,12 +63,8 @@ export function RequireFranchise() {
   return <Outlet />;
 }
 
-const isGanga = (username: string | undefined) => username === "ganga_santa_rosa";
-
 function cleanName(name: string | undefined): string {
   if (!name) return "";
-  const upper = name.toUpperCase();
-  if (upper.includes("GANGA")) return "Ganga Santa Rosa";
   return name.replace(/AMERICAN OUTLET\s*/i, "").trim() || name;
 }
 
@@ -120,9 +116,8 @@ export default function FranchiseLayout({
   });
 
   const showBadge = pendingCount && pendingCount > 0;
-  const ganga = isGanga(user?.username);
-  const brandName = ganga ? "Ganga Santa Rosa" : "American Outlet";
-  const logoUrl = ganga ? "/logo-ganga.jpg" : "/logo.jpg";
+  const brandName = "American Outlet";
+  const logoUrl = "/logo.jpg";
 
   return (
     <div className="flex h-screen bg-[#F7F7F7]">
