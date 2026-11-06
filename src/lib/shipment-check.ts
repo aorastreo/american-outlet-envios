@@ -2,12 +2,15 @@ export type CheckableShipment = {
   id: number;
   trackingNumber: string;
   invoiceNumber?: string | null;
+  senderName?: string | null;
+  originName?: string | null;
+  destinationName?: string | null;
 };
 
 export type CodeMatch<T> =
   | { status: "empty" }
   | { status: "none" }
-  | { status: "many" }
+  | { status: "many"; shipments: T[] }
   | { status: "one"; shipment: T };
 
 function compact(value: string | null | undefined): string {
@@ -27,6 +30,6 @@ export function matchShipmentCode<T extends CheckableShipment>(code: string, shi
   });
 
   if (hits.length === 0) return { status: "none" };
-  if (hits.length > 1) return { status: "many" };
+  if (hits.length > 1) return { status: "many", shipments: hits };
   return { status: "one", shipment: hits[0] };
 }

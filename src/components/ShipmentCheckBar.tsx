@@ -37,6 +37,7 @@ export default function ShipmentCheckBar({
   const [code, setCode] = useState("");
   const [cameraOn, setCameraOn] = useState(false);
   const [cameraError, setCameraError] = useState("");
+  const [choices, setChoices] = useState<{ label: string; sameInvoice: boolean; shipments: CheckableShipment[] } | null>(null);
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const onCodeRef = useRef<(value: string) => void>(() => {});
   const lastScanRef = useRef({ value: "", at: 0 });
@@ -44,10 +45,20 @@ export default function ShipmentCheckBar({
   const readCount = shipments.filter((shipment) => selectedIds.includes(shipment.id)).length;
   const place = mode === "salida" ? "Para" : "Viene de";
 
+  const markShipment = (shipment: CheckableShipment) => {
+    if (selectedIds.includes(shipment.id)) {
+      toast(`${shipment.trackingNumber} ya estaba leido`);
+      return;
+    }
+    onMark(shipment.id);
+    toast.success(`${shipment.trackingNumber} leido`);
+  };
+
   const applyCode = (raw: string) => {
     const match = matchShipmentCode(raw, shipments);
     if (match.status === "empty") return;
     if (match.status === "none") {
+      setChoices(null);
       const waiting = matchShipmentCode(raw, waitingShipments);
       toast.error(
         waiting.status === "one"
@@ -57,15 +68,17 @@ export default function ShipmentCheckBar({
       return;
     }
     if (match.status === "many") {
-      toast.error("Hay varios con esos digitos. Escribe mas del numero.");
+      const invoices = [...new Set(match.shipments.map((shipment) => (shipment.invoiceNumber || "").trim()).filter(Boolean))];
+      const sameInvoice = invoices.length === 1;
+      setChoices({
+        label: sameInvoice ? invoices[0] : raw.trim(),
+        sameInvoice,
+        shipments: match.shipments,
+      });
       return;
     }
-    if (selectedIds.includes(match.shipment.id)) {
-      toast(`${match.shipment.trackingNumber} ya estaba leido`);
-      return;
-    }
-    onMark(match.shipment.id);
-    toast.success(`${match.shipment.trackingNumber} leido`);
+    setChoices(null);
+    markShipment(match.shipment);
   };
 
   onCodeRef.current = (value: string) => {
@@ -217,6 +230,60 @@ export default function ShipmentCheckBar({
           {cameraOn ? "Cerrar camara" : "Escanear con el celular"}
         </button>
       </form>
+
+      {choices && (
+        <div className="rounded-lg border border-[#C8102E]/30 bg-[#FFF5F5] p-3 space-y-2">
+          <div className="flex items-start justify-between gap-3">
+            <p className="text-sm font-semibold text-[#1A1A1A]">
+              {choices.sameInvoice
+                ? `La factura ${choices.label} tiene ${choices.shipments.length} paquetes. Toca el que vas a marcar.`
+                : `Hay ${choices.shipments.length} paquetes con esos digitos. Toca el que vas a marcar.`}
+            </p>
+            <button
+              type="button"
+              onClick={() => setChoices(null)}
+              className="shrink-0 text-xs font-medium text-[#525252]"
+            >
+              Cerrar
+            </button>
+          </div>
+          <div className="space-y-2">
+            {choices.shipments.map((shipment) => {
+              const read = selectedIds.includes(shipment.id);
+              const route = [shipment.originName, shipment.destinationName].filter(Boolean).join(" → ");
+              return (
+                <button
+                  key={shipment.id}
+                  type="button"
+                  disabled={read}
+                  onClick={() => markShipment(shipment)}
+                  className={`w-full text-left rounded-lg border px-3 py-3 ${
+                    read
+                      ? "border-[#E5E5E5] bg-[#F7F7F7] text-[#8A8A8A]"
+                      : "border-[#D4D4D4] bg-white hover:border-[#C8102E]"
+                  }`}
+                >
+                  <span className="flex items-center justify-between gap-2">
+                    <span className={`font-mono font-semibold ${read ? "text-[#8A8A8A]" : "text-[#C8102E]"}`}>
+                      {shipment.trackingNumber}
+                    </span>
+                    <span className={`text-xs font-medium ${read ? "text-[#8A8A8A]" : "text-[#C8102E]"}`}>
+                      {read ? "Ya leido" : "Marcar este"}
+                    </span>
+                  </span>
+                  {(shipment.senderName || route) && (
+                    <span className="block mt-1 text-xs text-[#525252]">
+                      {shipment.senderName}
+                      {shipment.senderName && route ? " · " : ""}
+                      {route}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {cameraError && <p className="text-sm text-amber-700">{cameraError}</p>}
 
