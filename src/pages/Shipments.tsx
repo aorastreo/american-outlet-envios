@@ -394,13 +394,17 @@ export default function Shipments() {
   // The date field starts on today, and keeps whatever day the store picks.
   const [dateFilter, setDateFilter] = useState<string>(() => format(new Date(), "yyyy-MM-dd"));
   const [dateFilterEnabled, setDateFilterEnabled] = useState<boolean>(false);
+  const [historyPick, setHistoryPick] = useState<string | null>(null);
 
   // Sync tab with URL
   useEffect(() => {
     if (urlTab && TABS.some((t) => t.key === urlTab)) {
       setActiveTab(urlTab);
+      if (["ENVIADOS", "COMPLETADOS", "EN_RUTA", "ENTREGADOS"].includes(urlTab) || (!isReceivingWarehouse && urlTab === "CANCELADOS")) {
+        setHistoryPick(urlTab);
+      }
     }
-  }, [urlTab, TABS]);
+  }, [urlTab, TABS, isReceivingWarehouse]);
 
   // Close dropdowns on outside click
   useEffect(() => {
@@ -861,7 +865,7 @@ export default function Shipments() {
               isSelected ? "ring-2 ring-[#C8102E]/20 border-[#C8102E]/30 bg-[#FFF5F5]/50" : ""
             }`}
           >
-            <CardContent className={`p-4 ${selectable ? "pl-10" : ""}`}>
+            <CardContent className={`p-4 ${checking ? "pl-10" : ""}`}>
               <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-3 flex-wrap">
@@ -960,7 +964,7 @@ export default function Shipments() {
     );
     return (
       <div id={`envio-${shipment.id}`} key={shipment.id} className="relative group">
-        {selectable && (
+        {checking && (
           <div className="absolute left-2 top-1/2 -translate-y-1/2 z-10" onClick={(event) => event.stopPropagation()}>
             <Checkbox
               checked={isSelected}
@@ -1047,14 +1051,6 @@ export default function Shipments() {
       if (missing.length > 0) addMarks.mutate({ tab: markTab, ids: missing });
     }
   };
-
-  const generateBitacora = () => {
-    if (selectedIds.length === 0) return;
-    const idsParam = selectedIds.join(",");
-    window.open(`/bitacora?ids=${idsParam}`, "_blank");
-  };
-
-  // ─── Confirmation dialog helper ───────────────────────────────
 
   const unmarkedWarning = () => {
     if (!checkMode) return "";
@@ -1230,287 +1226,71 @@ export default function Shipments() {
     );
   };
 
-  // ─── Render action buttons based on tab + user type ───────────
-
-  const renderActionButtons = () => {
+  const primaryAction = (() => {
     if (selectedIds.length === 0) return null;
-
-    // STORE: Por Enviar → Confirmar Salida + Bitacora
+    const busy = (pending: boolean, label: string) => (pending ? "Procesando..." : label + " (" + selectedIds.length + ")");
     if (!isBodega && activeTab === "POR_ENVIAR") {
-      return (
-        <>
-          <Button
-            onClick={confirmarSalida}
-            disabled={confirmarSalidaMutation.isPending}
-            variant="outline"
-            className="border-[#1B6B3E]/20 text-[#1B6B3E] hover:bg-emerald-50"
-          >
-            <Send className="w-4 h-4 mr-2" />
-            {confirmarSalidaMutation.isPending ? "Procesando..." : "Confirmar Salida a Bodega"}
-          </Button>
-          <Button
-            onClick={generateBitacora}
-            variant="outline"
-            className="border-[#C8102E]/20 text-[#C8102E] hover:bg-[#FFF5F5]"
-          >
-            <ClipboardList className="w-4 h-4 mr-2" />
-            Generar Bitacora
-          </Button>
-        </>
-      );
+      return { label: busy(confirmarSalidaMutation.isPending, "Confirmar salida"), onClick: confirmarSalida, disabled: confirmarSalidaMutation.isPending };
     }
-
-    // STORE: En tienda → el cliente retira lo que se escaneo
     if (!isBodega && activeTab === "EN_TIENDA") {
-      return (
-        <button
-          type="button"
-          onClick={entregarEnTienda}
-          disabled={entregarEnTiendaMutation.isPending}
-          className="inline-flex items-center justify-center px-4 py-2.5 bg-[#1B6B3E] text-white rounded-lg text-sm font-medium"
-        >
-          <CheckCircle className="w-4 h-4 mr-2" />
-          {entregarEnTiendaMutation.isPending ? "Procesando..." : `Entregar al cliente (${selectedIds.length})`}
-        </button>
-      );
+      return { label: busy(entregarEnTiendaMutation.isPending, "Entregar al cliente"), onClick: entregarEnTienda, disabled: entregarEnTiendaMutation.isPending };
     }
-
-    // STORE: Por Recibir → Confirmar Recepcion Masiva
-    if (!isBodega && activeTab === "POR_RECIBIR") {
-      return (
-        <>
-          <Button
-            onClick={recibirEnDestino}
-            disabled={recibirDestinoMutation.isPending}
-            variant="outline"
-            className="border-[#B8860B]/20 text-[#B8860B] hover:bg-amber-50"
-          >
-            <CheckCircle className="w-4 h-4 mr-2" />
-            {recibirDestinoMutation.isPending ? "Procesando..." : "Confirmar Recepcion Masiva"}
-          </Button>
-          <Button
-            onClick={generateBitacora}
-            variant="outline"
-            className="border-[#C8102E]/20 text-[#C8102E] hover:bg-[#FFF5F5]"
-          >
-            <ClipboardList className="w-4 h-4 mr-2" />
-            Generar Bitacora
-          </Button>
-        </>
-      );
+    if ((!isBodega || isReceivingWarehouse) && activeTab === "POR_RECIBIR") {
+      return { label: busy(recibirDestinoMutation.isPending, "Confirmar recepcion"), onClick: recibirEnDestino, disabled: recibirDestinoMutation.isPending };
     }
-
-    // SABANA: Por Recibir → the package is already addressed to Sabana
-    if (isReceivingWarehouse && activeTab === "POR_RECIBIR") {
-      return (
-        <>
-          <Button
-            onClick={recibirEnDestino}
-            disabled={recibirDestinoMutation.isPending}
-            variant="outline"
-            className="border-[#B8860B]/20 text-[#B8860B] hover:bg-amber-50"
-          >
-            <CheckCircle className="w-4 h-4 mr-2" />
-            {recibirDestinoMutation.isPending ? "Procesando..." : "Confirmar Recepcion Masiva"}
-          </Button>
-          <Button
-            onClick={generateBitacora}
-            variant="outline"
-            className="border-[#C8102E]/20 text-[#C8102E] hover:bg-[#FFF5F5]"
-          >
-            <ClipboardList className="w-4 h-4 mr-2" />
-            Generar Bitacora
-          </Button>
-        </>
-      );
+    if (isBodega && !isReceivingWarehouse && activeTab === "POR_RECIBIR") {
+      return { label: busy(recibirBodegaMutation.isPending, "Confirmar recepcion"), onClick: recibirEnBodega, disabled: recibirBodegaMutation.isPending };
     }
-
-    // WAREHOUSE: Por Recibir → Confirmar Recepcion
-    if (isBodega && activeTab === "POR_RECIBIR") {
-      return (
-        <>
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-teal-50 border border-teal-200 rounded-lg">
-            <MapPin className="w-3.5 h-3.5 text-teal-600" />
-            <span className="text-sm font-medium text-teal-700">{user?.franchise?.displayName || "Bodega"}</span>
-          </div>
-          <Button
-            onClick={recibirEnBodega}
-            disabled={recibirBodegaMutation.isPending}
-            variant="outline"
-            className="border-[#B8860B]/20 text-[#B8860B] hover:bg-amber-50"
-          >
-            <Download className="w-4 h-4 mr-2" />
-            {recibirBodegaMutation.isPending ? "Procesando..." : "Confirmar Recepcion Masiva"}
-          </Button>
-          <Button
-            onClick={generateBitacora}
-            variant="outline"
-            className="border-[#C8102E]/20 text-[#C8102E] hover:bg-[#FFF5F5]"
-          >
-            <ClipboardList className="w-4 h-4 mr-2" />
-            Generar Bitacora
-          </Button>
-        </>
-      );
-    }
-
-    // WAREHOUSE: En Bodega → Enviar a Destino o a Otra Bodega
     if (isBodega && activeTab === "EN_BODEGA") {
-      // Check selected shipments for inter-bodega needs
       const selectedShipments = filteredShipments.filter((s) => selectedIds.includes(s.id));
       const interBodega = selectedShipments.length > 0 ? needsInterBodega(selectedShipments[0]) : { needsTransfer: false, targetBodega: "" };
       const hasInterBodega = selectedShipments.some((s) => needsInterBodega(s).needsTransfer);
       const mixedMove = mixedShipmentMoveMessage(selectedShipments);
-
-      return (
-        <>
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-teal-50 border border-teal-200 rounded-lg">
-            <MapPin className="w-3.5 h-3.5 text-teal-600" />
-            <span className="text-sm font-medium text-teal-700">{user?.franchise?.displayName || "Bodega"}</span>
-          </div>
-          {mixedMove ? (
-            <span className="text-sm text-orange-700 max-w-sm">{mixedMove}</span>
-          ) : hasInterBodega ? (
-            <Button
-              type="button"
-              onClick={enviarADestino}
-              disabled={enviarDestinoMutation.isPending || enviarInterBodegaMutation.isPending}
-              variant="outline"
-              className="border-orange-600/30 text-orange-700 hover:bg-orange-50"
-            >
-              <Truck className="w-4 h-4 mr-2" />
-              {enviarInterBodegaMutation.isPending ? "Procesando..." : `Enviar a ${interBodega.targetBodega}`}
-            </Button>
-          ) : (
-            <Button
-              onClick={enviarADestino}
-              disabled={enviarDestinoMutation.isPending}
-              variant="outline"
-              className="border-purple-700/20 text-purple-700 hover:bg-purple-50"
-            >
-              <Send className="w-4 h-4 mr-2" />
-              {enviarDestinoMutation.isPending ? "Procesando..." : "Enviar a Destino"}
-            </Button>
-          )}
-          <Button
-            onClick={generateBitacora}
-            variant="outline"
-            className="border-[#C8102E]/20 text-[#C8102E] hover:bg-[#FFF5F5]"
-          >
-            <ClipboardList className="w-4 h-4 mr-2" />
-            Generar Bitacora
-          </Button>
-        </>
-      );
+      if (mixedMove) return { label: "", onClick: () => {}, disabled: true, note: mixedMove };
+      if (hasInterBodega) {
+        return {
+          label: enviarInterBodegaMutation.isPending ? "Procesando..." : "Enviar a " + interBodega.targetBodega + " (" + selectedIds.length + ")",
+          onClick: enviarADestino,
+          disabled: enviarDestinoMutation.isPending || enviarInterBodegaMutation.isPending,
+        };
+      }
+      return { label: busy(enviarDestinoMutation.isPending, "Enviar a destino"), onClick: enviarADestino, disabled: enviarDestinoMutation.isPending };
     }
-
     if (isBodega && activeTab === "ENTREGA_CLIENTE") {
-      return (
-        <>
-          <Button
-            onClick={entregarAlCliente}
-            disabled={entregarClienteMutation.isPending}
-            variant="outline"
-            className="border-[#1B6B3E]/20 text-[#1B6B3E] hover:bg-emerald-50"
-          >
-            <CheckCircle className="w-4 h-4 mr-2" />
-            {entregarClienteMutation.isPending ? "Procesando..." : "Entregado al cliente"}
-          </Button>
-          <Button
-            onClick={generateBitacora}
-            variant="outline"
-            className="border-[#C8102E]/20 text-[#C8102E] hover:bg-[#FFF5F5]"
-          >
-            <ClipboardList className="w-4 h-4 mr-2" />
-            Generar Bitacora
-          </Button>
-        </>
-      );
+      return { label: busy(entregarClienteMutation.isPending, "Entregado al cliente"), onClick: entregarAlCliente, disabled: entregarClienteMutation.isPending };
     }
-
-    // Default: just bitacora
-    return (
-      <Button
-        onClick={generateBitacora}
-        variant="outline"
-        className="border-[#C8102E]/20 text-[#C8102E] hover:bg-[#FFF5F5]"
-      >
-        <ClipboardList className="w-4 h-4 mr-2" />
-        Generar Bitacora
-      </Button>
-    );
-  };
-
-  // ─── Workflow hints ───────────────────────────────────────────
-
-  const renderWorkflowHint = () => {
-    if (selectedIds.length === 0) return null;
-
-    // Store: Por Enviar
-    if (!isBodega && activeTab === "POR_ENVIAR") {
-      return (
-        <div className="flex items-center gap-2 px-4 py-2.5 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700">
-          <ClipboardCheck className="w-4 h-4 shrink-0" />
-          <span className="font-medium">Flujo recomendado:</span>
-          <span>Confirma solo los paquetes marcados.</span>
-        </div>
-      );
-    }
-
-    // Store: En tienda, el cliente retira
-    if (!isBodega && activeTab === "EN_TIENDA") {
-      return (
-        <div className="flex items-center gap-2 px-4 py-2.5 bg-emerald-50 border border-emerald-200 rounded-lg text-sm text-emerald-800">
-          <ClipboardCheck className="w-4 h-4 shrink-0" />
-          <span className="font-medium">Entrega al cliente:</span>
-          <span>Confirma solo los paquetes escaneados y escribe quien los retira.</span>
-        </div>
-      );
-    }
-
-    // Store: Por Recibir
-    if (!isBodega && activeTab === "POR_RECIBIR") {
-      return (
-        <div className="flex items-center gap-2 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700">
-          <ClipboardCheck className="w-4 h-4 shrink-0" />
-          <span className="font-medium">Flujo de recepcion:</span>
-          <span>Confirma solo los paquetes marcados.</span>
-        </div>
-      );
-    }
-
-    // Warehouse: Por Recibir
-    if (isBodega && activeTab === "POR_RECIBIR") {
-      return (
-        <div className="flex items-center gap-2 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700">
-          <ClipboardCheck className="w-4 h-4 shrink-0" />
-          <span className="font-medium">Flujo de bodega:</span>
-          <span>Confirma solo los paquetes marcados.</span>
-        </div>
-      );
-    }
-
-    // Warehouse: En Bodega
-    if (isBodega && activeTab === "EN_BODEGA") {
-      return (
-        <div className="flex items-center gap-2 px-4 py-2.5 bg-purple-50 border border-purple-200 rounded-lg text-sm text-purple-700">
-          <ClipboardCheck className="w-4 h-4 shrink-0" />
-          <span className="font-medium">Flujo de bodega:</span>
-          <span>Confirma solo los paquetes marcados.</span>
-        </div>
-      );
-    }
-
     return null;
-  };
+  })();
 
   // ─── Date filter visibility ───────────────────────────────────
 
   const showDateFilter = !isBodega && activeTab === "ENVIADOS";
+  const historyKeys: string[] = isReceivingWarehouse
+    ? []
+    : isBodega
+      ? ["EN_RUTA", "ENTREGADOS", "CANCELADOS"]
+      : ["ENVIADOS", "COMPLETADOS", "CANCELADOS"];
+  const workKeys: string[] = isReceivingWarehouse
+    ? ["POR_RECIBIR", "EN_BODEGA", "CANCELADOS"]
+    : isBodega
+      ? ["POR_RECIBIR", "EN_BODEGA", "ENTREGA_CLIENTE"]
+      : ["POR_ENVIAR", "POR_RECIBIR", "EN_TIENDA"];
+  const stationLabel = (key: string) => {
+    if (key === "POR_ENVIAR") return "Enviar";
+    if (key === "POR_RECIBIR") return "Recibir";
+    if (key === "EN_TIENDA" || key === "ENTREGA_CLIENTE") return "Cliente";
+    if (key === "EN_BODEGA") return "En bodega";
+    if (key === "CANCELADOS") return "Cancelados";
+    if (key === "ENVIADOS") return "En camino";
+    if (key === "COMPLETADOS" || key === "ENTREGADOS") return "Entregados";
+    if (key === "EN_RUTA") return "En ruta";
+    return key;
+  };
+  const historyOpen = historyKeys.includes(activeTab);
 
   return (
     <FranchiseLayout>
-      <div className="space-y-6">
+      <div className={`space-y-6 ${primaryAction?.label ? "pb-24" : ""}`}>
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
@@ -1518,24 +1298,22 @@ export default function Shipments() {
               {isBodega ? cleanName(user?.franchise?.displayName || user?.franchise?.name) || "Bodega" : "Mis Envios"}
             </h1>
             <p className="text-[#8A8A8A] mt-1">
-              {visibleShipments.length} envio{visibleShipments.length !== 1 ? "s" : ""} encontrado
-              {visibleShipments.length !== 1 ? "s" : ""}
+              {visibleShipments.length} paquete{visibleShipments.length !== 1 ? "s" : ""}
               {selectedIds.length > 0 && (
                 <span className="ml-2 text-[#C8102E] font-medium">
-                  ({selectedIds.length} seleccionado{selectedIds.length !== 1 ? "s" : ""})
+                  · {selectedIds.length} marcado{selectedIds.length !== 1 ? "s" : ""}
                 </span>
               )}
             </p>
           </div>
           <div className="flex gap-2 flex-wrap">
-            {renderActionButtons()}
-            {!isBodega && (
+            {!isBodega && activeTab === "POR_ENVIAR" && (
               <Link
                 to="/enviar"
                 className="inline-flex items-center justify-center px-4 py-2.5 bg-[#C8102E] text-white rounded-lg text-sm font-medium hover:bg-[#9B0B22] transition-colors"
               >
                 <Package className="w-4 h-4 mr-2" />
-                Nuevo Envio
+                Nuevo envio
               </Link>
             )}
             <button
@@ -1601,39 +1379,62 @@ export default function Shipments() {
           </div>
         )}
 
-        {/* ─── Tab Buttons ─────────────────────────────────────── */}
-        <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
-          {TABS.map((tab) => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.key;
-            const count = tabCounts[tab.key] || 0;
+        <div className="flex gap-1 overflow-x-auto border-b border-[#E5E5E5]">
+          {workKeys.map((key) => {
+            const count = tabCounts[key] || 0;
+            const isActive = activeTab === key;
             return (
               <button
-                key={tab.key}
-                onClick={() => handleTabChange(tab.key)}
-                className={`relative flex flex-col items-center gap-1.5 px-4 py-3 rounded-xl border-2 transition-all duration-200 ${
-                  isActive
-                    ? `${tab.activeBg} ${tab.activeBorder} shadow-sm`
-                    : "bg-white border-[#E5E5E5] hover:bg-[#FAFAFA] hover:border-[#D4D4D4]"
+                key={key}
+                type="button"
+                onClick={() => handleTabChange(key as ActiveTabKey)}
+                className={`shrink-0 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px ${
+                  isActive ? "border-[#C8102E] text-[#1A1A1A]" : "border-transparent text-[#8A8A8A] hover:text-[#1A1A1A]"
                 }`}
               >
-                <div className="flex items-center gap-2">
-                  <Icon className={`w-4 h-4 ${isActive ? tab.activeColor : tab.color}`} />
-                  <span className={`text-sm font-semibold ${isActive ? tab.activeColor : tab.color}`}>
-                    {tab.label}
-                  </span>
-                </div>
-                <Badge
-                  className={`text-xs font-bold ${
-                    isActive ? tab.badgeColor : "bg-[#F0F0F0] text-[#8A8A8A]"
-                  }`}
-                >
-                  {count}
-                </Badge>
+                {stationLabel(key)}
+                <span className={`ml-2 text-xs font-semibold ${isActive ? "text-[#C8102E]" : "text-[#A3A3A3]"}`}>{count}</span>
               </button>
             );
           })}
+          {historyKeys.length > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                const next = historyPick && historyKeys.includes(historyPick) ? historyPick : historyKeys[0];
+                handleTabChange(next as ActiveTabKey);
+              }}
+              className={`shrink-0 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px ${
+                historyOpen ? "border-[#C8102E] text-[#1A1A1A]" : "border-transparent text-[#8A8A8A] hover:text-[#1A1A1A]"
+              }`}
+            >
+              Historial
+            </button>
+          )}
         </div>
+
+        {historyOpen && (
+          <div className="flex gap-2 overflow-x-auto">
+            {historyKeys.map((key) => {
+              const on = activeTab === key;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => {
+                    setHistoryPick(key);
+                    handleTabChange(key as ActiveTabKey);
+                  }}
+                  className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium border ${
+                    on ? "bg-[#1A1A1A] text-white border-[#1A1A1A]" : "bg-white text-[#525252] border-[#D4D4D4]"
+                  }`}
+                >
+                  {stationLabel(key)} · {tabCounts[key] || 0}
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         {checkMode && visibleShipments.length > 0 && (
           <ShipmentCheckBar
@@ -1659,9 +1460,6 @@ export default function Shipments() {
             }}
           />
         )}
-
-        {/* ─── Workflow hints ──────────────────────────────────── */}
-        {renderWorkflowHint()}
 
         {/* ─── Sub-header: tab description + date filter ───────── */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -1903,18 +1701,34 @@ export default function Shipments() {
         ) : (
           <div className="space-y-3">
             {/* Select all */}
-            {scanPool.length > 1 && (
+            {checkMode && scanPool.length > 1 && (
               <div className="flex items-center gap-2 px-4 py-2 bg-[#F7F7F7] rounded-lg border border-[#D4D4D4]">
                 <Checkbox
                   checked={scanPool.every((s) => selectedIds.includes(s.id))}
                   onCheckedChange={selectAllVisible}
                   className="border-[#D4D4D4] data-[state=checked]:bg-[#C8102E] data-[state=checked]:border-[#C8102E]"
                 />
-                <span className="text-sm text-[#525252] font-medium">{checkMode ? "Marcar todos" : "Seleccionar todos los visibles"}</span>
+                <span className="text-sm text-[#525252] font-medium">Marcar todos</span>
                 <span className="text-xs text-[#A3A3A3] ml-1">({scanPool.length})</span>
               </div>
             )}
             {visibleShipments.map((s) => renderShipmentCard(s))}
+          </div>
+        )}
+
+        {primaryAction?.note && (
+          <p className="text-sm text-orange-700">{primaryAction.note}</p>
+        )}
+        {primaryAction && primaryAction.label && (
+          <div className="fixed bottom-0 right-0 left-0 lg:left-64 z-30 border-t border-[#E5E5E5] bg-white p-3">
+            <button
+              type="button"
+              onClick={primaryAction.onClick}
+              disabled={primaryAction.disabled}
+              className="w-full h-12 rounded-xl bg-[#1A1A1A] text-white text-sm font-semibold disabled:opacity-60"
+            >
+              {primaryAction.label}
+            </button>
           </div>
         )}
 
