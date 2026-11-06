@@ -30,7 +30,6 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
-  const logoUrl = franchiseName === "ganga_santa_rosa" ? "/logo-ganga.jpg" : "/logo.jpg";
   const [isLoading, setIsLoading] = useState(false);
 
   // Solo franquicias que tienen acceso al sistema (puntos de recogida NO tienen login)
@@ -43,7 +42,6 @@ export default function Login() {
     { value: "fortuna", label: "Fortuna" },
     { value: "ciudad_quesada", label: "Ciudad Quesada" },
     { value: "puerto_viejo", label: "Puerto Viejo" },
-    { value: "ganga_santa_rosa", label: "Ganga Santa Rosa" },
     { value: "bodega_sabana", label: "Bodega Sabana" },
     { value: "chofer", label: "Chofer - Rutas" },
     { value: "bodega", label: "Bodega Pavón" },
@@ -102,15 +100,15 @@ export default function Login() {
         {/* Logo */}
         <div className="text-center mb-8">
           <img
-            src={logoUrl}
-            alt={franchiseName === "ganga_santa_rosa" ? "Ganga Santa Rosa" : "American Outlet"}
+            src="/logo.jpg"
+            alt="American Outlet"
             className="w-16 h-16 rounded-2xl object-contain bg-white mb-4 shadow-lg"
           />
           <h1 className="text-2xl font-bold text-[#1A1A1A]">
-            {franchiseName === "ganga_santa_rosa" ? "Ganga Santa Rosa" : "American Outlet"}
+            American Outlet
           </h1>
           <p className="text-sm text-[#8A8A8A] mt-1">
-            {franchiseName === "ganga_santa_rosa" ? "Acceso para Tienda" : "Acceso para Franquicias"}
+            Acceso para Franquicias
           </p>
         </div>
 
@@ -223,7 +221,7 @@ export default function Login() {
             </form>
 
                        <p className="text-center text-xs text-[#A3A3A3]">
-              Sistema exclusivo para franquicias {franchiseName === "ganga_santa_rosa" ? "Ganga Santa Rosa" : "American Outlet"}
+              Sistema exclusivo para franquicias American Outlet
             </p>
           </CardContent>
         </Card>
