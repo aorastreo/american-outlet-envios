@@ -191,8 +191,8 @@ const WAREHOUSE_TABS: TabDef<WarehouseTabKey>[] = [
     key: "ENTREGADOS",
     label: "Entregados",
     icon: CheckCircle,
-    statuses: ["RECIBIDO_EN_DESTINO"],
-    description: "Entregados en las tiendas de destino",
+    statuses: ["RECIBIDO_EN_DESTINO", "ENTREGADO_AL_CLIENTE"],
+    description: "Llegaron a la tienda o el cliente ya los retiro",
     color: "text-[#525252]",
     activeColor: "text-[#1B6B3E]",
     activeBg: "bg-emerald-50",
@@ -769,7 +769,7 @@ export default function Shipments() {
           else place = { label: `la seccion ${tabLabel("EN_BODEGA")}`, tab: "EN_BODEGA" };
         } else if (["ENVIADO_A_DESTINO", "EN_RUTA", "EN_PARADA"].includes(s.status)) {
           place = { label: `la seccion ${tabLabel("EN_RUTA")}`, tab: "EN_RUTA" };
-        } else if (s.status === "RECIBIDO_EN_DESTINO") {
+        } else if (s.status === "RECIBIDO_EN_DESTINO" || s.status === "ENTREGADO_AL_CLIENTE") {
           place = { label: `la seccion ${tabLabel("ENTREGADOS")}`, tab: "ENTREGADOS" };
         } else if (s.status === "NO_RECOGIDO") {
           place = { label: "Rutas, en No recogidos", href: "/rutas?tab=NO_RECOGIDOS" };

@@ -207,7 +207,7 @@ export default function Dashboard() {
 
   const warehouseDelivered = useMemo(() => {
     if (!isBodega || !shipments) return [];
-    return shipments.filter((s) => s.status === "RECIBIDO_EN_DESTINO");
+    return shipments.filter((s) => s.status === "RECIBIDO_EN_DESTINO" || s.status === "ENTREGADO_AL_CLIENTE");
   }, [shipments, isBodega]);
 
   const cancelledShipments = useMemo(
@@ -275,7 +275,11 @@ export default function Dashboard() {
 
   const storeCompleted = useMemo(() => {
     if (isBodega || !shipments) return [];
-    return shipments.filter((s) => s.originFranchiseId === myFranchiseId && s.status === "RECIBIDO_EN_DESTINO");
+    return shipments.filter((s) => {
+      const sentByMe = s.originFranchiseId === myFranchiseId && (s.status === "RECIBIDO_EN_DESTINO" || s.status === "ENTREGADO_AL_CLIENTE");
+      const handedHere = s.destinationFranchiseId === myFranchiseId && s.status === "ENTREGADO_AL_CLIENTE";
+      return sentByMe || handedHere;
+    });
   }, [shipments, isBodega, myFranchiseId]);
 
   // Stats for receiving warehouse (Sabana) — only 2 counters

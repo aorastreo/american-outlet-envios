@@ -818,7 +818,7 @@ app.get("/api/fix-tracking-table", async (c) => {
     const connection = await mysql.createConnection(env.databaseUrl);
     await connection.execute(`
       ALTER TABLE shipment_tracking 
-      MODIFY status ENUM('CREADO','ENVIADO_A_BODEGA','RECIBIDO_EN_BODEGA','ENVIADO_A_DESTINO','RECIBIDO_EN_DESTINO','EN_RUTA','EN_PARADA','CANCELADO') NOT NULL
+      MODIFY status ENUM('CREADO','ENVIADO_A_BODEGA','RECIBIDO_EN_BODEGA','ENVIADO_A_DESTINO','RECIBIDO_EN_DESTINO','ENTREGADO_AL_CLIENTE','EN_RUTA','EN_PARADA','NO_RECOGIDO','CANCELADO') NOT NULL
     `);
     await connection.end();
 
@@ -899,7 +899,7 @@ app.get("/api/fix-shipments-table", async (c) => {
     const connection = await mysql.createConnection(env.databaseUrl);
     await connection.execute(`
       ALTER TABLE shipments 
-      MODIFY status ENUM('CREADO','ENVIADO_A_BODEGA','RECIBIDO_EN_BODEGA','ENVIADO_A_DESTINO','RECIBIDO_EN_DESTINO','EN_RUTA','EN_PARADA','CANCELADO') NOT NULL
+      MODIFY status ENUM('CREADO','ENVIADO_A_BODEGA','RECIBIDO_EN_BODEGA','ENVIADO_A_DESTINO','RECIBIDO_EN_DESTINO','ENTREGADO_AL_CLIENTE','EN_RUTA','EN_PARADA','NO_RECOGIDO','CANCELADO') NOT NULL
     `);
     await connection.end();
 

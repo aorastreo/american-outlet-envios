@@ -225,7 +225,8 @@ function buildTimelineSteps(
       steps.push({ status: "RECIBIDO_EN_DESTINO", label: city ? `Entregado en ${city}` : "Entregado", desc: "El cliente recogio el paquete" });
     } else {
       steps.push({ status: "ENVIADO_A_DESTINO", label: "Enviado a Destino", desc: destName ? `Enviado a ${destName}` : "Enviado a tienda" });
-      steps.push({ status: "RECIBIDO_EN_DESTINO", label: "Entregado", desc: destName ? `${destName} recibio` : "Tienda recibio" });
+      steps.push({ status: "RECIBIDO_EN_DESTINO", label: "En tienda", desc: destName ? `${destName} recibio` : "Tienda recibio" });
+      steps.push({ status: "ENTREGADO_AL_CLIENTE", label: "Entregado al cliente", desc: "El cliente retiro el paquete" });
     }
   } else if (isPickup) {
     // Tienda -> Ruta
@@ -262,7 +263,8 @@ function buildTimelineSteps(
     }
 
     steps.push({ status: "ENVIADO_A_DESTINO", label: "Enviado a Destino", desc: "Bodega envia a tienda" });
-    steps.push({ status: "RECIBIDO_EN_DESTINO", label: "Entregado", desc: "Tienda recibio" });
+    steps.push({ status: "RECIBIDO_EN_DESTINO", label: "En tienda", desc: "Tienda recibio" });
+    steps.push({ status: "ENTREGADO_AL_CLIENTE", label: "Entregado al cliente", desc: "El cliente retiro el paquete" });
   }
 
   return steps;
@@ -1219,12 +1221,13 @@ export const shipmentRouter = createRouter({
     }
 
     const allShipments = await db.select().from(shipments).where(whereClause);
-    const pending = allShipments.filter((s) => s.status !== "RECIBIDO_EN_DESTINO" && s.status !== "CANCELADO");
+    const done = new Set(["RECIBIDO_EN_DESTINO", "ENTREGADO_AL_CLIENTE", "CANCELADO"]);
+    const pending = allShipments.filter((s) => !done.has(s.status));
 
     return {
       total: allShipments.length,
       pending: pending.length,
-      delivered: allShipments.filter((s) => s.status === "RECIBIDO_EN_DESTINO").length,
+      delivered: allShipments.filter((s) => s.status === "RECIBIDO_EN_DESTINO" || s.status === "ENTREGADO_AL_CLIENTE").length,
       inTransit: allShipments.filter((s) => s.status === "ENVIADO_A_BODEGA" || s.status === "ENVIADO_A_DESTINO").length,
       inWarehouse: allShipments.filter((s) => s.status === "RECIBIDO_EN_BODEGA").length,
       cancelled: allShipments.filter((s) => s.status === "CANCELADO").length,
@@ -1272,6 +1275,7 @@ export const shipmentRouter = createRouter({
         .where(or(
           sql`${shipments.status} = 'CREADO' AND ${shipments.originFranchiseId} = ${franchiseId}`,
           sql`${shipments.status} = 'ENVIADO_A_DESTINO' AND ${shipments.destinationFranchiseId} = ${franchiseId}`,
+          sql`${shipments.status} = 'RECIBIDO_EN_DESTINO' AND ${shipments.destinationFranchiseId} = ${franchiseId}`,
         ));
       return countResult[0]?.count || 0;
     }
