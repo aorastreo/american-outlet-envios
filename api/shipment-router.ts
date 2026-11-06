@@ -1054,7 +1054,9 @@ export const shipmentRouter = createRouter({
         nextWarehouse = holder.code === "bodega_cedi" ? "Bodega Cedi" : "Bodega Pavon";
         note = input.kind === "no_vino" ? `No vino. ${myLabel} no lo recibio` : `No salio. Sigue en ${myLabel}`;
       } else if (shipment.status === "ENVIADO_A_BODEGA") {
-        if (origin?.isWarehouse !== 1) {
+        const history = await db.select({ status: shipmentTracking.status }).from(shipmentTracking).where(eq(shipmentTracking.shipmentId, shipment.id));
+        const alreadyInAWarehouse = origin?.isWarehouse === 1 || history.some((row) => row.status === "RECIBIDO_EN_BODEGA");
+        if (!alreadyInAWarehouse) {
           const allowed = (input.kind === "no_vino" && shipment.currentLocationId === franchiseId)
             || (input.kind === "no_salio" && shipment.originFranchiseId === franchiseId);
           if (!allowed) throw new TRPCError({ code: "FORBIDDEN", message: "No puedes reportar este paquete" });
