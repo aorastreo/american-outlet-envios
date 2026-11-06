@@ -59,10 +59,10 @@ export default function Configuracion() {
             onChange={(event) => setFranchiseId(event.target.value)}
             className="h-11 w-full px-3 text-sm border border-[#D4D4D4] rounded-lg bg-white"
           >
-            <option value="">Seleccione la franquicia</option>
+            <option value="">Seleccione el usuario</option>
             {(franchises.data || []).map((franchise) => (
               <option key={franchise.id} value={franchise.id}>
-                {franchise.name}
+                {franchise.name} · {franchise.username}
               </option>
             ))}
           </select>
@@ -77,16 +77,16 @@ export default function Configuracion() {
             value={password}
             onChange={(event) => setPassword(event.target.value)}
             placeholder="Clave nueva"
-            type="password"
-            autoComplete="new-password"
+            type="text"
+            autoComplete="off"
             className="h-11 w-full px-3 text-sm border border-[#D4D4D4] rounded-lg"
           />
           <input
             value={confirm}
             onChange={(event) => setConfirm(event.target.value)}
             placeholder="Repita la clave"
-            type="password"
-            autoComplete="new-password"
+            type="text"
+            autoComplete="off"
             className="h-11 w-full px-3 text-sm border border-[#D4D4D4] rounded-lg"
           />
           <p className="text-xs text-[#8A8A8A]">

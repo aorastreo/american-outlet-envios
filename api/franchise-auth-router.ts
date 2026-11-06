@@ -5,7 +5,7 @@ import { and, asc, eq, ne } from "drizzle-orm";
 import { createRouter, franchiseAuthedQuery, publicQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { franchiseUsers, franchises } from "@db/schema";
-import { isRetiredFranchise } from "../src/lib/franchise-groups";
+import { isRetiredFranchise, getFranchiseGroup } from "../src/lib/franchise-groups";
 import { TRPCError } from "@trpc/server";
 import * as cookie from "cookie";
 
@@ -83,6 +83,12 @@ export async function getFranchiseUserFromRequest(headers: Headers) {
   if (users.length === 0 || !users[0].isActive) return null;
 
   return users[0];
+}
+
+function canChangeFranchisePassword(franchise: { code?: string | null; name?: string | null; displayName?: string | null }) {
+  if (isRetiredFranchise(franchise)) return false;
+  const text = `${franchise.code || ""} ${franchise.name || ""} ${franchise.displayName || ""}`;
+  return getFranchiseGroup(text) !== "route";
 }
 
 function cleanFranchiseLabel(name: string | null | undefined): string {
@@ -216,7 +222,7 @@ export const franchiseAuthRouter = createRouter({
     const db = getDb();
     const rows = await db.select().from(franchises).orderBy(asc(franchises.displayName));
     return rows
-      .filter((franchise) => !isRetiredFranchise(franchise))
+      .filter((franchise) => canChangeFranchisePassword(franchise))
       .map((franchise) => ({
         id: franchise.id,
         name: cleanFranchiseLabel(franchise.displayName),
@@ -234,7 +240,7 @@ export const franchiseAuthRouter = createRouter({
       const db = getDb();
       const franchiseRows = await db.select().from(franchises).where(eq(franchises.id, input.franchiseId)).limit(1);
       const franchise = franchiseRows[0];
-      if (!franchise || isRetiredFranchise(franchise)) {
+      if (!franchise || !canChangeFranchisePassword(franchise)) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Franquicia no encontrada" });
       }
 
