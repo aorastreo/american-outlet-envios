@@ -16,7 +16,7 @@ import {
 } from "@db/schema";
 import { TRPCError } from "@trpc/server";
 
-const markTabSchema = z.enum(["POR_ENVIAR", "POR_RECIBIR", "EN_BODEGA"]);
+const markTabSchema = z.enum(["POR_ENVIAR", "POR_RECIBIR", "EN_BODEGA", "EN_TIENDA"]);
 let shipmentMarksReady = false;
 
 async function ensureShipmentMarks(db: ReturnType<typeof getDb>) {

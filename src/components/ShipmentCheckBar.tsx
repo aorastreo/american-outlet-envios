@@ -12,7 +12,7 @@ export type ReviewGroup = {
 };
 
 type Props = {
-  mode: "salida" | "recepcion";
+  mode: "salida" | "recepcion" | "entrega";
   groups: ReviewGroup[];
   activeGroup: string | null;
   onGroup: (key: string | null) => void;
@@ -43,7 +43,7 @@ export default function ShipmentCheckBar({
   const lastScanRef = useRef({ value: "", at: 0 });
 
   const readCount = shipments.filter((shipment) => selectedIds.includes(shipment.id)).length;
-  const place = mode === "salida" ? "Para" : "Viene de";
+  const place = mode === "recepcion" ? "Viene de" : mode === "entrega" ? "Cliente" : "Para";
 
   const markShipment = (shipment: CheckableShipment) => {
     if (selectedIds.includes(shipment.id)) {
@@ -59,6 +59,10 @@ export default function ShipmentCheckBar({
     if (match.status === "empty") return;
     if (match.status === "none") {
       setChoices(null);
+      if (mode === "entrega") {
+        toast.error("Ese paquete no esta esperando al cliente en esta tienda");
+        return;
+      }
       const waiting = matchShipmentCode(raw, waitingShipments);
       toast.error(
         waiting.status === "one"
@@ -153,9 +157,11 @@ export default function ShipmentCheckBar({
               : "Todavia no se pueden marcar"}
           </p>
           <p className="text-xs text-[#8A8A8A] mt-0.5">
-            {ready
-              ? "Escanea, escribe el numero o toca la fila. La computadora de la tienda ve estas mismas marcas."
-              : "Se marcan cuando el paquete ya va hacia la tienda. Si lo escaneas antes, te avisa."}
+            {mode === "entrega"
+              ? "Escanea el paquete que retira el cliente. La computadora de la tienda ve la misma marca. Luego confirma y escribe el nombre de quien lo recibe."
+              : ready
+                ? "Escanea, escribe el numero o toca la fila. La computadora de la tienda ve estas mismas marcas."
+                : "Se marcan cuando el paquete ya va hacia la tienda. Si lo escaneas antes, te avisa."}
           </p>
         </div>
         <button

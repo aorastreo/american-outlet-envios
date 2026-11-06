@@ -294,7 +294,6 @@ export default function Shipments() {
 
   const [reviewGroup, setReviewGroup] = useState<string | null>(null);
   const [showTrips, setShowTrips] = useState(false);
-  const [handoffIds, setHandoffIds] = useState<number[]>([]);
   const [receiverDraft, setReceiverDraft] = useState("");
 
   // Confirmation dialog state
@@ -421,7 +420,6 @@ export default function Shipments() {
   const handleTabChange = (tab: ActiveTabKey) => {
     setActiveTab(tab);
     setReviewGroup(null);
-    setHandoffIds([]);
     const newParams = new URLSearchParams(searchParams);
     newParams.set("tab", tab);
     setSearchParams(newParams, { replace: true });
@@ -444,13 +442,15 @@ export default function Shipments() {
 
   const utils = trpc.useUtils();
 
-  const checkMode: "salida" | "recepcion" | null =
+  const checkMode: "salida" | "recepcion" | "entrega" | null =
     (!isBodega && activeTab === "POR_ENVIAR") || (isBodega && !isReceivingWarehouse && activeTab === "EN_BODEGA")
       ? "salida"
       : activeTab === "POR_RECIBIR"
         ? "recepcion"
-        : null;
-  const markTab = activeTab === "POR_ENVIAR" || activeTab === "POR_RECIBIR" || activeTab === "EN_BODEGA"
+        : !isBodega && activeTab === "EN_TIENDA"
+          ? "entrega"
+          : null;
+  const markTab = activeTab === "POR_ENVIAR" || activeTab === "POR_RECIBIR" || activeTab === "EN_BODEGA" || activeTab === "EN_TIENDA"
     ? activeTab
     : null;
 
@@ -573,10 +573,10 @@ export default function Shipments() {
   });
 
   const entregarEnTiendaMutation = trpc.shipment.entregarEnTiendaMasiva.useMutation({
-    onSuccess: (data) => {
+    onSuccess: (data, variables) => {
       toast.success(`${data.count} envio(s) entregado(s) al cliente`);
-      setHandoffIds([]);
       utils.shipment.list.invalidate();
+      forgetMarks(variables.ids);
     },
     onError: (error) => {
       toast.error(error.message || "No se pudo entregar al cliente");
@@ -837,13 +837,12 @@ export default function Shipments() {
     const cfg = getStatusConfig(shipment.status);
     const place = shipmentPlaceText(shipment);
     const stuck = Boolean(shipment.stuckAfterRoute);
-    const handoff = !isBodega && activeTab === "EN_TIENDA" && shipment.destinationFranchiseId === myFranchiseId && shipment.status === "RECIBIDO_EN_DESTINO";
-    const isSelected = handoff ? handoffIds.includes(shipment.id) : selectedIds.includes(shipment.id);
     const selectable = canSelectShipment(shipment);
-    const checking = handoff || (Boolean(checkMode) && selectable);
+    const isSelected = selectedIds.includes(shipment.id);
+    const checking = Boolean(checkMode) && selectable;
     const card = (
           <Card
-            onClick={handoff ? () => toggleHandoff(shipment.id) : checking ? () => toggleSelection(shipment.id) : undefined}
+            onClick={checking ? () => toggleSelection(shipment.id) : undefined}
             onKeyDown={checking ? (event) => {
               if (event.key === "Enter" || event.key === " ") {
                 event.preventDefault();
@@ -858,7 +857,7 @@ export default function Shipments() {
               isSelected ? "ring-2 ring-[#C8102E]/20 border-[#C8102E]/30 bg-[#FFF5F5]/50" : ""
             }`}
           >
-            <CardContent className={`p-4 ${selectable || handoff ? "pl-10" : ""}`}>
+            <CardContent className={`p-4 ${selectable ? "pl-10" : ""}`}>
               <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-3 flex-wrap">
@@ -957,11 +956,11 @@ export default function Shipments() {
     );
     return (
       <div id={`envio-${shipment.id}`} key={shipment.id} className="relative group">
-        {(selectable || handoff) && (
+        {selectable && (
           <div className="absolute left-2 top-1/2 -translate-y-1/2 z-10" onClick={(event) => event.stopPropagation()}>
             <Checkbox
               checked={isSelected}
-              onCheckedChange={() => (handoff ? toggleHandoff(shipment.id) : toggleSelection(shipment.id))}
+              onCheckedChange={() => toggleSelection(shipment.id)}
               className="border-[#D4D4D4] data-[state=checked]:bg-[#C8102E] data-[state=checked]:border-[#C8102E]"
             />
           </div>
@@ -983,11 +982,11 @@ export default function Shipments() {
     setDestFilter([]);
   };
 
-  const canSelectShipment = (shipment: { status: string }) =>
-    isBodega || activeTab !== "POR_RECIBIR" || shipment.status === "ENVIADO_A_DESTINO";
-
-  const toggleHandoff = (id: number) => {
-    setHandoffIds((ids) => (ids.includes(id) ? ids.filter((item) => item !== id) : [...ids, id]));
+  const canSelectShipment = (shipment: { status: string; destinationFranchiseId?: number }) => {
+    if (checkMode === "entrega") {
+      return shipment.status === "RECIBIDO_EN_DESTINO" && shipment.destinationFranchiseId === myFranchiseId;
+    }
+    return isBodega || activeTab !== "POR_RECIBIR" || shipment.status === "ENVIADO_A_DESTINO";
   };
 
   const toggleSelection = (id: number) => {
@@ -996,15 +995,23 @@ export default function Shipments() {
     else addMarks.mutate({ tab: markTab, ids: [id] });
   };
 
-  const reviewKeyOf = (shipment: { destinationFranchiseId: number; originFranchiseId: number }) =>
-    checkMode === "salida" ? `dest:${shipment.destinationFranchiseId}` : `origin:${shipment.originFranchiseId}`;
+  const reviewKeyOf = (shipment: { destinationFranchiseId: number; originFranchiseId: number; senderName?: string | null }) =>
+    checkMode === "entrega"
+      ? `cliente:${(shipment.senderName || "sin nombre").trim().toLowerCase()}`
+      : checkMode === "salida"
+        ? `dest:${shipment.destinationFranchiseId}`
+        : `origin:${shipment.originFranchiseId}`;
 
   const reviewGroups = !checkMode ? [] : (() => {
     const map = new Map<string, { key: string; label: string; count: number }>();
     for (const shipment of filteredShipments) {
       if (!canSelectShipment(shipment)) continue;
       const key = reviewKeyOf(shipment);
-      const label = (checkMode === "salida" ? shipment.destinationName : shipment.originName) || "Sin nombre";
+      const label = (checkMode === "entrega"
+        ? shipment.senderName
+        : checkMode === "salida"
+          ? shipment.destinationName
+          : shipment.originName) || "Sin nombre";
       const current = map.get(key);
       if (current) current.count += 1;
       else map.set(key, { key, label, count: 1 });
@@ -1190,17 +1197,23 @@ export default function Shipments() {
   };
 
   const entregarEnTienda = () => {
-    if (handoffIds.length === 0) return;
+    if (selectedIds.length === 0) return;
+    const seleccionados = filteredShipments.filter((s) => selectedIds.includes(s.id));
+    const invalidos = seleccionados.filter((s) => s.status !== "RECIBIDO_EN_DESTINO" || s.destinationFranchiseId !== myFranchiseId);
+    if (invalidos.length > 0) {
+      toast.error("Selecciona solo paquetes que ya estan en esta tienda");
+      return;
+    }
     openConfirmDialog(
       "Entregar al cliente",
-      `El cliente retira ${handoffIds.length} paquete(s) de esta tienda. Escribe el nombre de quien los recibe.`,
+      `El cliente retira ${selectedIds.length} paquete(s) de esta tienda. Escribe el nombre de quien los recibe.${unmarkedWarning()}`,
       () => {
         const name = receiverDraftRef.current.trim();
         if (name.length < 2) {
           toast.error("Escribe el nombre de quien retira");
           return;
         }
-        entregarEnTiendaMutation.mutate({ ids: handoffIds, receiverName: name });
+        entregarEnTiendaMutation.mutate({ ids: selectedIds, receiverName: name });
       },
       true,
     );
@@ -1233,6 +1246,21 @@ export default function Shipments() {
             Generar Bitacora
           </Button>
         </>
+      );
+    }
+
+    // STORE: En tienda → el cliente retira lo que se escaneo
+    if (!isBodega && activeTab === "EN_TIENDA") {
+      return (
+        <button
+          type="button"
+          onClick={entregarEnTienda}
+          disabled={entregarEnTiendaMutation.isPending}
+          className="inline-flex items-center justify-center px-4 py-2.5 bg-[#1B6B3E] text-white rounded-lg text-sm font-medium"
+        >
+          <CheckCircle className="w-4 h-4 mr-2" />
+          {entregarEnTiendaMutation.isPending ? "Procesando..." : `Entregar al cliente (${selectedIds.length})`}
+        </button>
       );
     }
 
@@ -1418,6 +1446,17 @@ export default function Shipments() {
       );
     }
 
+    // Store: En tienda, el cliente retira
+    if (!isBodega && activeTab === "EN_TIENDA") {
+      return (
+        <div className="flex items-center gap-2 px-4 py-2.5 bg-emerald-50 border border-emerald-200 rounded-lg text-sm text-emerald-800">
+          <ClipboardCheck className="w-4 h-4 shrink-0" />
+          <span className="font-medium">Entrega al cliente:</span>
+          <span>Confirma solo los paquetes escaneados y escribe quien los retira.</span>
+        </div>
+      );
+    }
+
     // Store: Por Recibir
     if (!isBodega && activeTab === "POR_RECIBIR") {
       return (
@@ -1479,16 +1518,6 @@ export default function Shipments() {
           </div>
           <div className="flex gap-2 flex-wrap">
             {renderActionButtons()}
-            {!isBodega && activeTab === "EN_TIENDA" && handoffIds.length > 0 && (
-              <button
-                type="button"
-                onClick={entregarEnTienda}
-                disabled={entregarEnTiendaMutation.isPending}
-                className="inline-flex items-center justify-center px-4 py-2.5 bg-[#1B6B3E] text-white rounded-lg text-sm font-medium"
-              >
-                Entregar al cliente ({handoffIds.length})
-              </button>
-            )}
             {!isBodega && (
               <Link
                 to="/enviar"
