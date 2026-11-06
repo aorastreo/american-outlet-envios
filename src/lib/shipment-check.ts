@@ -5,6 +5,7 @@ export type CheckableShipment = {
   senderName?: string | null;
   originName?: string | null;
   destinationName?: string | null;
+  items?: { description: string; quantity: number; details?: string | null }[] | null;
 };
 
 export type CodeMatch<T> =

@@ -647,6 +647,22 @@ export const shipmentRouter = createRouter({
         }
       }
 
+      const itemRows = result.length === 0 ? [] : await db
+        .select({
+          shipmentId: shipmentItems.shipmentId,
+          description: shipmentItems.description,
+          quantity: shipmentItems.quantity,
+          details: shipmentItems.details,
+        })
+        .from(shipmentItems)
+        .where(inArray(shipmentItems.shipmentId, result.map((s) => s.id)));
+      const itemsByShipment = new Map<number, { description: string; quantity: number; details: string | null }[]>();
+      for (const item of itemRows) {
+        const list = itemsByShipment.get(item.shipmentId) || [];
+        list.push({ description: item.description, quantity: item.quantity, details: item.details });
+        itemsByShipment.set(item.shipmentId, list);
+      }
+
       return result.map(s => ({
         ...s,
         originName: cleanFranchiseName(franchiseMap.get(s.originFranchiseId)?.displayName || s.originName),
@@ -654,6 +670,7 @@ export const shipmentRouter = createRouter({
         currentLocationName: cleanFranchiseName(franchiseMap.get(s.currentLocationId)?.displayName || s.currentLocationName),
         reservedOnRoute: reservedIds.has(s.id),
         stuckAfterRoute: stuckIds.has(s.id),
+        items: itemsByShipment.get(s.id) || [],
       }));
     }),
 

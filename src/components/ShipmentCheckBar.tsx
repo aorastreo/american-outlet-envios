@@ -236,8 +236,8 @@ export default function ShipmentCheckBar({
           <div className="flex items-start justify-between gap-3">
             <p className="text-sm font-semibold text-[#1A1A1A]">
               {choices.sameInvoice
-                ? `La factura ${choices.label} tiene ${choices.shipments.length} paquetes. Toca el que vas a marcar.`
-                : `Hay ${choices.shipments.length} paquetes con esos digitos. Toca el que vas a marcar.`}
+                ? `La factura ${choices.label} tiene ${choices.shipments.length} paquetes. Toca el que tiene los articulos de la caja.`
+                : `Hay ${choices.shipments.length} paquetes con esos digitos. Toca el que tiene los articulos de la caja.`}
             </p>
             <button
               type="button"
@@ -251,6 +251,12 @@ export default function ShipmentCheckBar({
             {choices.shipments.map((shipment) => {
               const read = selectedIds.includes(shipment.id);
               const route = [shipment.originName, shipment.destinationName].filter(Boolean).join(" → ");
+              const articles = (shipment.items || [])
+                .map((item) => {
+                  const line = `${item.description} x${item.quantity}`;
+                  return item.details ? `${line} (${item.details})` : line;
+                })
+                .join(", ");
               return (
                 <button
                   key={shipment.id}
@@ -271,8 +277,11 @@ export default function ShipmentCheckBar({
                       {read ? "Ya leido" : "Marcar este"}
                     </span>
                   </span>
+                  <span className={`block mt-1 text-sm font-medium ${read ? "text-[#8A8A8A]" : "text-[#1A1A1A]"}`}>
+                    {articles || "Sin articulos anotados"}
+                  </span>
                   {(shipment.senderName || route) && (
-                    <span className="block mt-1 text-xs text-[#525252]">
+                    <span className="block mt-0.5 text-xs text-[#525252]">
                       {shipment.senderName}
                       {shipment.senderName && route ? " · " : ""}
                       {route}
