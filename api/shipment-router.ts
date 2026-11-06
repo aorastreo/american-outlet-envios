@@ -7,6 +7,7 @@ import {
   shipments,
   shipmentItems,
   shipmentMarks,
+  shipmentTrips,
   shipmentTracking,
   franchises,
   franchiseUsers,
@@ -40,6 +41,37 @@ async function clearShipmentMarks(db: ReturnType<typeof getDb>, franchiseId: num
     eq(shipmentMarks.franchiseId, franchiseId),
     inArray(shipmentMarks.shipmentId, ids),
   ));
+}
+
+let shipmentTripsReady = false;
+
+async function ensureShipmentTrips(db: ReturnType<typeof getDb>) {
+  if (shipmentTripsReady) return;
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS shipment_trips (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      franchiseId INT NOT NULL,
+      label VARCHAR(120) NOT NULL,
+      shipmentIds TEXT NOT NULL,
+      packageCount INT NOT NULL,
+      createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      KEY trips_franchise_created (franchiseId, createdAt)
+    )
+  `);
+  shipmentTripsReady = true;
+}
+
+async function keepShipmentTrip(db: ReturnType<typeof getDb>, franchiseId: number, label: string, ids: number[]) {
+  const unique = [...new Set(ids)];
+  if (unique.length === 0) return;
+  await ensureShipmentTrips(db);
+  await db.insert(shipmentTrips).values({
+    franchiseId,
+    label,
+    shipmentIds: unique.join(","),
+    packageCount: unique.length,
+  });
+  await clearShipmentMarks(db, franchiseId, unique);
 }
 
 function isSabanaWarehouse(franchise: { name?: string | null; code?: string | null; displayName?: string | null } | undefined) {
@@ -1283,7 +1315,7 @@ export const shipmentRouter = createRouter({
         });
       }
 
-      await clearShipmentMarks(db, franchiseId, input.ids);
+      await keepShipmentTrip(db, franchiseId, "Salida a bodega", input.ids);
       return { success: true, count: envios.length };
     }),
 
@@ -1328,7 +1360,7 @@ export const shipmentRouter = createRouter({
         });
       }
 
-      await clearShipmentMarks(db, franchiseId, input.ids);
+      await keepShipmentTrip(db, franchiseId, "Recepcion en bodega", input.ids);
       return { success: true, count: envios.length };
     }),
 
@@ -1397,7 +1429,7 @@ export const shipmentRouter = createRouter({
         });
       }
 
-      await clearShipmentMarks(db, franchiseId, input.ids);
+      await keepShipmentTrip(db, franchiseId, "Envio a destino", input.ids);
       return { success: true, count: envios.length };
     }),
 
@@ -1475,7 +1507,7 @@ export const shipmentRouter = createRouter({
         });
       }
 
-      await clearShipmentMarks(db, franchiseId, input.ids);
+      await keepShipmentTrip(db, franchiseId, `Envio a ${targetBodega}`, input.ids);
       return { success: true, count: envios.length };
     }),
   recibirEnDestinoMasiva: franchiseAuthedQuery
@@ -1514,7 +1546,7 @@ export const shipmentRouter = createRouter({
         });
       }
 
-      await clearShipmentMarks(db, franchiseId, input.ids);
+      await keepShipmentTrip(db, franchiseId, "Recepcion", input.ids);
       return { success: true, count: envios.length };
     }),
 
@@ -1555,8 +1587,24 @@ export const shipmentRouter = createRouter({
         });
       }
 
-      await clearShipmentMarks(db, franchiseId, input.ids);
+      await keepShipmentTrip(db, franchiseId, "Entrega al cliente", input.ids);
       return { success: true, count: envios.length };
+    }),
+
+  recentTrips: franchiseAuthedQuery
+    .query(async ({ ctx }) => {
+      const db = getDb();
+      await ensureShipmentTrips(db);
+      const rows = await db.select().from(shipmentTrips).where(
+        eq(shipmentTrips.franchiseId, ctx.franchiseUser!.franchiseId),
+      ).orderBy(desc(shipmentTrips.createdAt)).limit(30);
+      return rows.map((row) => ({
+        id: row.id,
+        label: row.label,
+        packageCount: row.packageCount,
+        createdAt: row.createdAt,
+        shipmentIds: row.shipmentIds,
+      }));
     }),
 
   marks: franchiseAuthedQuery

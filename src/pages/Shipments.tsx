@@ -292,6 +292,7 @@ export default function Shipments() {
   );
 
   const [reviewGroup, setReviewGroup] = useState<string | null>(null);
+  const [showTrips, setShowTrips] = useState(false);
 
   // Confirmation dialog state
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -452,6 +453,7 @@ export default function Shipments() {
     { enabled: checkMode !== null && markTab !== null, refetchInterval: checkMode ? 4000 : false },
   );
   const selectedIds = checkMode && markTab ? (marksQuery.data?.ids ?? []) : [];
+  const tripsQuery = trpc.shipment.recentTrips.useQuery(undefined, { refetchInterval: 10000 });
 
   const addMarks = trpc.shipment.addMarks.useMutation({
     onMutate: async ({ tab, ids }) => {
@@ -489,6 +491,7 @@ export default function Shipments() {
   });
 
   const forgetMarks = (ids: number[]) => {
+    utils.shipment.recentTrips.invalidate();
     if (!markTab || ids.length === 0) return;
     const prev = utils.shipment.marks.getData({ tab: markTab });
     if (prev) {
@@ -1430,8 +1433,56 @@ export default function Shipments() {
                 Nuevo Envio
               </Link>
             )}
+            <button
+              type="button"
+              onClick={() => setShowTrips((open) => !open)}
+              className="inline-flex items-center justify-center px-4 py-2.5 border border-[#D4D4D4] bg-white text-[#1A1A1A] rounded-lg text-sm font-medium hover:bg-[#F7F7F7]"
+            >
+              <ClipboardList className="w-4 h-4 mr-2" />
+              Bitacoras
+            </button>
           </div>
         </div>
+
+        {showTrips && (
+          <div className="rounded-xl border border-[#D4D4D4] bg-white p-4 space-y-3">
+            <div>
+              <p className="text-sm font-semibold text-[#1A1A1A]">Bitacoras guardadas</p>
+              <p className="text-xs text-[#8A8A8A] mt-0.5">Si se olvido imprimir, abra el viaje. No hay que marcar los paquetes otra vez.</p>
+            </div>
+            {tripsQuery.isLoading ? (
+              <p className="text-sm text-[#8A8A8A]">Cargando...</p>
+            ) : (tripsQuery.data || []).length === 0 ? (
+              <p className="text-sm text-[#8A8A8A]">Todavia no hay un envio o una recepcion confirmada.</p>
+            ) : (
+              <div className="space-y-2">
+                {(tripsQuery.data || []).map((trip) => (
+                  <div key={trip.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border border-[#F0F0F0] rounded-lg px-3 py-2">
+                    <div>
+                      <p className="text-sm font-medium text-[#1A1A1A]">{trip.label}</p>
+                      <p className="text-xs text-[#8A8A8A]">
+                        {format(new Date(trip.createdAt), "dd/MM/yyyy HH:mm", { locale: es })}
+                        {" · "}
+                        {trip.packageCount} paquete{trip.packageCount !== 1 ? "s" : ""}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const ids = trip.shipmentIds.split(",").map((id) => Number(id)).filter(Boolean).join(",");
+                        if (ids) window.open(`/bitacora?ids=${ids}`, "_blank");
+                      }}
+                      className="inline-flex items-center justify-center h-10 px-3 rounded-lg bg-[#C8102E] text-white text-sm font-medium"
+                    >
+                      <Printer className="w-4 h-4 mr-2" />
+                      Imprimir
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {bulkMessage && (
           <div

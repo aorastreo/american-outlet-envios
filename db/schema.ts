@@ -66,6 +66,16 @@ export const shipmentMarks = mysqlTable("shipment_marks", {
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
+// A confirmed send or receipt, kept so the store can print that sheet later.
+export const shipmentTrips = mysqlTable("shipment_trips", {
+  id: serial("id").primaryKey(),
+  franchiseId: bigint("franchiseId", { mode: "number", unsigned: true }).notNull(),
+  label: varchar("label", { length: 120 }).notNull(),
+  shipmentIds: text("shipmentIds").notNull(),
+  packageCount: int("packageCount").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
 // ─── Shipments ───────────────────────────────────────────────────
 export const shipments = mysqlTable("shipments", {
   id: serial("id").primaryKey(),
