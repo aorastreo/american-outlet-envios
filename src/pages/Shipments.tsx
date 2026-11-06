@@ -25,7 +25,6 @@ import {
   ClipboardCheck,
   Truck,
   CheckCircle,
-  Store,
   X,
   Printer,
   ClipboardList,
@@ -859,11 +858,9 @@ export default function Shipments() {
             } : undefined}
             role={checking ? "button" : undefined}
             tabIndex={checking ? 0 : undefined}
-            className={`hover:shadow-md transition-shadow border-[#F0F0F0] ${
-              checking ? "cursor-pointer" : ""
-            } ${
-              isSelected ? "ring-2 ring-[#C8102E]/20 border-[#C8102E]/30 bg-[#FFF5F5]/50" : ""
-            }`}
+            className={`${checking ? "cursor-pointer" : ""} ${
+              isSelected ? "bg-[#FFF5F5]" : "bg-white"
+            } border-0 shadow-none rounded-none`}
           >
             <CardContent className={`p-4 ${checking ? "pl-10" : ""}`}>
               <div className="flex flex-col sm:flex-row sm:items-center gap-3">
@@ -886,22 +883,12 @@ export default function Shipments() {
                       <span className="text-[#A3A3A3]">| Fac: #{shipment.invoiceNumber}</span>
                     )}
                   </div>
-                  <div className="flex items-center gap-2 mt-1 text-sm text-[#8A8A8A]">
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-[#FFF5F5] text-[#C8102E] rounded text-xs font-medium">
-                      <Store className="w-3 h-3" />
-                      {shipment.originName}
+                  <div className="flex items-center gap-2 mt-1 text-sm text-[#525252]">
+                    <span>{shipment.originName}</span>
+                    <ArrowRight className="w-3.5 h-3.5 text-[#D4D4D4]" />
+                    <span className={shipment.destinationName?.toLowerCase().includes("recogida") ? "font-medium text-orange-700" : ""}>
+                      {shipment.destinationName}
                     </span>
-                    <ArrowRight className="w-4 h-4 text-[#D4D4D4]" />
-                    {shipment.destinationName?.toLowerCase().includes("recogida") ? (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-orange-50 text-orange-700 rounded text-xs font-bold border border-orange-200">
-                        <MapPin className="w-3 h-3" />
-                        {shipment.destinationName}
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-50 text-[#1B6B3E] rounded text-xs font-medium">
-                        {shipment.destinationName}
-                      </span>
-                    )}
                   </div>
                 </div>
                 <div className="text-right shrink-0 space-y-1">
@@ -1294,14 +1281,15 @@ export default function Shipments() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-[#1A1A1A]">
-              {isBodega ? cleanName(user?.franchise?.displayName || user?.franchise?.name) || "Bodega" : "Mis Envios"}
+            <h1 className="text-2xl font-semibold text-[#1A1A1A]">
+              {historyOpen ? "Historial" : stationLabel(activeTab)}
             </h1>
-            <p className="text-[#8A8A8A] mt-1">
+            <p className="text-sm text-[#8A8A8A] mt-1">{currentTab.description}</p>
+            <p className="text-xs text-[#A3A3A3] mt-1">
               {visibleShipments.length} paquete{visibleShipments.length !== 1 ? "s" : ""}
               {selectedIds.length > 0 && (
-                <span className="ml-2 text-[#C8102E] font-medium">
-                  · {selectedIds.length} marcado{selectedIds.length !== 1 ? "s" : ""}
+                <span className="text-[#C8102E]">
+                  {" "}· {selectedIds.length} marcado{selectedIds.length !== 1 ? "s" : ""}
                 </span>
               )}
             </p>
@@ -1461,41 +1449,32 @@ export default function Shipments() {
           />
         )}
 
-        {/* ─── Sub-header: tab description + date filter ───────── */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <p className="text-sm text-[#8A8A8A]">
-            <span className="font-medium text-[#525252]">{currentTab.description}</span>
-            {showDateFilter && dateFilterEnabled && (
-              <span className="ml-2">
-                — Envios creados el{" "}
-                <strong>{format(parseISO(dateFilter), "dd/MM/yyyy", { locale: es })}</strong>
+        {showDateFilter && (
+          <div className="flex items-center gap-2">
+            <label className="flex items-center gap-1.5 text-sm text-[#525252] cursor-pointer select-none">
+              <Checkbox
+                checked={dateFilterEnabled}
+                onCheckedChange={(checked) => setDateFilterEnabled(checked === true)}
+                className="border-[#D4D4D4] data-[state=checked]:bg-[#C8102E] data-[state=checked]:border-[#C8102E]"
+              />
+              <CalendarDays className="w-3.5 h-3.5 text-[#8A8A8A]" />
+              Filtrar por fecha
+            </label>
+            {dateFilterEnabled && (
+              <input
+                type="date"
+                value={dateFilter}
+                onChange={(e) => setDateFilter(e.target.value)}
+                className="h-9 px-3 text-sm border border-[#D4D4D4] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C8102E]/20 focus:border-[#C8102E] text-[#1A1A1A]"
+              />
+            )}
+            {dateFilterEnabled && (
+              <span className="text-sm text-[#8A8A8A]">
+                {format(parseISO(dateFilter), "dd/MM/yyyy", { locale: es })}
               </span>
             )}
-          </p>
-
-          {/* Date filter only for store ENVIADOS tab */}
-          {showDateFilter && (
-            <div className="flex items-center gap-2">
-              <label className="flex items-center gap-1.5 text-sm text-[#525252] cursor-pointer select-none">
-                <Checkbox
-                  checked={dateFilterEnabled}
-                  onCheckedChange={(checked) => setDateFilterEnabled(checked === true)}
-                  className="border-[#D4D4D4] data-[state=checked]:bg-[#C8102E] data-[state=checked]:border-[#C8102E]"
-                />
-                <CalendarDays className="w-3.5 h-3.5 text-[#8A8A8A]" />
-                Filtrar por fecha
-              </label>
-              {dateFilterEnabled && (
-                <input
-                  type="date"
-                  value={dateFilter}
-                  onChange={(e) => setDateFilter(e.target.value)}
-                  className="h-9 px-3 text-sm border border-[#D4D4D4] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C8102E]/20 focus:border-[#C8102E] text-[#1A1A1A]"
-                />
-              )}
-            </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* ─── Search + Filters ────────────────────────────────── */}
         <div className={`grid grid-cols-1 ${isReceivingWarehouse ? "" : "sm:grid-cols-2 lg:grid-cols-3"} gap-3`}>
@@ -1699,7 +1678,7 @@ export default function Shipments() {
             </CardContent>
           </Card>
         ) : (
-          <div className="space-y-3">
+          <div className="bg-white border border-[#E5E5E5] rounded-xl overflow-hidden divide-y divide-[#F0F0F0]">
             {/* Select all */}
             {checkMode && scanPool.length > 1 && (
               <div className="flex items-center gap-2 px-4 py-2 bg-[#F7F7F7] rounded-lg border border-[#D4D4D4]">

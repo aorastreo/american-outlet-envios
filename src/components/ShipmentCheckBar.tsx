@@ -148,7 +148,7 @@ export default function ShipmentCheckBar({
   const ready = shipments.length > 0;
 
   return (
-    <div className="rounded-xl border border-[#D4D4D4] bg-white p-4 space-y-3">
+    <div className="bg-white border border-[#E5E5E5] rounded-xl p-4 space-y-3">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div>
           <p className="text-sm font-semibold text-[#1A1A1A]">

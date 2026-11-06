@@ -87,15 +87,10 @@ function ShipmentCard({ shipment }: { shipment: any }) {
                   <span className="text-[#A3A3A3]">| Fact: #{shipment.invoiceNumber}</span>
                 )}
               </div>
-              <div className="flex items-center gap-2 mt-1 text-sm text-[#8A8A8A]">
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-[#FFF5F5] text-[#C8102E] rounded text-xs font-medium">
-                  <Store className="w-3 h-3" />
-                  {cleanName(shipment.originName)}
-                </span>
+              <div className="flex items-center gap-2 mt-1 text-sm text-[#525252]">
+                <span>{cleanName(shipment.originName)}</span>
                 <span className="text-[#D4D4D4]">→</span>
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-50 text-[#1B6B3E] rounded text-xs font-medium">
-                  {cleanName(shipment.destinationName)}
-                </span>
+                <span>{cleanName(shipment.destinationName)}</span>
               </div>
             </div>
             <div className="text-right shrink-0">
@@ -116,25 +111,19 @@ function ShipmentCard({ shipment }: { shipment: any }) {
 }
 
 function SectionHeader({
-  icon: Icon,
   title,
   count,
-  iconColor,
-  badgeColor,
 }: {
-  icon: any;
+  icon?: unknown;
   title: string;
   count: number;
-  iconColor: string;
-  badgeColor: string;
+  iconColor?: string;
+  badgeColor?: string;
 }) {
   return (
-    <div className="flex items-center gap-2 mb-4">
-      <Icon className={`w-5 h-5 ${iconColor}`} />
-      <h2 className="text-lg font-semibold text-[#1A1A1A]">{title}</h2>
-      <Badge variant="secondary" className={badgeColor}>
-        {count} envio{count !== 1 ? "s" : ""}
-      </Badge>
+    <div className="flex items-baseline justify-between gap-3 mb-3">
+      <h2 className="text-base font-semibold text-[#1A1A1A]">{title}</h2>
+      <span className="text-xs text-[#8A8A8A]">{count}</span>
     </div>
   );
 }
@@ -298,6 +287,7 @@ export default function Dashboard() {
       color: "text-[#C8102E]",
       bg: "bg-[#FFF5F5]",
       border: "border-[#C8102E]/10",
+      href: "/envios?tab=EN_BODEGA",
     },
     {
       label: "Por Recibir",
@@ -306,25 +296,26 @@ export default function Dashboard() {
       color: "text-[#B8860B]",
       bg: "bg-amber-50",
       border: "border-amber-200/50",
+      href: "/envios?tab=POR_RECIBIR",
     },
   ];
 
   const statCards = isReceivingWarehouse ? receivingStats : isBodega ? [
-    { label: "Por Recibir", value: warehousePendingReception.length, icon: Inbox, color: "text-[#B8860B]", bg: "bg-amber-50", border: "border-amber-200/50" },
-    { label: "En Bodega", value: warehouseInWarehouse.length, icon: ClipboardCheck, color: "text-purple-600", bg: "bg-purple-50", border: "border-purple-200/50" },
-    { label: "Entrega a cliente", value: warehouseCustomerPickup.length, icon: User, color: "text-teal-700", bg: "bg-teal-50", border: "border-teal-200/50" },
-    ...(isCediWarehouse ? [{ label: "Para el camion", value: waitingForTruck.length, icon: Route, color: "text-[#B8860B]", bg: "bg-amber-50", border: "border-amber-200/50" }] : []),
-    ...(isCediWarehouse && stuckHere.length > 0 ? [{ label: "Por corregir", value: stuckHere.length, icon: AlertTriangle, color: "text-red-600", bg: "bg-red-50", border: "border-red-200/50" }] : []),
-    { label: "En camino", value: warehouseInRoute.length, icon: Truck, color: "text-[#D4730E]", bg: "bg-orange-50", border: "border-orange-200/50" },
-    { label: "Entregados", value: warehouseDelivered.length, icon: CheckCircle, color: "text-[#1B6B3E]", bg: "bg-emerald-50", border: "border-emerald-200/50" },
-    { label: "Total", value: warehouseTotal, icon: Package, color: "text-[#1A1A1A]", bg: "bg-gray-50", border: "border-gray-200/50" },
+    { label: "Por Recibir", value: warehousePendingReception.length, href: "/envios?tab=POR_RECIBIR" },
+    { label: "En Bodega", value: warehouseInWarehouse.length, href: "/envios?tab=EN_BODEGA" },
+    { label: "Entrega a cliente", value: warehouseCustomerPickup.length, href: "/envios?tab=ENTREGA_CLIENTE" },
+    ...(isCediWarehouse ? [{ label: "Para el camion", value: waitingForTruck.length, href: "/rutas" }] : []),
+    ...(isCediWarehouse && stuckHere.length > 0 ? [{ label: "Por corregir", value: stuckHere.length, href: "/rutas" }] : []),
+    { label: "En camino", value: warehouseInRoute.length, href: "/envios?tab=EN_RUTA" },
+    { label: "Entregados", value: warehouseDelivered.length, href: "/envios?tab=ENTREGADOS" },
+    { label: "Total", value: warehouseTotal },
   ] : [
-    { label: "Por Enviar", value: storeCreated.length, icon: Send, color: "text-[#C8102E]", bg: "bg-[#FFF5F5]", border: "border-[#C8102E]/10" },
-    { label: "Enviados", value: storeSent.length, icon: Truck, color: "text-[#D4730E]", bg: "bg-orange-50", border: "border-orange-200/50" },
-    { label: "Por Recibir", value: storeToReceive.length, icon: Inbox, color: "text-[#B8860B]", bg: "bg-amber-50", border: "border-amber-200/50" },
-    { label: "En Tienda", value: storeInStore.length, icon: Store, color: "text-[#1B6B3E]", bg: "bg-emerald-50", border: "border-emerald-200/50" },
-    { label: "Completados", value: storeCompleted.length, icon: CheckCircle, color: "text-blue-700", bg: "bg-blue-50", border: "border-blue-200/50" },
-    { label: "Total", value: activeTotal, icon: Package, color: "text-[#1A1A1A]", bg: "bg-gray-50", border: "border-gray-200/50" },
+    { label: "Por Enviar", value: storeCreated.length, href: "/envios?tab=POR_ENVIAR" },
+    { label: "Enviados", value: storeSent.length, href: "/envios?tab=ENVIADOS" },
+    { label: "Por Recibir", value: storeToReceive.length, href: "/envios?tab=POR_RECIBIR" },
+    { label: "En Tienda", value: storeInStore.length, href: "/envios?tab=EN_TIENDA" },
+    { label: "Completados", value: storeCompleted.length, href: "/envios?tab=COMPLETADOS" },
+    { label: "Total", value: activeTotal },
   ];
 
   return (
@@ -337,30 +328,31 @@ export default function Dashboard() {
           </h1>
           <p className="text-[#8A8A8A] mt-1">
             {isReceivingWarehouse
-              ? "Centro de recepcion - Solo recibe envios"
+              ? "Lo que llega y lo que ya se recibio"
               : isWarehouse
-              ? "Centro de distribucion - Envios y recepciones"
-              : "Panel de envios y recepciones"}
+              ? "Lo que entra, lo que sale y lo que retira el cliente"
+              : "Lo que hay que enviar, recibir y entregar"}
           </p>
         </div>
 
         {/* STATS */}
-        <div className={`grid grid-cols-2 gap-4 ${isReceivingWarehouse ? "" : isCediWarehouse ? "md:grid-cols-3 xl:grid-cols-4" : "md:grid-cols-3 lg:grid-cols-6"}`}>
-          {statCards.map((stat) => (
-            <Card key={stat.label} className={`${stat.border} border`}>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className={`p-2.5 rounded-lg ${stat.bg}`}>
-                    <stat.icon className={`w-5 h-5 ${stat.color}`} />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold text-[#1A1A1A]">{stat.value}</p>
-                    <p className="text-xs text-[#8A8A8A]">{stat.label}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+          {statCards.map((stat) => {
+            const urgent = stat.value > 0 && ["Por Enviar", "Por Recibir", "En Tienda", "En Bodega", "Entrega a cliente"].includes(stat.label);
+            const body = (
+              <div className="bg-white border border-[#E5E5E5] rounded-xl px-4 py-3 h-full">
+                <p className={`text-2xl font-semibold tabular-nums ${urgent ? "text-[#C8102E]" : "text-[#1A1A1A]"}`}>{stat.value}</p>
+                <p className="text-xs text-[#8A8A8A] mt-1">{stat.label}</p>
+              </div>
+            );
+            return stat.href ? (
+              <Link key={stat.label} to={stat.href} className="block hover:border-[#1A1A1A]">
+                {body}
+              </Link>
+            ) : (
+              <div key={stat.label}>{body}</div>
+            );
+          })}
         </div>
 
         {/* ==================== RECEIVING WAREHOUSE DASHBOARD (Sabana) ==================== */}

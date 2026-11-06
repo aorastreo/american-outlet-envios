@@ -8,7 +8,6 @@ import {
   Plus,
   LogOut,
   Menu,
-  ChevronRight,
   Truck,
   Search,
   Globe,
@@ -179,39 +178,52 @@ export default function FranchiseLayout({
           </div>
         </div>
 
-        {/* Navigation */}
-        <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-          {(user?.username === "chofer"
-            ? driverNavItems
-            : user?.username === "bodega_sabana"
-            ? receivingWarehouseNavItems
-            : user?.franchise?.isWarehouse
-            ? warehouseNavItems
-            : storeNavItems
-          ).map((item) => {
-            const isActive = location.pathname === item.path;
-            return (
-              <Link
-                key={item.path}
-                to={item.path}
-                onClick={() => setMobileOpen(false)}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                  isActive
-                    ? "bg-[#C8102E] text-white"
-                    : "text-white/70 hover:bg-white/10 hover:text-white"
-                }`}
-              >
-                <item.icon
-                  className={`w-4.5 h-4.5 shrink-0 ${
-                    isActive ? "text-white" : "text-white/50"
-                  }`}
-                />
-                <span className="flex-1">{item.label}</span>
-                {isActive && <ChevronRight className="w-3.5 h-3.5" />}
-              </Link>
-            );
-          })}
-        </nav>
+          <nav className="flex-1 px-3 py-4 space-y-5 overflow-y-auto">
+            {(user?.username === "chofer"
+              ? [{ label: "", items: driverNavItems }]
+              : user?.username === "bodega_sabana"
+              ? [
+                  { label: "Trabajo", items: receivingWarehouseNavItems.slice(0, 2) },
+                  { label: "Consulta", items: receivingWarehouseNavItems.slice(2) },
+                ]
+              : user?.franchise?.isWarehouse
+              ? [
+                  { label: "Trabajo", items: warehouseNavItems.slice(0, 4) },
+                  { label: "Consulta", items: warehouseNavItems.slice(4) },
+                ]
+              : [
+                  { label: "Trabajo", items: storeNavItems.slice(0, 3) },
+                  { label: "Consulta", items: storeNavItems.slice(3) },
+                ]
+            ).map((group) => (
+              <div key={group.label || "solo"} className="space-y-1">
+                {group.label && (
+                  <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-white/35">
+                    {group.label}
+                  </p>
+                )}
+                {group.items.map((item) => {
+                  const isActive = location.pathname === item.path;
+                  return (
+                    <Link
+                      key={item.path}
+                      to={item.path}
+                      onClick={() => setMobileOpen(false)}
+                      className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                        isActive
+                          ? "bg-white/10 text-white"
+                          : "text-white/70 hover:bg-white/5 hover:text-white"
+                      }`}
+                    >
+                      <span className={`w-0.5 h-4 rounded-full ${isActive ? "bg-[#C8102E]" : "bg-transparent"}`} />
+                      <item.icon className={`w-4 h-4 shrink-0 ${isActive ? "text-white" : "text-white/45"}`} />
+                      <span className="flex-1">{item.label}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            ))}
+          </nav>
 
         {/* Footer */}
         <div className="p-3 border-t border-white/10">
