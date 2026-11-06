@@ -59,7 +59,6 @@ export default function Bitacora() {
         }
         .bitacora-main { flex: 1 1 auto; }
         .bitacora-sign { margin-top: auto; }
-        .bitacora-sign-space { display: none; }
         @media print {
           .bitacora-sheet {
             min-height: 0 !important;
@@ -72,18 +71,17 @@ export default function Bitacora() {
             box-shadow: none !important;
           }
           .bitacora-sheet thead { display: table-header-group; }
-          .bitacora-sign-space { display: table-footer-group; }
           .bitacora-sheet tr { break-inside: avoid; page-break-inside: avoid; }
           .bitacora-sign {
-            position: fixed;
-            left: 8mm;
-            right: 8mm;
-            bottom: 6mm;
-            margin: 0;
-            padding: 0;
+            position: static !important;
+            display: grid !important;
+            visibility: visible !important;
+            margin-top: 14mm;
+            break-inside: avoid;
+            page-break-inside: avoid;
             background: #fff;
           }
-          .bitacora-sign .sign-line { margin-top: 8mm; }
+          .bitacora-sign .sign-line { margin-top: 14mm; }
           .bitacora-head, .bitacora-sheet thead {
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
@@ -170,11 +168,6 @@ export default function Bitacora() {
               );
             })}
           </tbody>
-          <tfoot className="bitacora-sign-space">
-            <tr>
-              <td colSpan={6}><div className="h-[18mm]" /></td>
-            </tr>
-          </tfoot>
         </table>
 
         </div>

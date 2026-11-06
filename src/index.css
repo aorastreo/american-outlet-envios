@@ -109,7 +109,7 @@
   .print\:hidden,
   .no-print,
   [role="status"],
-  .fixed {
+  .fixed:not(.bitacora-sign) {
     display: none !important;
   }
 
