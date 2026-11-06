@@ -204,7 +204,7 @@ export default function ShipmentDetail() {
   const isCancelled = shipment.status === "CANCELADO";
   const isDelivered = shipment.status === "RECIBIDO_EN_DESTINO";
   const stuckAfterRoute = Boolean((shipment as any).stuckAfterRoute);
-   const canCancel = !isCancelled && !isDelivered && (isOrigin || isDestination || shipment.currentLocationId === franchiseId);
+  const canCancel = isOrigin && shipment.status === "CREADO";
   const destNameLower = (shipment.destinationFranchise?.displayName || shipment.destinationName || "").toLowerCase();
   const isPickup = (shipment as any).isPickupRoute === true ||
     destNameLower.includes("recogida") ||

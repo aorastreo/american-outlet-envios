@@ -979,16 +979,11 @@ export const shipmentRouter = createRouter({
 
       const shipment = current[0];
 
-      // Only origin or destination can cancel, and only if not already delivered or cancelled
-      if (shipment.status === "RECIBIDO_EN_DESTINO" || shipment.status === "CANCELADO") {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "No se puede cancelar un envio que ya fue entregado o cancelado" });
+      if (shipment.originFranchiseId !== franchiseId) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Solo la tienda que creo el envio puede cancelarlo" });
       }
-
-      const isInvolved = shipment.originFranchiseId === franchiseId ||
-                         shipment.destinationFranchiseId === franchiseId ||
-                         shipment.currentLocationId === franchiseId;
-      if (!isInvolved) {
-        throw new TRPCError({ code: "FORBIDDEN", message: "Solo las franquicias involucradas pueden cancelar el envio" });
+      if (shipment.status !== "CREADO") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Solo se puede cancelar un envio que aun no ha salido" });
       }
 
       const openRouteRows = await db
