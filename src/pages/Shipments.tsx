@@ -92,8 +92,8 @@ const STORE_TABS: TabDef<StoreTabKey>[] = [
     key: "POR_RECIBIR",
     label: "Por Recibir",
     icon: Inbox,
-    statuses: ["ENVIADO_A_BODEGA", "RECIBIDO_EN_BODEGA", "ENVIADO_A_DESTINO"],
-    description: "En bodega o ya en camino hacia esta tienda",
+    statuses: ["ENVIADO_A_DESTINO"],
+    description: "Ya salieron de bodega y vienen hacia esta tienda",
     color: "text-[#525252]",
     activeColor: "text-[#B8860B]",
     activeBg: "bg-amber-50",
@@ -730,8 +730,12 @@ export default function Shipments() {
         if (s.originFranchiseId === myFranchiseId && s.status === "CREADO") place = { label: `la seccion ${tabLabel("POR_ENVIAR")}`, tab: "POR_ENVIAR" };
         else if (s.originFranchiseId === myFranchiseId && ["ENVIADO_A_BODEGA", "RECIBIDO_EN_BODEGA", "ENVIADO_A_DESTINO", "EN_RUTA", "EN_PARADA", "NO_RECOGIDO"].includes(s.status)) {
           place = { label: `la seccion ${tabLabel("ENVIADOS")}`, tab: "ENVIADOS" };
-        } else if (s.destinationFranchiseId === myFranchiseId && s.originFranchiseId !== myFranchiseId && ["ENVIADO_A_BODEGA", "RECIBIDO_EN_BODEGA", "ENVIADO_A_DESTINO"].includes(s.status)) {
+        } else if (s.destinationFranchiseId === myFranchiseId && s.originFranchiseId !== myFranchiseId && s.status === "ENVIADO_A_DESTINO") {
           place = { label: `la seccion ${tabLabel("POR_RECIBIR")}`, tab: "POR_RECIBIR" };
+        } else if (s.destinationFranchiseId === myFranchiseId && s.originFranchiseId !== myFranchiseId && s.status === "RECIBIDO_EN_BODEGA") {
+          place = { label: "bodega. Todavia no se puede recibir" };
+        } else if (s.destinationFranchiseId === myFranchiseId && s.originFranchiseId !== myFranchiseId && s.status === "ENVIADO_A_BODEGA") {
+          place = { label: "camino a la bodega. Todavia no se puede recibir" };
         } else if (s.destinationFranchiseId === myFranchiseId && s.status === "RECIBIDO_EN_DESTINO") {
           place = { label: `la seccion ${tabLabel("EN_TIENDA")}`, tab: "EN_TIENDA" };
         } else if (s.originFranchiseId === myFranchiseId && s.status === "RECIBIDO_EN_DESTINO") {
@@ -1024,6 +1028,13 @@ export default function Shipments() {
     ? filteredShipments.filter((shipment) => reviewKeyOf(shipment) === activeReviewGroup)
     : filteredShipments;
   const scanPool = visibleShipments.filter(canSelectShipment);
+  const stillAtWarehouse = !isBodega && checkMode === "recepcion"
+    ? (baseShipments || []).filter((shipment) =>
+        shipment.destinationFranchiseId === myFranchiseId &&
+        shipment.originFranchiseId !== myFranchiseId &&
+        (shipment.status === "ENVIADO_A_BODEGA" || shipment.status === "RECIBIDO_EN_BODEGA")
+      )
+    : [];
 
   const selectAllVisible = () => {
     const selectable = visibleShipments.filter(canSelectShipment);
@@ -1631,7 +1642,7 @@ export default function Shipments() {
             activeGroup={activeReviewGroup}
             onGroup={setReviewGroup}
             shipments={scanPool}
-            waitingShipments={visibleShipments.filter((shipment) => !canSelectShipment(shipment))}
+            waitingShipments={stillAtWarehouse.length > 0 ? stillAtWarehouse : visibleShipments.filter((shipment) => !canSelectShipment(shipment))}
             selectedIds={selectedIds}
             onMark={(id) => {
               if (markTab && !selectedIds.includes(id)) addMarks.mutate({ tab: markTab, ids: [id] });
