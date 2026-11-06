@@ -87,7 +87,9 @@ export async function getFranchiseUserFromRequest(headers: Headers) {
 
 function canChangeFranchisePassword(franchise: { code?: string | null; name?: string | null; displayName?: string | null }) {
   if (isRetiredFranchise(franchise)) return false;
-  const text = `${franchise.code || ""} ${franchise.name || ""} ${franchise.displayName || ""}`;
+  const code = (franchise.code || "").toLowerCase();
+  const text = `${code} ${franchise.name || ""} ${franchise.displayName || ""}`.toLowerCase();
+  if (code === "ganga_santa_rosa" || (text.includes("ganga") && text.includes("santa rosa"))) return false;
   return getFranchiseGroup(text) !== "route";
 }
 
