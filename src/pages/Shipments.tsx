@@ -291,7 +291,6 @@ export default function Shipments() {
     [routePickupShipments],
   );
 
-  const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [reviewGroup, setReviewGroup] = useState<string | null>(null);
 
   // Confirmation dialog state
@@ -415,7 +414,6 @@ export default function Shipments() {
   // Update URL when tab changes
   const handleTabChange = (tab: ActiveTabKey) => {
     setActiveTab(tab);
-    setSelectedIds([]);
     setReviewGroup(null);
     const newParams = new URLSearchParams(searchParams);
     newParams.set("tab", tab);
@@ -439,14 +437,75 @@ export default function Shipments() {
 
   const utils = trpc.useUtils();
 
+  const checkMode: "salida" | "recepcion" | null =
+    (!isBodega && activeTab === "POR_ENVIAR") || (isBodega && !isReceivingWarehouse && activeTab === "EN_BODEGA")
+      ? "salida"
+      : activeTab === "POR_RECIBIR"
+        ? "recepcion"
+        : null;
+  const markTab = activeTab === "POR_ENVIAR" || activeTab === "POR_RECIBIR" || activeTab === "EN_BODEGA"
+    ? activeTab
+    : null;
+
+  const marksQuery = trpc.shipment.marks.useQuery(
+    { tab: markTab ?? "POR_ENVIAR" },
+    { enabled: checkMode !== null && markTab !== null, refetchInterval: checkMode ? 4000 : false },
+  );
+  const selectedIds = checkMode && markTab ? (marksQuery.data?.ids ?? []) : [];
+
+  const addMarks = trpc.shipment.addMarks.useMutation({
+    onMutate: async ({ tab, ids }) => {
+      await utils.shipment.marks.cancel({ tab });
+      const prev = utils.shipment.marks.getData({ tab });
+      const current = prev?.ids ?? [];
+      utils.shipment.marks.setData({ tab }, { ids: [...new Set([...current, ...ids])] });
+      return { prev };
+    },
+    onError: (error, variables, ctx) => {
+      utils.shipment.marks.setData({ tab: variables.tab }, ctx?.prev ?? { ids: [] });
+      toast.error(error.message || "No se guardo la marca");
+    },
+    onSettled: (_data, _error, variables) => {
+      utils.shipment.marks.invalidate({ tab: variables.tab });
+    },
+  });
+
+  const removeMarks = trpc.shipment.removeMarks.useMutation({
+    onMutate: async ({ tab, ids }) => {
+      await utils.shipment.marks.cancel({ tab });
+      const prev = utils.shipment.marks.getData({ tab });
+      const current = prev?.ids ?? [];
+      const gone = new Set(ids);
+      utils.shipment.marks.setData({ tab }, { ids: current.filter((id) => !gone.has(id)) });
+      return { prev };
+    },
+    onError: (error, variables, ctx) => {
+      utils.shipment.marks.setData({ tab: variables.tab }, ctx?.prev ?? { ids: [] });
+      toast.error(error.message || "No se pudo quitar la marca");
+    },
+    onSettled: (_data, _error, variables) => {
+      utils.shipment.marks.invalidate({ tab: variables.tab });
+    },
+  });
+
+  const forgetMarks = (ids: number[]) => {
+    if (!markTab || ids.length === 0) return;
+    const prev = utils.shipment.marks.getData({ tab: markTab });
+    if (prev) {
+      const gone = new Set(ids);
+      utils.shipment.marks.setData({ tab: markTab }, { ids: prev.ids.filter((id) => !gone.has(id)) });
+    }
+    utils.shipment.marks.invalidate({ tab: markTab });
+  };
+
   // ─── Mutations ────────────────────────────────────────────────
 
   // Store: Confirmar salida a bodega
   const confirmarSalidaMutation = trpc.shipment.confirmarSalidaMasiva.useMutation({
-    onSuccess: (data) => {
+    onSuccess: (data, variables) => {
       toast.success(`${data.count} envio(s) confirmado(s) como salida a bodega`);
       utils.shipment.list.invalidate();
-      setSelectedIds([]);
+      forgetMarks(variables.ids);
     },
     onError: (error) => {
       toast.error(error.message || "Error al confirmar salida");
@@ -455,10 +514,10 @@ export default function Shipments() {
 
   // Warehouse: Recibir en bodega
   const recibirBodegaMutation = trpc.shipment.recibirEnBodegaMasiva.useMutation({
-    onSuccess: (data) => {
+    onSuccess: (data, variables) => {
       toast.success(`${data.count} envio(s) recibido(s) en bodega`);
       utils.shipment.list.invalidate();
-      setSelectedIds([]);
+      forgetMarks(variables.ids);
     },
     onError: (error) => {
       toast.error(error.message || "Error al recibir en bodega");
@@ -467,10 +526,10 @@ export default function Shipments() {
 
   // Warehouse: Enviar a destino
   const enviarDestinoMutation = trpc.shipment.enviarADestinoMasiva.useMutation({
-    onSuccess: (data) => {
+    onSuccess: (data, variables) => {
       toast.success(`${data.count} envio(s) enviado(s) a destino`);
       utils.shipment.list.invalidate();
-      setSelectedIds([]);
+      forgetMarks(variables.ids);
     },
     onError: (error) => {
       toast.error(error.message || "Error al enviar a destino");
@@ -479,12 +538,12 @@ export default function Shipments() {
 
   // Warehouse: Enviar a otra bodega (inter-bodega)
   const enviarInterBodegaMutation = trpc.shipment.enviarAInterBodegaMasiva.useMutation({
-    onSuccess: (data) => {
+    onSuccess: (data, variables) => {
       const text = `${data.count} envio(s) salieron hacia ${pendingTargetRef.current}. Ahora estan en En Ruta.`;
       notify("ok", text);
       utils.shipment.list.invalidate();
       utils.shipment.listSent.invalidate();
-      setSelectedIds([]);
+      forgetMarks(variables.ids);
       goToTabRef.current("EN_RUTA");
     },
     onError: (error) => {
@@ -494,10 +553,10 @@ export default function Shipments() {
 
   // Store: Recibir en destino (tienda)
   const entregarClienteMutation = trpc.shipment.entregarAlClienteMasiva.useMutation({
-    onSuccess: (data) => {
+    onSuccess: (data, variables) => {
       toast.success(`${data.count} envio(s) entregado(s) al cliente`);
       utils.shipment.list.invalidate();
-      setSelectedIds([]);
+      forgetMarks(variables.ids);
     },
     onError: (error) => {
       toast.error(error.message || "Error al entregar al cliente");
@@ -505,10 +564,10 @@ export default function Shipments() {
   });
 
   const recibirDestinoMutation = trpc.shipment.recibirEnDestinoMasiva.useMutation({
-    onSuccess: (data) => {
+    onSuccess: (data, variables) => {
       toast.success(`${data.count} envio(s) recibido(s) en tienda`);
       utils.shipment.list.invalidate();
-      setSelectedIds([]);
+      forgetMarks(variables.ids);
     },
     onError: (error) => {
       toast.error(error.message || "Error al recibir envios");
@@ -750,13 +809,6 @@ export default function Shipments() {
     return counts;
   }, [baseShipments, interBodegaEnRuta, TABS, isBodega, myFranchiseId, allFranchises, stuckIds]);
 
-  const checkMode: "salida" | "recepcion" | null =
-    (!isBodega && activeTab === "POR_ENVIAR") || (isBodega && !isReceivingWarehouse && activeTab === "EN_BODEGA")
-      ? "salida"
-      : activeTab === "POR_RECIBIR"
-        ? "recepcion"
-        : null;
-
   const renderShipmentCard = (shipment: (typeof filteredShipments)[0]) => {
     const cfg = getStatusConfig(shipment.status);
     const place = shipmentPlaceText(shipment);
@@ -910,7 +962,9 @@ export default function Shipments() {
     isBodega || activeTab !== "POR_RECIBIR" || shipment.status === "ENVIADO_A_DESTINO";
 
   const toggleSelection = (id: number) => {
-    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+    if (!markTab || !checkMode) return;
+    if (selectedIds.includes(id)) removeMarks.mutate({ tab: markTab, ids: [id] });
+    else addMarks.mutate({ tab: markTab, ids: [id] });
   };
 
   const reviewKeyOf = (shipment: { destinationFranchiseId: number; originFranchiseId: number }) =>
@@ -938,10 +992,12 @@ export default function Shipments() {
   const selectAllVisible = () => {
     const selectable = visibleShipments.filter(canSelectShipment);
     const allSelected = selectable.length > 0 && selectable.every((s) => selectedIds.includes(s.id));
+    if (!markTab || !checkMode) return;
     if (allSelected) {
-      setSelectedIds((prev) => prev.filter((id) => !selectable.find((s) => s.id === id)));
+      removeMarks.mutate({ tab: markTab, ids: selectable.map((shipment) => shipment.id) });
     } else {
-      setSelectedIds((prev) => [...new Set([...prev, ...selectable.map((s) => s.id)])]);
+      const missing = selectable.map((shipment) => shipment.id).filter((id) => !selectedIds.includes(id));
+      if (missing.length > 0) addMarks.mutate({ tab: markTab, ids: missing });
     }
   };
 
@@ -1433,14 +1489,17 @@ export default function Shipments() {
             waitingShipments={visibleShipments.filter((shipment) => !canSelectShipment(shipment))}
             selectedIds={selectedIds}
             onMark={(id) => {
-              setSelectedIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+              if (markTab && !selectedIds.includes(id)) addMarks.mutate({ tab: markTab, ids: [id] });
               requestAnimationFrame(() => {
                 document.getElementById(`envio-${id}`)?.scrollIntoView({ block: "center", behavior: "smooth" });
               });
             }}
             onPrint={() => {
-              const ids = scanPool.map((shipment) => shipment.id).join(",");
-              if (ids) window.open(`/bitacora?ids=${ids}`, "_blank");
+              if (selectedIds.length === 0) {
+                toast.error("Escanea los paquetes primero. Esos son los que se imprimen.");
+                return;
+              }
+              window.open(`/bitacora?ids=${selectedIds.join(",")}`, "_blank");
             }}
           />
         )}

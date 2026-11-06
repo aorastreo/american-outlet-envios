@@ -57,6 +57,15 @@ export const franchiseUsers = mysqlTable("franchise_users", {
 export type FranchiseUser = typeof franchiseUsers.$inferSelect;
 export type InsertFranchiseUser = typeof franchiseUsers.$inferInsert;
 
+// Packages marked on one screen (phone) so another screen (counter computer) can print them.
+export const shipmentMarks = mysqlTable("shipment_marks", {
+  id: serial("id").primaryKey(),
+  franchiseId: bigint("franchiseId", { mode: "number", unsigned: true }).notNull(),
+  tab: varchar("tab", { length: 30 }).notNull(),
+  shipmentId: bigint("shipmentId", { mode: "number", unsigned: true }).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
 // ─── Shipments ───────────────────────────────────────────────────
 export const shipments = mysqlTable("shipments", {
   id: serial("id").primaryKey(),

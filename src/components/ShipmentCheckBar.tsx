@@ -141,9 +141,7 @@ export default function ShipmentCheckBar({
           </p>
           <p className="text-xs text-[#8A8A8A] mt-0.5">
             {ready
-              ? mode === "salida"
-                ? "Escanea, escribe el numero o toca la fila. La salida confirma solo los leidos."
-                : "Escanea, escribe el numero o toca la fila. La recepcion confirma solo los leidos."
+              ? "Escanea, escribe el numero o toca la fila. La computadora de la tienda ve estas mismas marcas."
               : "Se marcan cuando el paquete ya va hacia la tienda. Si lo escaneas antes, te avisa."}
           </p>
         </div>

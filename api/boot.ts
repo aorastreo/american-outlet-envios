@@ -174,6 +174,17 @@ async function initTables() {
       )
     `);
 
+    await connection.execute(`
+      CREATE TABLE IF NOT EXISTS shipment_marks (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        franchiseId INT NOT NULL,
+        tab VARCHAR(30) NOT NULL,
+        shipmentId INT NOT NULL,
+        createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY marks_franchise_tab_shipment (franchiseId, tab, shipmentId)
+      )
+    `);
+
     await connection.end();
     console.log("[init] Tables OK!");
   } catch (err: any) {

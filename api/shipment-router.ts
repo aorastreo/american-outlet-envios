@@ -6,6 +6,7 @@ import { getDb } from "./queries/connection";
 import {
   shipments,
   shipmentItems,
+  shipmentMarks,
   shipmentTracking,
   franchises,
   franchiseUsers,
@@ -13,6 +14,33 @@ import {
   deliveryRoutes,
 } from "@db/schema";
 import { TRPCError } from "@trpc/server";
+
+const markTabSchema = z.enum(["POR_ENVIAR", "POR_RECIBIR", "EN_BODEGA"]);
+let shipmentMarksReady = false;
+
+async function ensureShipmentMarks(db: ReturnType<typeof getDb>) {
+  if (shipmentMarksReady) return;
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS shipment_marks (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      franchiseId INT NOT NULL,
+      tab VARCHAR(30) NOT NULL,
+      shipmentId INT NOT NULL,
+      createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY marks_franchise_tab_shipment (franchiseId, tab, shipmentId)
+    )
+  `);
+  shipmentMarksReady = true;
+}
+
+async function clearShipmentMarks(db: ReturnType<typeof getDb>, franchiseId: number, ids: number[]) {
+  if (ids.length === 0) return;
+  await ensureShipmentMarks(db);
+  await db.delete(shipmentMarks).where(and(
+    eq(shipmentMarks.franchiseId, franchiseId),
+    inArray(shipmentMarks.shipmentId, ids),
+  ));
+}
 
 function isSabanaWarehouse(franchise: { name?: string | null; code?: string | null; displayName?: string | null } | undefined) {
   const text = `${franchise?.code || ""} ${franchise?.name || ""} ${franchise?.displayName || ""}`.toLowerCase();
@@ -1255,6 +1283,7 @@ export const shipmentRouter = createRouter({
         });
       }
 
+      await clearShipmentMarks(db, franchiseId, input.ids);
       return { success: true, count: envios.length };
     }),
 
@@ -1299,6 +1328,7 @@ export const shipmentRouter = createRouter({
         });
       }
 
+      await clearShipmentMarks(db, franchiseId, input.ids);
       return { success: true, count: envios.length };
     }),
 
@@ -1367,6 +1397,7 @@ export const shipmentRouter = createRouter({
         });
       }
 
+      await clearShipmentMarks(db, franchiseId, input.ids);
       return { success: true, count: envios.length };
     }),
 
@@ -1444,6 +1475,7 @@ export const shipmentRouter = createRouter({
         });
       }
 
+      await clearShipmentMarks(db, franchiseId, input.ids);
       return { success: true, count: envios.length };
     }),
   recibirEnDestinoMasiva: franchiseAuthedQuery
@@ -1482,6 +1514,7 @@ export const shipmentRouter = createRouter({
         });
       }
 
+      await clearShipmentMarks(db, franchiseId, input.ids);
       return { success: true, count: envios.length };
     }),
 
@@ -1522,7 +1555,56 @@ export const shipmentRouter = createRouter({
         });
       }
 
+      await clearShipmentMarks(db, franchiseId, input.ids);
       return { success: true, count: envios.length };
+    }),
+
+  marks: franchiseAuthedQuery
+    .input(z.object({ tab: markTabSchema }))
+    .query(async ({ input, ctx }) => {
+      const db = getDb();
+      await ensureShipmentMarks(db);
+      const rows = await db.select({ shipmentId: shipmentMarks.shipmentId }).from(shipmentMarks).where(and(
+        eq(shipmentMarks.franchiseId, ctx.franchiseUser!.franchiseId),
+        eq(shipmentMarks.tab, input.tab),
+      ));
+      return { ids: rows.map((row) => row.shipmentId) };
+    }),
+
+  addMarks: franchiseAuthedQuery
+    .input(z.object({ tab: markTabSchema, ids: z.array(z.number().int().positive()).min(1).max(300) }))
+    .mutation(async ({ input, ctx }) => {
+      const db = getDb();
+      await ensureShipmentMarks(db);
+      const franchiseId = ctx.franchiseUser!.franchiseId;
+      const existing = await db.select({ shipmentId: shipmentMarks.shipmentId }).from(shipmentMarks).where(and(
+        eq(shipmentMarks.franchiseId, franchiseId),
+        eq(shipmentMarks.tab, input.tab),
+        inArray(shipmentMarks.shipmentId, input.ids),
+      ));
+      const have = new Set(existing.map((row) => row.shipmentId));
+      const fresh = [...new Set(input.ids)].filter((id) => !have.has(id));
+      if (fresh.length > 0) {
+        await db.insert(shipmentMarks).values(fresh.map((shipmentId) => ({
+          franchiseId,
+          tab: input.tab,
+          shipmentId,
+        })));
+      }
+      return { success: true };
+    }),
+
+  removeMarks: franchiseAuthedQuery
+    .input(z.object({ tab: markTabSchema, ids: z.array(z.number().int().positive()).min(1).max(300) }))
+    .mutation(async ({ input, ctx }) => {
+      const db = getDb();
+      await ensureShipmentMarks(db);
+      await db.delete(shipmentMarks).where(and(
+        eq(shipmentMarks.franchiseId, ctx.franchiseUser!.franchiseId),
+        eq(shipmentMarks.tab, input.tab),
+        inArray(shipmentMarks.shipmentId, input.ids),
+      ));
+      return { success: true };
     }),
 
   // ─── MONTHLY REPORT BY FRANCHISE ──────────────────────────────
