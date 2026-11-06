@@ -128,17 +128,23 @@ export default function ShipmentCheckBar({
     }
   };
 
+  const ready = shipments.length > 0;
+
   return (
     <div className="rounded-xl border border-[#D4D4D4] bg-white p-4 space-y-3">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div>
           <p className="text-sm font-semibold text-[#1A1A1A]">
-            {readCount} de {shipments.length} leido{shipments.length !== 1 ? "s" : ""}
+            {ready
+              ? `${readCount} de ${shipments.length} leido${shipments.length !== 1 ? "s" : ""}`
+              : "Todavia no se pueden marcar"}
           </p>
           <p className="text-xs text-[#8A8A8A] mt-0.5">
-            {mode === "salida"
-              ? "Escanea, escribe el numero o toca la fila. La salida confirma solo los leidos."
-              : "Escanea, escribe el numero o toca la fila. La recepcion confirma solo los leidos."}
+            {ready
+              ? mode === "salida"
+                ? "Escanea, escribe el numero o toca la fila. La salida confirma solo los leidos."
+                : "Escanea, escribe el numero o toca la fila. La recepcion confirma solo los leidos."
+              : "Se marcan cuando el paquete ya va hacia la tienda. Si lo escaneas antes, te avisa."}
           </p>
         </div>
         <button
@@ -207,11 +213,10 @@ export default function ShipmentCheckBar({
           onClick={() => {
             void toggleCamera();
           }}
-          className="h-11 px-3 rounded-lg border border-[#C8102E] text-[#C8102E] text-sm font-medium inline-flex items-center gap-2"
+          className="h-11 px-3 w-full sm:w-auto rounded-lg border border-[#C8102E] text-[#C8102E] text-sm font-medium inline-flex items-center justify-center gap-2"
         >
           <Camera className="w-4 h-4" />
-          <span className="hidden sm:inline">{cameraOn ? "Cerrar camara" : "Escanear con el celular"}</span>
-          <span className="sm:hidden">{cameraOn ? "Cerrar" : "Escanear"}</span>
+          {cameraOn ? "Cerrar camara" : "Escanear con el celular"}
         </button>
       </form>
 

@@ -1423,6 +1423,28 @@ export default function Shipments() {
           })}
         </div>
 
+        {checkMode && visibleShipments.length > 0 && (
+          <ShipmentCheckBar
+            mode={checkMode}
+            groups={reviewGroups}
+            activeGroup={activeReviewGroup}
+            onGroup={setReviewGroup}
+            shipments={scanPool}
+            waitingShipments={visibleShipments.filter((shipment) => !canSelectShipment(shipment))}
+            selectedIds={selectedIds}
+            onMark={(id) => {
+              setSelectedIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+              requestAnimationFrame(() => {
+                document.getElementById(`envio-${id}`)?.scrollIntoView({ block: "center", behavior: "smooth" });
+              });
+            }}
+            onPrint={() => {
+              const ids = scanPool.map((shipment) => shipment.id).join(",");
+              if (ids) window.open(`/bitacora?ids=${ids}`, "_blank");
+            }}
+          />
+        )}
+
         {/* ─── Workflow hints ──────────────────────────────────── */}
         {renderWorkflowHint()}
 
@@ -1640,28 +1662,6 @@ export default function Shipments() {
               </div>
             ))}
           </div>
-        )}
-
-        {checkMode && scanPool.length > 0 && (
-          <ShipmentCheckBar
-            mode={checkMode}
-            groups={reviewGroups}
-            activeGroup={activeReviewGroup}
-            onGroup={setReviewGroup}
-            shipments={scanPool}
-            waitingShipments={visibleShipments.filter((shipment) => !canSelectShipment(shipment))}
-            selectedIds={selectedIds}
-            onMark={(id) => {
-              setSelectedIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
-              requestAnimationFrame(() => {
-                document.getElementById(`envio-${id}`)?.scrollIntoView({ block: "center", behavior: "smooth" });
-              });
-            }}
-            onPrint={() => {
-              const ids = scanPool.map((shipment) => shipment.id).join(",");
-              if (ids) window.open(`/bitacora?ids=${ids}`, "_blank");
-            }}
-          />
         )}
 
         {/* ─── Shipment List ───────────────────────────────────── */}
