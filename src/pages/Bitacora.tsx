@@ -62,8 +62,18 @@ export default function Bitacora() {
   return (
     <div className="min-h-screen bg-[#F3F3F3] print:min-h-0 print:bg-white">
       <style>{`
+        .bitacora-sheet {
+          min-height: calc(11in - 16mm);
+          display: flex;
+          flex-direction: column;
+        }
+        .bitacora-main { flex: 1 1 auto; }
+        .bitacora-sign { margin-top: auto; }
+        .bitacora-sign-space { display: none; }
         @media print {
           .bitacora-sheet {
+            min-height: 0 !important;
+            display: block !important;
             max-width: none !important;
             width: 100% !important;
             margin: 0 !important;
@@ -72,8 +82,18 @@ export default function Bitacora() {
             box-shadow: none !important;
           }
           .bitacora-sheet thead { display: table-header-group; }
-          .bitacora-sheet tr,
-          .bitacora-sign { break-inside: avoid; page-break-inside: avoid; }
+          .bitacora-sign-space { display: table-footer-group; }
+          .bitacora-sheet tr { break-inside: avoid; page-break-inside: avoid; }
+          .bitacora-sign {
+            position: fixed;
+            left: 8mm;
+            right: 8mm;
+            bottom: 6mm;
+            margin: 0;
+            padding: 0;
+            background: #fff;
+          }
+          .bitacora-sign .sign-line { margin-top: 8mm; }
           .bitacora-head, .bitacora-sheet thead {
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
@@ -86,7 +106,7 @@ export default function Bitacora() {
           <Truck className="w-5 h-5 text-[#404040]" />
           <div>
             <h1 className="text-base font-semibold text-[#1A1A1A]">Bitacora</h1>
-            <p className="text-xs text-[#404040]">{totalPackages} paquete{totalPackages !== 1 ? "s" : ""}. Asi sale en una hoja.</p>
+            <p className="text-xs text-[#404040]">{totalPackages} paquete{totalPackages !== 1 ? "s" : ""}. Las firmas quedan al pie de la hoja.</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -100,7 +120,7 @@ export default function Bitacora() {
         </div>
       </div>
 
-      <article className="bitacora-sheet max-w-[760px] mx-auto my-6 bg-white text-[#1A1A1A] border border-[#D4D4D4] shadow-sm overflow-hidden print:my-0">
+      <article className="bitacora-sheet max-w-[760px] mx-auto my-6 bg-white text-[#1A1A1A] border border-[#D4D4D4] shadow-sm print:my-0">
         <header className="bitacora-head bg-[#C8102E] text-white px-4 py-3 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
             <img
@@ -124,7 +144,7 @@ export default function Bitacora() {
           </div>
         </header>
 
-        <div className="px-4 pb-4">
+        <div className="bitacora-main px-4">
         <table className="w-full mt-2 border-collapse text-[12px]">
           <thead>
             <tr className="border-b-2 border-[#C8102E] text-left text-[#9B0B22]">
@@ -160,17 +180,22 @@ export default function Bitacora() {
               );
             })}
           </tbody>
+          <tfoot className="bitacora-sign-space">
+            <tr>
+              <td colSpan={6}><div className="h-[18mm]" /></td>
+            </tr>
+          </tfoot>
         </table>
 
-        <section className="bitacora-sign mt-6 grid grid-cols-3 gap-8 text-xs">
+        </div>
+        <section className="bitacora-sign px-4 pb-5 pt-4 grid grid-cols-3 gap-10 text-xs">
           {["Entrega", "Recibe", "Chofer"].map((label) => (
             <div key={label}>
               <p className="font-semibold text-[#C8102E]">{label}</p>
-              <div className="mt-7 border-b border-[#1A1A1A]" />
+              <div className="sign-line mt-8 border-b border-[#1A1A1A]" />
             </div>
           ))}
         </section>
-        </div>
       </article>
     </div>
   );
