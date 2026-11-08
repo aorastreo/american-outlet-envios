@@ -843,7 +843,7 @@ export default function Shipments() {
     const place = shipmentPlaceText(shipment);
     const stuck = Boolean(shipment.stuckAfterRoute);
     const selectable = canSelectShipment(shipment);
-    const isSelected = selectedIds.includes(shipment.id);
+    const isSelected = actionableSelectedIds.includes(shipment.id);
     const checking = Boolean(checkMode) && selectable;
     const card = (
           <Card
@@ -979,8 +979,46 @@ export default function Shipments() {
     if (checkMode === "entrega") {
       return shipment.status === "RECIBIDO_EN_DESTINO" && shipment.destinationFranchiseId === myFranchiseId;
     }
-    return isBodega || activeTab !== "POR_RECIBIR" || shipment.status === "ENVIADO_A_DESTINO";
+    if (checkMode === "recepcion") {
+      if (isBodega && !isReceivingWarehouse) return shipment.status === "ENVIADO_A_BODEGA";
+      return shipment.status === "ENVIADO_A_DESTINO";
+    }
+    if (checkMode === "salida") {
+      if (isBodega) return shipment.status === "CREADO" || shipment.status === "RECIBIDO_EN_BODEGA";
+      return shipment.status === "CREADO";
+    }
+    return false;
   };
+
+  const shipmentPool = useMemo(() => {
+    const pool = new Map<number, { id: number; status: string; destinationFranchiseId: number; originFranchiseId: number }>();
+    for (const shipment of baseShipments || []) pool.set(shipment.id, shipment);
+    for (const shipment of interBodegaEnRuta) pool.set(shipment.id, shipment);
+    return pool;
+  }, [baseShipments, interBodegaEnRuta]);
+
+  // Marks that still belong to a package this tab can act on. Ghost marks from
+  // packages that already moved on must not show "Confirmar" or hit the API.
+  const actionableSelectedIds = selectedIds.filter((id) => {
+    const shipment = shipmentPool.get(id);
+    return Boolean(shipment && canSelectShipment(shipment));
+  });
+
+  useEffect(() => {
+    if (!markTab || !checkMode || listQuery.isLoading || marksQuery.isLoading) return;
+    if (baseShipments === undefined) return;
+    const stale = selectedIds.filter((id) => !actionableSelectedIds.includes(id));
+    if (stale.length === 0) return;
+    removeMarks.mutate({ tab: markTab, ids: stale });
+  }, [
+    markTab,
+    checkMode,
+    listQuery.isLoading,
+    marksQuery.isLoading,
+    baseShipments,
+    selectedIds,
+    actionableSelectedIds,
+  ]);
 
   const toggleSelection = (id: number) => {
     if (!markTab || !checkMode) return;
@@ -1027,19 +1065,19 @@ export default function Shipments() {
 
   const selectAllVisible = () => {
     const selectable = visibleShipments.filter(canSelectShipment);
-    const allSelected = selectable.length > 0 && selectable.every((s) => selectedIds.includes(s.id));
+    const allSelected = selectable.length > 0 && selectable.every((s) => actionableSelectedIds.includes(s.id));
     if (!markTab || !checkMode) return;
     if (allSelected) {
       removeMarks.mutate({ tab: markTab, ids: selectable.map((shipment) => shipment.id) });
     } else {
-      const missing = selectable.map((shipment) => shipment.id).filter((id) => !selectedIds.includes(id));
+      const missing = selectable.map((shipment) => shipment.id).filter((id) => !actionableSelectedIds.includes(id));
       if (missing.length > 0) addMarks.mutate({ tab: markTab, ids: missing });
     }
   };
 
   const unmarkedWarning = () => {
     if (!checkMode) return "";
-    const left = scanPool.filter((shipment) => !selectedIds.includes(shipment.id));
+    const left = scanPool.filter((shipment) => !actionableSelectedIds.includes(shipment.id));
     if (left.length === 0) return " Todos los de la lista estan marcados.";
     const sample = left.slice(0, 6).map((shipment) => `${shipment.trackingNumber} (${shipment.senderName})`).join(", ");
     const extra = left.length > 6 ? ` y ${left.length - 6} mas` : "";
@@ -1062,8 +1100,10 @@ export default function Shipments() {
   // ─── Action handlers ──────────────────────────────────────────
 
   const confirmarSalida = () => {
-    if (selectedIds.length === 0) return;
-    const seleccionados = filteredShipments.filter((s) => selectedIds.includes(s.id));
+    if (actionableSelectedIds.length === 0) return;
+    const seleccionados = actionableSelectedIds
+      .map((id) => shipmentPool.get(id))
+      .filter((s): s is NonNullable<typeof s> => Boolean(s));
     const noCreados = seleccionados.filter((s) => s.status !== "CREADO");
     if (noCreados.length > 0) {
       notify("error", `${noCreados.length} envio(s) no estan en estado CREADO`);
@@ -1071,29 +1111,31 @@ export default function Shipments() {
     }
     openConfirmDialog(
       "Confirmar Salida a Bodega",
-      `Confirmar la salida de ${selectedIds.length} envio(s).${unmarkedWarning()}`,
-      () => confirmarSalidaMutation.mutate({ ids: selectedIds })
+      `Confirmar la salida de ${actionableSelectedIds.length} envio(s).${unmarkedWarning()}`,
+      () => confirmarSalidaMutation.mutate({ ids: actionableSelectedIds })
     );
   };
 
   const recibirEnBodega = () => {
-    if (selectedIds.length === 0) return;
-    const seleccionados = filteredShipments.filter((s) => selectedIds.includes(s.id));
+    if (actionableSelectedIds.length === 0) return;
+    const seleccionados = actionableSelectedIds
+      .map((id) => shipmentPool.get(id))
+      .filter((s): s is NonNullable<typeof s> => Boolean(s));
     const invalidos = seleccionados.filter((s) => s.status !== "ENVIADO_A_BODEGA");
-    if (invalidos.length > 0) {
-      notify("error", `${invalidos.length} envio(s) no estan en estado ENVIADO_A_BODEGA`);
+    if (invalidos.length > 0 || seleccionados.length !== actionableSelectedIds.length) {
+      notify("error", `${Math.max(invalidos.length, actionableSelectedIds.length - seleccionados.length)} envio(s) no estan en estado ENVIADO_A_BODEGA`);
       return;
     }
     openConfirmDialog(
       "Confirmar Recepcion en Bodega",
-      `Confirmar la recepcion de ${selectedIds.length} envio(s).${unmarkedWarning()}`,
-      () => recibirBodegaMutation.mutate({ ids: selectedIds })
+      `Confirmar la recepcion de ${actionableSelectedIds.length} envio(s).${unmarkedWarning()}`,
+      () => recibirBodegaMutation.mutate({ ids: actionableSelectedIds })
     );
   };
 
   const enviarADestino = () => {
-    if (selectedIds.length === 0) return;
-    const seleccionados = filteredShipments.filter((s) => selectedIds.includes(s.id));
+    if (actionableSelectedIds.length === 0) return;
+    const seleccionados = (baseShipments || []).filter((s) => actionableSelectedIds.includes(s.id));
         // SOLO en Bodega Pavon: bloquear si se mezclan envios propios con recolecciones de tiendas
     const isBodegaPavon = (user?.franchise?.displayName || "").toLowerCase().includes("pavon");
     if (isBodegaPavon) {
@@ -1139,28 +1181,28 @@ export default function Shipments() {
     if (interBodega.needsTransfer) {
       openConfirmDialog(
         "Confirmar Envio a Otra Bodega",
-        `Enviar ${selectedIds.length} envio(s) hacia ${interBodega.targetBodega}.${unmarkedWarning()}`,
+        `Enviar ${actionableSelectedIds.length} envio(s) hacia ${interBodega.targetBodega}.${unmarkedWarning()}`,
         () => {
           pendingTargetRef.current = interBodega.targetBodega;
           setBulkMessage({
             tone: "ok",
-            text: `Enviando ${selectedIds.length} envio(s) a ${interBodega.targetBodega}...`,
+            text: `Enviando ${actionableSelectedIds.length} envio(s) a ${interBodega.targetBodega}...`,
           });
-          enviarInterBodegaMutation.mutate({ ids: selectedIds, targetBodega: interBodega.targetBodega });
+          enviarInterBodegaMutation.mutate({ ids: actionableSelectedIds, targetBodega: interBodega.targetBodega });
         }
       );
     } else {
       openConfirmDialog(
         "Confirmar Envio a Destino",
-        `Confirmar el envio a destino de ${selectedIds.length} envio(s).${unmarkedWarning()}`,
-        () => enviarDestinoMutation.mutate({ ids: selectedIds })
+        `Confirmar el envio a destino de ${actionableSelectedIds.length} envio(s).${unmarkedWarning()}`,
+        () => enviarDestinoMutation.mutate({ ids: actionableSelectedIds })
       );
     }
   };
 
   const entregarAlCliente = () => {
-    if (selectedIds.length === 0) return;
-    const seleccionados = filteredShipments.filter((s) => selectedIds.includes(s.id));
+    if (actionableSelectedIds.length === 0) return;
+    const seleccionados = (baseShipments || []).filter((s) => actionableSelectedIds.includes(s.id));
     const invalidos = seleccionados.filter((s) => s.status !== "RECIBIDO_EN_BODEGA" || s.destinationFranchiseId !== myFranchiseId);
     if (invalidos.length > 0) {
       toast.error("Selecciona solo envios que el cliente retira en esta bodega");
@@ -1168,52 +1210,56 @@ export default function Shipments() {
     }
     openConfirmDialog(
       "Entregar al cliente",
-      `El cliente ya retiró ${selectedIds.length} envio(s) en esta bodega.${unmarkedWarning()}`,
-      () => entregarClienteMutation.mutate({ ids: selectedIds })
+      `El cliente ya retiró ${actionableSelectedIds.length} envio(s) en esta bodega.${unmarkedWarning()}`,
+      () => entregarClienteMutation.mutate({ ids: actionableSelectedIds })
     );
   };
 
   const recibirEnDestino = () => {
-    if (selectedIds.length === 0) return;
-    const seleccionados = filteredShipments.filter((s) => selectedIds.includes(s.id));
+    if (actionableSelectedIds.length === 0) return;
+    const seleccionados = actionableSelectedIds
+      .map((id) => shipmentPool.get(id))
+      .filter((s): s is NonNullable<typeof s> => Boolean(s));
     const invalidos = seleccionados.filter((s) => s.status !== "ENVIADO_A_DESTINO");
-    if (invalidos.length > 0) {
+    if (invalidos.length > 0 || seleccionados.length !== actionableSelectedIds.length) {
       toast.error("Esos paquetes siguen en bodega. Solo se reciben cuando ya van hacia la tienda.");
       return;
     }
     openConfirmDialog(
       "Confirmar Recepcion en Tienda",
-      `Confirmar la recepcion de ${selectedIds.length} envio(s) en tienda.${unmarkedWarning()}`,
-      () => recibirDestinoMutation.mutate({ ids: selectedIds })
+      `Confirmar la recepcion de ${actionableSelectedIds.length} envio(s) en tienda.${unmarkedWarning()}`,
+      () => recibirDestinoMutation.mutate({ ids: actionableSelectedIds })
     );
   };
 
   const entregarEnTienda = () => {
-    if (selectedIds.length === 0) return;
-    const seleccionados = filteredShipments.filter((s) => selectedIds.includes(s.id));
+    if (actionableSelectedIds.length === 0) return;
+    const seleccionados = actionableSelectedIds
+      .map((id) => shipmentPool.get(id))
+      .filter((s): s is NonNullable<typeof s> => Boolean(s));
     const invalidos = seleccionados.filter((s) => s.status !== "RECIBIDO_EN_DESTINO" || s.destinationFranchiseId !== myFranchiseId);
-    if (invalidos.length > 0) {
+    if (invalidos.length > 0 || seleccionados.length !== actionableSelectedIds.length) {
       toast.error("Selecciona solo paquetes que ya estan en esta tienda");
       return;
     }
     openConfirmDialog(
       "Entregar al cliente",
-      `El cliente retira ${selectedIds.length} paquete(s) de esta tienda. Escribe el nombre de quien los recibe.${unmarkedWarning()}`,
+      `El cliente retira ${actionableSelectedIds.length} paquete(s) de esta tienda. Escribe el nombre de quien los recibe.${unmarkedWarning()}`,
       () => {
         const name = receiverDraftRef.current.trim();
         if (name.length < 2) {
           toast.error("Escribe el nombre de quien retira");
           return;
         }
-        entregarEnTiendaMutation.mutate({ ids: selectedIds, receiverName: name });
+        entregarEnTiendaMutation.mutate({ ids: actionableSelectedIds, receiverName: name });
       },
       true,
     );
   };
 
   const primaryAction = (() => {
-    if (selectedIds.length === 0) return null;
-    const busy = (pending: boolean, label: string) => (pending ? "Procesando..." : label + " (" + selectedIds.length + ")");
+    if (actionableSelectedIds.length === 0) return null;
+    const busy = (pending: boolean, label: string) => (pending ? "Procesando..." : label + " (" + actionableSelectedIds.length + ")");
     if (!isBodega && activeTab === "POR_ENVIAR") {
       return { label: busy(confirmarSalidaMutation.isPending, "Confirmar salida"), onClick: confirmarSalida, disabled: confirmarSalidaMutation.isPending };
     }
@@ -1227,14 +1273,14 @@ export default function Shipments() {
       return { label: busy(recibirBodegaMutation.isPending, "Confirmar recepcion"), onClick: recibirEnBodega, disabled: recibirBodegaMutation.isPending };
     }
     if (isBodega && activeTab === "EN_BODEGA") {
-      const selectedShipments = filteredShipments.filter((s) => selectedIds.includes(s.id));
+      const selectedShipments = (baseShipments || []).filter((s) => actionableSelectedIds.includes(s.id));
       const interBodega = selectedShipments.length > 0 ? needsInterBodega(selectedShipments[0]) : { needsTransfer: false, targetBodega: "" };
       const hasInterBodega = selectedShipments.some((s) => needsInterBodega(s).needsTransfer);
       const mixedMove = mixedShipmentMoveMessage(selectedShipments);
       if (mixedMove) return { label: "", onClick: () => {}, disabled: true, note: mixedMove };
       if (hasInterBodega) {
         return {
-          label: enviarInterBodegaMutation.isPending ? "Procesando..." : "Enviar a " + interBodega.targetBodega + " (" + selectedIds.length + ")",
+          label: enviarInterBodegaMutation.isPending ? "Procesando..." : "Enviar a " + interBodega.targetBodega + " (" + actionableSelectedIds.length + ")",
           onClick: enviarADestino,
           disabled: enviarDestinoMutation.isPending || enviarInterBodegaMutation.isPending,
         };
@@ -1285,9 +1331,9 @@ export default function Shipments() {
             <p className="text-sm text-[#8A8A8A] mt-1">{currentTab.description}</p>
             <p className="text-xs text-[#A3A3A3] mt-1">
               {visibleShipments.length} paquete{visibleShipments.length !== 1 ? "s" : ""}
-              {selectedIds.length > 0 && (
+              {actionableSelectedIds.length > 0 && (
                 <span className="text-[#C8102E]">
-                  {" "}· {selectedIds.length} marcado{selectedIds.length !== 1 ? "s" : ""}
+                  {" "}· {actionableSelectedIds.length} marcado{actionableSelectedIds.length !== 1 ? "s" : ""}
                 </span>
               )}
             </p>
@@ -1430,19 +1476,19 @@ export default function Shipments() {
             onGroup={setReviewGroup}
             shipments={scanPool}
             waitingShipments={stillAtWarehouse.length > 0 ? stillAtWarehouse : visibleShipments.filter((shipment) => !canSelectShipment(shipment))}
-            selectedIds={selectedIds}
+            selectedIds={actionableSelectedIds}
             onMark={(id) => {
-              if (markTab && !selectedIds.includes(id)) addMarks.mutate({ tab: markTab, ids: [id] });
+              if (markTab && !actionableSelectedIds.includes(id)) addMarks.mutate({ tab: markTab, ids: [id] });
               requestAnimationFrame(() => {
                 document.getElementById(`envio-${id}`)?.scrollIntoView({ block: "center", behavior: "smooth" });
               });
             }}
             onPrint={() => {
-              if (selectedIds.length === 0) {
+              if (actionableSelectedIds.length === 0) {
                 toast.error("Escanea los paquetes primero. Esos son los que se imprimen.");
                 return;
               }
-              window.open(`/bitacora?ids=${selectedIds.join(",")}`, "_blank");
+              window.open(`/bitacora?ids=${actionableSelectedIds.join(",")}`, "_blank");
             }}
           />
         )}
@@ -1681,7 +1727,7 @@ export default function Shipments() {
             {checkMode && scanPool.length > 1 && (
               <div className="flex items-center gap-2 px-4 py-2 bg-[#F7F7F7] rounded-lg border border-[#D4D4D4]">
                 <Checkbox
-                  checked={scanPool.every((s) => selectedIds.includes(s.id))}
+                  checked={scanPool.every((s) => actionableSelectedIds.includes(s.id))}
                   onCheckedChange={selectAllVisible}
                   className="border-[#D4D4D4] data-[state=checked]:bg-[#C8102E] data-[state=checked]:border-[#C8102E]"
                 />

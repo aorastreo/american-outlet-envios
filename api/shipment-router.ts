@@ -34,13 +34,25 @@ async function ensureShipmentMarks(db: ReturnType<typeof getDb>) {
   shipmentMarksReady = true;
 }
 
-async function clearShipmentMarks(db: ReturnType<typeof getDb>, franchiseId: number, ids: number[]) {
+async function clearShipmentMarks(db: ReturnType<typeof getDb>, ids: number[]) {
   if (ids.length === 0) return;
   await ensureShipmentMarks(db);
-  await db.delete(shipmentMarks).where(and(
-    eq(shipmentMarks.franchiseId, franchiseId),
-    inArray(shipmentMarks.shipmentId, ids),
-  ));
+  // Any mark for these packages is stale once their status moves on.
+  await db.delete(shipmentMarks).where(inArray(shipmentMarks.shipmentId, ids));
+}
+
+function markStatusesForTab(
+  tab: z.infer<typeof markTabSchema>,
+  isWarehouse: boolean,
+  isSabana: boolean,
+): string[] {
+  if (tab === "POR_ENVIAR") return ["CREADO"];
+  if (tab === "POR_RECIBIR") {
+    if (isWarehouse && !isSabana) return ["ENVIADO_A_BODEGA"];
+    return ["ENVIADO_A_DESTINO"];
+  }
+  if (tab === "EN_BODEGA") return ["CREADO", "RECIBIDO_EN_BODEGA"];
+  return ["RECIBIDO_EN_DESTINO"];
 }
 
 let shipmentTripsReady = false;
@@ -71,7 +83,7 @@ async function keepShipmentTrip(db: ReturnType<typeof getDb>, franchiseId: numbe
     shipmentIds: unique.join(","),
     packageCount: unique.length,
   });
-  await clearShipmentMarks(db, franchiseId, unique);
+  await clearShipmentMarks(db, unique);
 }
 
 function isSabanaWarehouse(franchise: { name?: string | null; code?: string | null; displayName?: string | null } | undefined) {
@@ -967,6 +979,7 @@ export const shipmentRouter = createRouter({
         createdBy: ctx.franchiseUser!.id,
       });
 
+      await clearShipmentMarks(db, [input.id]);
       return { success: true };
     }),
 
@@ -1014,6 +1027,7 @@ export const shipmentRouter = createRouter({
         createdBy: ctx.franchiseUser!.id,
       });
 
+      await clearShipmentMarks(db, [input.id]);
       return { success: true };
     }),
 
@@ -1095,6 +1109,7 @@ export const shipmentRouter = createRouter({
         createdBy: ctx.franchiseUser!.id,
       });
 
+      await clearShipmentMarks(db, [shipment.id]);
       return { success: true };
     }),
 
@@ -1750,11 +1765,42 @@ export const shipmentRouter = createRouter({
     .query(async ({ input, ctx }) => {
       const db = getDb();
       await ensureShipmentMarks(db);
+      const franchiseId = ctx.franchiseUser!.franchiseId;
       const rows = await db.select({ shipmentId: shipmentMarks.shipmentId }).from(shipmentMarks).where(and(
-        eq(shipmentMarks.franchiseId, ctx.franchiseUser!.franchiseId),
+        eq(shipmentMarks.franchiseId, franchiseId),
         eq(shipmentMarks.tab, input.tab),
       ));
-      return { ids: rows.map((row) => row.shipmentId) };
+      const ids = rows.map((row) => row.shipmentId);
+      if (ids.length === 0) return { ids: [] };
+
+      const userFranchise = await db.select().from(franchises).where(eq(franchises.id, franchiseId)).limit(1);
+      const isWarehouse = userFranchise[0]?.isWarehouse === 1;
+      const isSabana = isSabanaWarehouse(userFranchise[0]);
+      const allowed = new Set(markStatusesForTab(input.tab, isWarehouse, isSabana));
+
+      const envios = await db
+        .select({ id: shipments.id, status: shipments.status })
+        .from(shipments)
+        .where(inArray(shipments.id, ids));
+      const byId = new Map(envios.map((envio) => [envio.id, envio]));
+
+      const valid: number[] = [];
+      const stale: number[] = [];
+      for (const id of ids) {
+        const envio = byId.get(id);
+        if (envio && allowed.has(envio.status)) valid.push(id);
+        else stale.push(id);
+      }
+
+      if (stale.length > 0) {
+        await db.delete(shipmentMarks).where(and(
+          eq(shipmentMarks.franchiseId, franchiseId),
+          eq(shipmentMarks.tab, input.tab),
+          inArray(shipmentMarks.shipmentId, stale),
+        ));
+      }
+
+      return { ids: valid };
     }),
 
   addMarks: franchiseAuthedQuery
