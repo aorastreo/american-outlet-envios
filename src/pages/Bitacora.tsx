@@ -30,12 +30,18 @@ export default function Bitacora() {
     );
   }
 
-  if (!data || data.shipments.length === 0) {
+  if (ids.length === 0 || !data || data.shipments.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-screen text-[#8A8A8A] gap-4">
+      <div className="flex flex-col items-center justify-center h-screen text-[#8A8A8A] gap-4 px-6 text-center">
         <Package className="w-12 h-12 text-[#D4D4D4]" />
-        <p>No se seleccionaron envios para la bitacora</p>
-        <Button onClick={() => window.close()} variant="outline">Cerrar</Button>
+        <p>
+          {ids.length === 0
+            ? "No se seleccionaron envios para la bitacora"
+            : "No se pudieron cargar esos envios. Abra la bitacora desde Bitacoras en Envios o vuelva a marcar los paquetes."}
+        </p>
+        <Button asChild variant="outline">
+          <Link to="/envios">Volver al panel</Link>
+        </Button>
       </div>
     );
   }

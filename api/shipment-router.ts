@@ -1364,16 +1364,34 @@ export const shipmentRouter = createRouter({
         })
         .from(shipments)
         .leftJoin(franchises, eq(franchises.id, shipments.originFranchiseId))
-        .where(inArray(shipments.id, input.ids))
-        .orderBy(desc(shipments.createdAt));
+        .where(inArray(shipments.id, input.ids));
 
-      // Filter: user can only see shipments related to their franchise
-      const filtered = result.filter(s =>
+      // Packages already confirmed in a saved trip for this franchise can always
+      // be reprinted, even after their status moved on.
+      await ensureShipmentTrips(db);
+      const trips = await db
+        .select({ shipmentIds: shipmentTrips.shipmentIds })
+        .from(shipmentTrips)
+        .where(eq(shipmentTrips.franchiseId, franchiseId));
+      const tripShipmentIds = new Set<number>();
+      for (const trip of trips) {
+        for (const part of String(trip.shipmentIds || "").split(",")) {
+          const id = Number(part.trim());
+          if (Number.isFinite(id) && id > 0) tripShipmentIds.add(id);
+        }
+      }
+
+      const filtered = result.filter((s) =>
+        tripShipmentIds.has(s.id) ||
         s.originFranchiseId === franchiseId ||
         s.destinationFranchiseId === franchiseId ||
         s.currentLocationId === franchiseId ||
-        (isWarehouse && (s.status === "ENVIADO_A_BODEGA" || s.status === "RECIBIDO_EN_BODEGA" || s.status === "ENVIADO_A_DESTINO"))
+        (isWarehouse && (s.status === "ENVIADO_A_BODEGA" || s.status === "RECIBIDO_EN_BODEGA" || s.status === "ENVIADO_A_DESTINO" || s.status === "RECIBIDO_EN_DESTINO" || s.status === "ENTREGADO_AL_CLIENTE"))
       );
+
+      // Keep the same package order as the trip / selection, not createdAt.
+      const order = new Map(input.ids.map((id, index) => [id, index]));
+      filtered.sort((a, b) => (order.get(a.id) ?? 9999) - (order.get(b.id) ?? 9999));
 
       if (filtered.length === 0) {
         return { shipments: [], totalPackages: 0, generatedAt: new Date() };
