@@ -1371,11 +1371,22 @@ export default function Shipments() {
               <p className="text-sm text-[#8A8A8A]">Todavia no hay un envio o una recepcion confirmada.</p>
             ) : (
               <div className="space-y-2">
-                {(tripsQuery.data || []).map((trip) => (
+                {(tripsQuery.data || []).map((trip) => {
+                  const trackingHint = trip.sampleTracking
+                    ? `${trip.sampleTracking}${trip.extraTracking > 0 ? ` +${trip.extraTracking} mas` : ""}`
+                    : "";
+                  return (
                   <div key={trip.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border border-[#F0F0F0] rounded-lg px-3 py-2">
-                    <div>
+                    <div className="min-w-0">
                       <p className="text-sm font-medium text-[#1A1A1A]">{trip.label}</p>
-                      <p className="text-xs text-[#8A8A8A]">
+                      {(trip.routeSummary || trackingHint) && (
+                        <p className="text-xs text-[#525252] mt-0.5 truncate">
+                          {trip.routeSummary}
+                          {trip.routeSummary && trackingHint ? " · " : ""}
+                          {trackingHint && <span className="font-mono">{trackingHint}</span>}
+                        </p>
+                      )}
+                      <p className="text-xs text-[#8A8A8A] mt-0.5">
                         {format(new Date(trip.createdAt), "dd/MM/yyyy HH:mm", { locale: es })}
                         {" · "}
                         {trip.packageCount} paquete{trip.packageCount !== 1 ? "s" : ""}
@@ -1387,13 +1398,14 @@ export default function Shipments() {
                         const ids = trip.shipmentIds.split(",").map((id) => Number(id)).filter(Boolean).join(",");
                         if (ids) window.open(`/bitacora?ids=${ids}`, "_blank");
                       }}
-                      className="inline-flex items-center justify-center h-10 px-3 rounded-lg bg-[#C8102E] text-white text-sm font-medium"
+                      className="inline-flex items-center justify-center h-10 px-3 rounded-lg bg-[#C8102E] text-white text-sm font-medium shrink-0"
                     >
                       <Printer className="w-4 h-4 mr-2" />
                       Imprimir
                     </button>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

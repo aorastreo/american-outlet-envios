@@ -1769,13 +1769,89 @@ export const shipmentRouter = createRouter({
       const rows = await db.select().from(shipmentTrips).where(
         eq(shipmentTrips.franchiseId, ctx.franchiseUser!.franchiseId),
       ).orderBy(desc(shipmentTrips.createdAt)).limit(30);
-      return rows.map((row) => ({
-        id: row.id,
-        label: row.label,
-        packageCount: row.packageCount,
-        createdAt: row.createdAt,
-        shipmentIds: row.shipmentIds,
-      }));
+
+      const allIds = [...new Set(
+        rows.flatMap((row) =>
+          String(row.shipmentIds || "")
+            .split(",")
+            .map((part) => Number(part.trim()))
+            .filter((id) => Number.isFinite(id) && id > 0),
+        ),
+      )];
+
+      const shipmentById = new Map<number, {
+        trackingNumber: string;
+        originName: string;
+        destinationName: string;
+      }>();
+
+      if (allIds.length > 0) {
+        const allFranchises = await db.select().from(franchises);
+        const franchiseMap = new Map(allFranchises.map((f) => [f.id, f]));
+        const envios = await db
+          .select({
+            id: shipments.id,
+            trackingNumber: shipments.trackingNumber,
+            originFranchiseId: shipments.originFranchiseId,
+            destinationFranchiseId: shipments.destinationFranchiseId,
+          })
+          .from(shipments)
+          .where(inArray(shipments.id, allIds));
+
+        for (const envio of envios) {
+          const origin = franchiseMap.get(envio.originFranchiseId);
+          const destination = franchiseMap.get(envio.destinationFranchiseId);
+          shipmentById.set(envio.id, {
+            trackingNumber: envio.trackingNumber,
+            originName: cleanFranchiseName(origin?.displayName || origin?.name),
+            destinationName: cleanFranchiseName(destination?.displayName || destination?.name),
+          });
+        }
+      }
+
+      const summarizePlaces = (names: string[]) => {
+        const unique = [...new Set(names.filter(Boolean))];
+        if (unique.length === 0) return "";
+        if (unique.length === 1) return unique[0];
+        if (unique.length === 2) return `${unique[0]}, ${unique[1]}`;
+        return `${unique.slice(0, 2).join(", ")} +${unique.length - 2}`;
+      };
+
+      return rows.map((row) => {
+        const ids = String(row.shipmentIds || "")
+          .split(",")
+          .map((part) => Number(part.trim()))
+          .filter((id) => Number.isFinite(id) && id > 0);
+        const packages = ids.map((id) => shipmentById.get(id)).filter(Boolean) as {
+          trackingNumber: string;
+          originName: string;
+          destinationName: string;
+        }[];
+
+        const labelLower = (row.label || "").toLowerCase();
+        const useOrigins = labelLower.includes("recepcion") || labelLower.includes("recepción");
+        const places = summarizePlaces(
+          packages.map((pkg) => (useOrigins ? pkg.originName : pkg.destinationName)),
+        );
+        const routeSummary = places
+          ? `${useOrigins ? "Desde" : "Hacia"} ${places}`
+          : "";
+
+        const trackings = packages.map((pkg) => pkg.trackingNumber).filter(Boolean);
+        const sampleTracking = trackings[0] || "";
+        const extraTracking = Math.max(0, trackings.length - 1);
+
+        return {
+          id: row.id,
+          label: row.label,
+          packageCount: row.packageCount,
+          createdAt: row.createdAt,
+          shipmentIds: row.shipmentIds,
+          routeSummary,
+          sampleTracking,
+          extraTracking,
+        };
+      });
     }),
 
   marks: franchiseAuthedQuery
