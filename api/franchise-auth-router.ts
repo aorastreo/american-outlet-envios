@@ -8,38 +8,15 @@ import { franchiseUsers, franchises } from "@db/schema";
 import { isRetiredFranchise, getFranchiseGroup } from "../src/lib/franchise-groups";
 import { TRPCError } from "@trpc/server";
 import * as cookie from "cookie";
+import {
+  assertPasswordManagerUser,
+  checkLoginRateLimit,
+  getClientIP,
+  jwtSecretBytes,
+} from "./lib/auth-guards";
 
 const FRANCHISE_COOKIE = "franchise_sid";
-
-// Use JWT_SECRET from env, fallback only for local dev
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || "american-outlet-dev-key-change-in-prod"
-);
-
-// ─── RATE LIMITING (in-memory, per IP) ──────────────────────────
-const loginAttempts = new Map<string, { count: number; resetAt: number }>();
-const RATE_LIMIT_MAX = 10;
-const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
-
-function checkRateLimit(ip: string): boolean {
-  const now = Date.now();
-  const record = loginAttempts.get(ip);
-  if (!record || now > record.resetAt) {
-    loginAttempts.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
-    return true;
-  }
-  if (record.count >= RATE_LIMIT_MAX) {
-    return false;
-  }
-  record.count++;
-  return true;
-}
-
-function getClientIP(headers: Headers): string {
-  const forwarded = headers.get("x-forwarded-for");
-  if (forwarded) return forwarded.split(",")[0].trim();
-  return headers.get("x-real-ip") || "unknown";
-}
+const JWT_SECRET = jwtSecretBytes();
 
 function hashPassword(password: string): string {
   return createHash("sha256").update(password).digest("hex");
@@ -96,15 +73,6 @@ function cleanFranchiseLabel(name: string | null | undefined): string {
   return name.replace(/AMERICAN OUTLET\s*/i, "").trim() || name;
 }
 
-async function assertPasswordManager(franchiseId: number) {
-  const db = getDb();
-  const rows = await db.select().from(franchises).where(eq(franchises.id, franchiseId)).limit(1);
-  const code = rows[0]?.code?.toLowerCase();
-  if (code !== "bodega" && code !== "bodega_cedi") {
-    throw new TRPCError({ code: "FORBIDDEN", message: "Solo Bodega Pavon y Bodega Cedi cambian claves." });
-  }
-}
-
 export const franchiseAuthRouter = createRouter({
   login: publicQuery
     .input(
@@ -116,7 +84,7 @@ export const franchiseAuthRouter = createRouter({
     .mutation(async ({ input, ctx }) => {
       // ─── RATE LIMITING ────────────────────────────────────────
       const clientIP = getClientIP(ctx.req.headers);
-      if (!checkRateLimit(clientIP)) {
+      if (!checkLoginRateLimit(clientIP)) {
         throw new TRPCError({
           code: "TOO_MANY_REQUESTS",
           message: "Demasiados intentos fallidos. Espere 15 minutos e intente nuevamente.",
@@ -219,7 +187,7 @@ export const franchiseAuthRouter = createRouter({
   }),
 
   passwordFranchises: franchiseAuthedQuery.query(async ({ ctx }) => {
-    await assertPasswordManager(ctx.franchiseUser!.franchiseId);
+    assertPasswordManagerUser(ctx.franchiseUser!.username);
     const db = getDb();
     const rows = await db.select().from(franchises).orderBy(asc(franchises.displayName));
     return rows
@@ -237,7 +205,7 @@ export const franchiseAuthRouter = createRouter({
       password: z.string().min(4).max(80),
     }))
     .mutation(async ({ input, ctx }) => {
-      await assertPasswordManager(ctx.franchiseUser!.franchiseId);
+      assertPasswordManagerUser(ctx.franchiseUser!.username);
       const db = getDb();
       const franchiseRows = await db.select().from(franchises).where(eq(franchises.id, input.franchiseId)).limit(1);
       const franchise = franchiseRows[0];
@@ -258,11 +226,12 @@ export const franchiseAuthRouter = createRouter({
         isActive: 1,
       }).where(eq(franchiseUsers.id, main.id));
 
-      const extras = accounts.filter((account) => account.id !== main.id);
+      const extras = accounts.filter((account) => account.id !== main.id && account.username !== "chofer");
       if (extras.length > 0) {
         await db.update(franchiseUsers).set({ isActive: 0 }).where(and(
           eq(franchiseUsers.franchiseId, franchise.id),
           ne(franchiseUsers.id, main.id),
+          ne(franchiseUsers.username, "chofer"),
         ));
       }
 

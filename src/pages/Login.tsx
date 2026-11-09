@@ -59,7 +59,8 @@ export default function Login() {
 
     setIsLoading(true);
     try {
-      const resp = await fetch("/api/auth/login", {
+      const apiBase = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
+      const resp = await fetch(`${apiBase}/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username: franchiseName, password }),

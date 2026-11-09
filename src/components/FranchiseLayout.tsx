@@ -34,7 +34,8 @@ export function RequireFranchise() {
   const path = location.pathname;
   const isDriver = user.username === "chofer";
   const isReceivingOnly = user.username === "bodega_sabana";
-  const isWarehouse = user.franchise?.isWarehouse === 1;
+  const franchiseCode = user.franchise?.code?.toLowerCase();
+  const canUseRoutes = isDriver || user.username === "bodega_cedi" || franchiseCode === "bodega_cedi";
   const blockedForReceiving = path === "/enviar"
     || path.startsWith("/envios-nacionales")
     || path.startsWith("/rutas")
@@ -50,12 +51,11 @@ export function RequireFranchise() {
     return <Navigate to="/dashboard" replace />;
   }
 
-  if (!isDriver && !isWarehouse && path.startsWith("/rutas")) {
+  if (path.startsWith("/rutas") && !canUseRoutes) {
     return <Navigate to="/dashboard" replace />;
   }
 
-  const franchiseCode = user.franchise?.code?.toLowerCase();
-  const canManagePasswords = franchiseCode === "bodega" || franchiseCode === "bodega_cedi";
+  const canManagePasswords = user.username === "bodega" || user.username === "bodega_cedi";
   if (path.startsWith("/configuracion") && !canManagePasswords) {
     return <Navigate to="/dashboard" replace />;
   }
@@ -78,8 +78,18 @@ const storeNavItems = [
   { path: "/rastrear", label: "Rastrear", icon: Search },
 ];
 
-// Menu para Bodega (acceso a todo incluyendo Rutas)
+// Menu para Bodega Pavon (sin Rutas; esas las maneja chofer/Cedi)
 const warehouseNavItems = [
+  { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { path: "/envios", label: "Mis Envíos", icon: Package },
+  { path: "/enviar", label: "Crear Envío", icon: Plus },
+  { path: "/envios-nacionales", label: "Envíos Nacionales", icon: Globe },
+  { path: "/garantias", label: "Garantías", icon: ShieldCheck },
+  { path: "/rastrear", label: "Rastrear", icon: Search },
+];
+
+// Menu para Bodega Cedi (incluye Rutas del camion)
+const cediNavItems = [
   { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { path: "/envios", label: "Mis Envíos", icon: Package },
   { path: "/enviar", label: "Crear Envío", icon: Plus },
@@ -178,9 +188,10 @@ export default function FranchiseLayout({
 
           <nav className="flex-1 px-3 py-4 space-y-5 overflow-y-auto">
             {(() => {
-              const managesPasswords = user?.franchise?.code === "bodega" || user?.franchise?.code === "bodega_cedi";
+              const managesPasswords = user?.username === "bodega" || user?.username === "bodega_cedi";
               const settingsItem = { path: "/configuracion", label: "Configuraciones", icon: Settings };
               const withSettings = (items: typeof storeNavItems) => managesPasswords ? [...items, settingsItem] : items;
+              const isCedi = user?.username === "bodega_cedi" || user?.franchise?.code === "bodega_cedi";
               const groups = user?.username === "chofer"
                 ? [{ label: "", items: driverNavItems }]
                 : user?.username === "bodega_sabana"
@@ -188,10 +199,15 @@ export default function FranchiseLayout({
                     { label: "Trabajo", items: receivingWarehouseNavItems.slice(0, 2) },
                     { label: "Consulta", items: receivingWarehouseNavItems.slice(2) },
                   ]
+                : isCedi
+                ? [
+                    { label: "Trabajo", items: cediNavItems.slice(0, 4) },
+                    { label: "Consulta", items: withSettings(cediNavItems.slice(4)) },
+                  ]
                 : user?.franchise?.isWarehouse
                 ? [
-                    { label: "Trabajo", items: warehouseNavItems.slice(0, 4) },
-                    { label: "Consulta", items: withSettings(warehouseNavItems.slice(4)) },
+                    { label: "Trabajo", items: warehouseNavItems.slice(0, 3) },
+                    { label: "Consulta", items: withSettings(warehouseNavItems.slice(3)) },
                   ]
                 : [
                     { label: "Trabajo", items: storeNavItems.slice(0, 3) },

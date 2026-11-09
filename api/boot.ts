@@ -5,6 +5,7 @@ import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import { appRouter } from "./router";
 import { createContext } from "./context";
 import { env } from "./lib/env";
+import { checkLoginRateLimit, cookieSecureFlag, getClientIP, jwtSecretBytes } from "./lib/auth-guards";
 import { createOAuthCallbackHandler } from "./kimi/auth";
 import { Paths } from "@contracts/constants";
 import { getDb } from "./queries/connection";
@@ -45,13 +46,61 @@ const franchiseData = [
   { name: "Palmares", displayName: "Recogida - Palmares", code: "palmares", isWarehouse: 0 },
   { name: "Bodega Pavon", displayName: "American Outlet Bodega Pavon", code: "bodega", isWarehouse: 1 },
   { name: "Bodega Cedi", displayName: "American Outlet Bodega Cedi", code: "bodega_cedi", isWarehouse: 1 },
+  { name: "Rutas", displayName: "Chofer - Rutas", code: "rutas", isWarehouse: 0 },
 ];
 
-// Solo franquicias que tienen login (excluye puntos de recogida)
-const loginFranchiseData = franchiseData.filter(f => !f.displayName.toLowerCase().includes("recogida"));
+// Solo franquicias que tienen login (excluye puntos de recogida y la ficha "rutas" del chofer)
+const loginFranchiseData = franchiseData.filter((f) =>
+  !f.displayName.toLowerCase().includes("recogida") && f.code !== "rutas"
+);
 
 async function retireClosedStores(db: ReturnType<typeof getDb>) {
   await db.execute(sql`UPDATE franchise_users SET isActive = 0 WHERE LOWER(username) LIKE '%ganga%'`);
+}
+
+/** Chofer must not share Bodega Pavon's franchise (password / receive / send powers). */
+async function ensureDriverUser(db: ReturnType<typeof getDb>, logPrefix = "[seed]") {
+  let rutas = await db.select().from(franchises).where(eq(franchises.code, "rutas")).limit(1);
+  if (rutas.length === 0) {
+    await db.insert(franchises).values({
+      name: "Rutas",
+      displayName: "Chofer - Rutas",
+      code: "rutas",
+      isWarehouse: 0,
+    });
+    rutas = await db.select().from(franchises).where(eq(franchises.code, "rutas")).limit(1);
+  }
+  const rutasId = rutas[0]?.id;
+  if (!rutasId) return;
+
+  const existingDriver = await db.select().from(franchiseUsers).where(eq(franchiseUsers.username, "chofer")).limit(1);
+  if (existingDriver.length === 0) {
+    const passwordHash = seedPasswordHash();
+    if (!passwordHash) {
+      console.log(`${logPrefix} Skipped new driver: FRANCHISE_SEED_PASSWORD is not set`);
+      return;
+    }
+    await db.insert(franchiseUsers).values({
+      franchiseId: rutasId,
+      username: "chofer",
+      passwordHash,
+      displayName: "Chofer - Rutas",
+      role: "staff",
+      isActive: 1,
+    });
+    console.log(`${logPrefix} Created driver: chofer (rutas)`);
+    return;
+  }
+
+  if (existingDriver[0].franchiseId !== rutasId || existingDriver[0].role !== "staff") {
+    await db.update(franchiseUsers).set({
+      franchiseId: rutasId,
+      role: "staff",
+      displayName: "Chofer - Rutas",
+      isActive: 1,
+    }).where(eq(franchiseUsers.id, existingDriver[0].id));
+    console.log(`${logPrefix} Moved driver chofer onto rutas franchise`);
+  }
 }
 
 async function initTables() {
@@ -281,29 +330,8 @@ async function runSeed() {
 
     await retireClosedStores(db);
 
-    // Create driver user (associated with warehouse)
     try {
-      const bodegaFranchise = await db.select().from(franchises).where(eq(franchises.code, "bodega")).limit(1);
-      if (bodegaFranchise.length > 0) {
-        const bodegaId = bodegaFranchise[0].id;
-        const existingDriver = await db.select().from(franchiseUsers).where(eq(franchiseUsers.username, "chofer")).limit(1);
-        if (existingDriver.length === 0) {
-          const passwordHash = seedPasswordHash();
-          if (!passwordHash) {
-            console.log("[seed] Skipped new driver: FRANCHISE_SEED_PASSWORD is not set");
-          } else {
-            await db.insert(franchiseUsers).values({
-              franchiseId: bodegaId,
-              username: "chofer",
-              passwordHash,
-              displayName: "Chofer - Rutas",
-              role: "admin",
-              isActive: 1,
-            });
-            console.log("[seed] Created driver: chofer");
-          }
-        }
-      }
+      await ensureDriverUser(db, "[seed]");
     } catch (e: any) {
       console.log("[seed] Skip chofer:", e.message);
     }
@@ -325,17 +353,21 @@ app.use(cors({
 // Import franchise auth utilities
 async function createFranchiseToken(userId: number): Promise<string> {
   const { SignJWT } = await import("jose");
-  const secret = new TextEncoder().encode(process.env.JWT_SECRET || "american-outlet-dev-key-change-in-prod");
   return new SignJWT({ userId, type: "franchise" })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime("7d")
-    .sign(secret);
+    .sign(jwtSecretBytes());
 }
 
 // REST endpoint for franchise login (bypasses tRPC body issue)
 app.post("/api/auth/login", async (c) => {
   try {
+    const clientIP = getClientIP(c.req.raw.headers);
+    if (!checkLoginRateLimit(clientIP)) {
+      return c.json({ error: "Demasiados intentos fallidos. Espere 15 minutos e intente nuevamente." }, 429);
+    }
+
     const body = await c.req.json();
     const username = (body.username || "").trim().toLowerCase();
     const password = (body.password || "").trim();
@@ -409,28 +441,8 @@ app.post("/api/auth/login", async (c) => {
       }
     }
 
-    // 3. Ensure driver user exists (linked to Bodega Pavon)
     try {
-      const bodegaFranchise = await db.select().from(franchises).where(eq(franchises.code, "bodega")).limit(1);
-      if (bodegaFranchise.length > 0) {
-        const existingDriver = await db.select().from(franchiseUsers).where(eq(franchiseUsers.username, "chofer")).limit(1);
-        if (existingDriver.length === 0) {
-          const passwordHash = seedPasswordHash();
-          if (!passwordHash) {
-            console.log("[login][seed] Skipped new driver: FRANCHISE_SEED_PASSWORD is not set");
-          } else {
-            await db.insert(franchiseUsers).values({
-              franchiseId: bodegaFranchise[0].id,
-              username: "chofer",
-              passwordHash,
-              displayName: "Chofer - Rutas",
-              role: "admin",
-              isActive: 1,
-            });
-            console.log("[login][seed] Created driver: chofer");
-          }
-        }
-      }
+      await ensureDriverUser(db, "[login][seed]");
     } catch (e: any) {
       console.error("[login][seed] ERROR creating chofer:", e.message);
     }
@@ -473,7 +485,7 @@ app.post("/api/auth/login", async (c) => {
       httpOnly: true,
       path: "/",
       sameSite: "lax",
-      secure: false,
+      secure: cookieSecureFlag(),
       maxAge: 7 * 24 * 60 * 60,
     });
     c.res.headers.append("Set-Cookie", cookieValue);
@@ -514,8 +526,7 @@ app.get("/api/auth/me", async (c) => {
     if (!token) return c.json(null);
 
     const { jwtVerify } = await import("jose");
-    const secret = new TextEncoder().encode(process.env.JWT_SECRET || "american-outlet-dev-key-change-in-prod");
-    const { payload } = await jwtVerify(token, secret, { clockTolerance: 60 });
+    const { payload } = await jwtVerify(token, jwtSecretBytes(), { clockTolerance: 60 });
 
     if (!payload || payload.type !== "franchise" || !payload.userId) {
       return c.json(null);
@@ -550,8 +561,6 @@ app.get("/api/auth/me", async (c) => {
   }
 });
 
-// Importar rutas de backup
-import backupApp from "./backup";
 
 // Endpoint para verificar/crear tablas - SOLO crea si no existen, NUNCA borra
 // Requiere token secreto para prevenir acceso no autorizado
@@ -751,33 +760,9 @@ app.get("/api/repair-users", async (c) => {
       }
     }
 
-    // Repair driver user
     try {
-      const bodegaFranchise = await db.select().from(franchises).where(eq(franchises.code, "bodega")).limit(1);
-      if (bodegaFranchise.length > 0) {
-        const existingDriver = await db.select().from(franchiseUsers).where(eq(franchiseUsers.username, "chofer")).limit(1);
-        if (existingDriver.length === 0) {
-          const passwordHash = seedPasswordHash();
-          if (!passwordHash) {
-            results.push({ action: "skipped_user", code: "chofer", details: "FRANCHISE_SEED_PASSWORD is not set" });
-          } else {
-            await db.insert(franchiseUsers).values({
-              franchiseId: bodegaFranchise[0].id,
-              username: "chofer",
-              passwordHash,
-              displayName: "Chofer - Rutas",
-              role: "admin",
-              isActive: 1,
-            });
-            results.push({ action: "created_user", code: "chofer", details: "Chofer - Rutas" });
-          }
-        } else {
-          await db.update(franchiseUsers)
-            .set({ isActive: 1 })
-            .where(eq(franchiseUsers.id, existingDriver[0].id));
-          results.push({ action: "updated_user", code: "chofer", details: "Chofer - Rutas" });
-        }
-      }
+      await ensureDriverUser(db, "[repair]");
+      results.push({ action: "ensured_user", code: "chofer", details: "Chofer on rutas franchise" });
     } catch (e: any) {
       results.push({ action: "error", code: "chofer", details: e.message });
     }
@@ -1219,7 +1204,8 @@ app.get("/api/fix-national-table", async (c) => {
   }
 });
 
-app.route("/api/backup", backupApp);
+app.all("/api/backup", (c) => c.json({ error: "No encontrado" }, 404));
+app.all("/api/backup/*", (c) => c.json({ error: "No encontrado" }, 404));
 
 // Health check endpoints
 app.get("/api/health", (c) => c.json({ ok: true, timestamp: new Date().toISOString() }));
@@ -1247,28 +1233,8 @@ app.get("/api/fix-wh", async (c) => {
   }
 });
 
-// Clear all shipments (for testing)
-app.get("/api/clear-shipments", async (c) => {
-  try {
-    if (denyMaintenance(c)) {
-      return c.json({ error: "No encontrado" }, 404);
-    }
-    const db = getDb();
-    await db.execute(sql`SET FOREIGN_KEY_CHECKS = 0`);
-    await db.execute(sql`TRUNCATE TABLE shipment_items`);
-    await db.execute(sql`TRUNCATE TABLE shipment_tracking`);
-    await db.execute(sql`TRUNCATE TABLE route_shipments`);
-    await db.execute(sql`TRUNCATE TABLE route_stops`);
-    await db.execute(sql`TRUNCATE TABLE delivery_routes`);
-    await db.execute(sql`TRUNCATE TABLE national_shipments`);
-    await db.execute(sql`TRUNCATE TABLE shipments`);
-    await db.execute(sql`SET FOREIGN_KEY_CHECKS = 1`);
-    return c.json({ success: true, message: "Todos los envios han sido eliminados" });
-  } catch (err: any) {
-    console.error("[clear-shipments] ERROR:", err);
-    return c.json({ success: false, error: err.message }, 500);
-  }
-});
+// Removed: destructive wipe must not live on the live server.
+app.get("/api/clear-shipments", (c) => c.json({ error: "No encontrado" }, 404));
 
 // Public diagnostic endpoint - forces seed without token
 app.get("/api/force-seed", async (c) => {
@@ -1349,6 +1315,13 @@ app.get("/api/force-seed", async (c) => {
       }
     }
 
+    try {
+      await ensureDriverUser(db, "[force-seed]");
+      results.push({ action: "ensured_user", code: "chofer", details: "Chofer on rutas franchise" });
+    } catch (e: any) {
+      results.push({ action: "error", code: "chofer", details: e.message });
+    }
+
     return c.json({ success: true, count: results.length, details: results });
   } catch (err: any) {
     console.error("[force-seed] ERROR:", err);
@@ -1369,57 +1342,10 @@ app.all("/api/*", (c) => c.json({ error: "Not Found" }, 404));
 
 export default app;
 
-async function clearShipmentsOnce() {
-  const flag = "clear-shipments-2026-10-26";
-  const tables = [
-    "shipment_items",
-    "shipment_tracking",
-    "route_shipments",
-    "route_stops",
-    "delivery_routes",
-    "shipments",
-  ];
-  const connection = await mysql.createConnection(env.databaseUrl);
-  try {
-    await connection.execute(`
-      CREATE TABLE IF NOT EXISTS maintenance_flags (
-        flag VARCHAR(100) PRIMARY KEY,
-        createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-    const [existing] = await connection.execute(
-      "SELECT flag FROM maintenance_flags WHERE flag = ? LIMIT 1",
-      [flag],
-    );
-    if (Array.isArray(existing) && existing.length > 0) {
-      console.log("[clear-shipments] Already completed; current shipments were kept");
-      return;
-    }
-
-    await connection.query("SET FOREIGN_KEY_CHECKS = 0");
-    for (const table of tables) {
-      try {
-        const [rows] = await connection.query(`SELECT COUNT(*) AS n FROM \`${table}\``);
-        const count = Number((rows as Array<{ n: number }>)[0]?.n ?? 0);
-        await connection.query(`DELETE FROM \`${table}\``);
-        console.log(`[clear-shipments] Removed ${count} rows from ${table}`);
-      } catch (error: any) {
-        console.log(`[clear-shipments] Skipped ${table}: ${error.message}`);
-      }
-    }
-    await connection.query("SET FOREIGN_KEY_CHECKS = 1");
-    await connection.execute("INSERT INTO maintenance_flags (flag) VALUES (?)", [flag]);
-    console.log("[clear-shipments] Shipment reset complete");
-  } finally {
-    await connection.end();
-  }
-}
-
 if (env.isProduction) {
-  // Create tables and seed data
+  // Create tables and seed data — never wipe live shipments on boot
   await initTables();
   await runSeed();
-  await clearShipmentsOnce();
 
   const { serve } = await import("@hono/node-server");
   const { serveStaticFiles } = await import("./lib/vite");

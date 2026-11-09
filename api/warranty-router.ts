@@ -6,7 +6,7 @@ import {
   warrantyTracking,
   franchises,
 } from "@db/schema";
-import { franchiseAuthedQuery, publicQuery } from "./middleware";
+import { createRouter, franchiseAuthedQuery, publicQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { initWarrantyTables } from "./warranty-init";
 
@@ -26,7 +26,7 @@ function generateWarrantyTrackingNumber(): string {
   return result;
 }
 
-export const warrantyRouter = {
+export const warrantyRouter = createRouter({
   // ─── Create Warranty ───────────────────────────────────────────
   create: franchiseAuthedQuery
     .input(
@@ -147,6 +147,7 @@ export const warrantyRouter = {
           "RECIBIDO_EN_CEDI",
           "EN_REPARACION",
           "REPARADO",
+          "NO_REPARABLE",
           "ENVIADO_A_TIENDA",
           "RECIBIDO_EN_TIENDA",
           "ENTREGADO_AL_CLIENTE",
@@ -361,5 +362,5 @@ export const warrantyRouter = {
         franchiseName: ctx.franchiseUser!.franchise?.name || "Tienda",
       };
     }),
-};
+});
 

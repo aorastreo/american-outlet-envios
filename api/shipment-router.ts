@@ -15,6 +15,10 @@ import {
   deliveryRoutes,
 } from "@db/schema";
 import { TRPCError } from "@trpc/server";
+import {
+  assertHubWarehouseOperator,
+  assertShipmentAtWarehouse,
+} from "./lib/auth-guards";
 
 const markTabSchema = z.enum(["POR_ENVIAR", "POR_RECIBIR", "EN_BODEGA", "EN_TIENDA"]);
 let shipmentMarksReady = false;
@@ -1496,25 +1500,15 @@ export const shipmentRouter = createRouter({
     .mutation(async ({ input, ctx }) => {
       const db = getDb();
       const franchiseId = ctx.franchiseUser!.franchiseId;
-
-      // Verificar que el usuario sea bodega
       const userFranchise = await db.select().from(franchises).where(eq(franchises.id, franchiseId)).limit(1);
-      if (userFranchise[0]?.isWarehouse !== 1) {
-        throw new TRPCError({ code: "FORBIDDEN", message: "Solo la bodega puede recibir envios" });
-      }
+      const normalizedName = assertHubWarehouseOperator(ctx.franchiseUser!, userFranchise[0]);
 
       const envios = await db.select().from(shipments).where(inArray(shipments.id, input.ids));
       if (envios.length === 0) throw new TRPCError({ code: "NOT_FOUND", message: "No se encontraron envios" });
 
-      // Validar que todos esten en ENVIADO_A_BODEGA
-      const invalidos = envios.filter((s) => s.status !== "ENVIADO_A_BODEGA");
-      if (invalidos.length > 0) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: `${invalidos.length} envio(s) no estan en estado ENVIADO_A_BODEGA y no pueden ser recibidos` });
+      for (const envio of envios) {
+        assertShipmentAtWarehouse(envio, franchiseId, normalizedName, "recibir");
       }
-
-      // Determine this warehouse's name for tracking
-      const myBodegaName = userFranchise[0]?.name || "";
-      const normalizedName = myBodegaName.toLowerCase().includes("cedi") ? "Bodega Cedi" : "Bodega Pavon";
 
       await db
         .update(shipments)
@@ -1541,12 +1535,8 @@ export const shipmentRouter = createRouter({
     .mutation(async ({ input, ctx }) => {
       const db = getDb();
       const franchiseId = ctx.franchiseUser!.franchiseId;
-
-      // Verificar que el usuario sea bodega
       const userFranchise = await db.select().from(franchises).where(eq(franchises.id, franchiseId)).limit(1);
-      if (userFranchise[0]?.isWarehouse !== 1) {
-        throw new TRPCError({ code: "FORBIDDEN", message: "Solo la bodega puede enviar envios a destino" });
-      }
+      const myWarehouse = assertHubWarehouseOperator(ctx.franchiseUser!, userFranchise[0]);
 
       const envios = await db.select().from(shipments).where(inArray(shipments.id, input.ids));
       if (envios.length === 0) throw new TRPCError({ code: "NOT_FOUND", message: "No se encontraron envios" });
@@ -1555,6 +1545,9 @@ export const shipmentRouter = createRouter({
       const invalidos = envios.filter((s) => s.status !== "RECIBIDO_EN_BODEGA" && s.status !== "CREADO");
       if (invalidos.length > 0) {
         throw new TRPCError({ code: "BAD_REQUEST", message: `${invalidos.length} envio(s) no estan en estado valido para enviar a destino` });
+      }
+      for (const envio of envios) {
+        assertShipmentAtWarehouse(envio, franchiseId, myWarehouse, "enviar");
       }
 
       const allFranchises = await db.select().from(franchises);
@@ -1611,12 +1604,8 @@ export const shipmentRouter = createRouter({
     .mutation(async ({ input, ctx }) => {
       const db = getDb();
       const franchiseId = ctx.franchiseUser!.franchiseId;
-
-      // Verificar que el usuario sea bodega
       const userFranchise = await db.select().from(franchises).where(eq(franchises.id, franchiseId)).limit(1);
-      if (userFranchise[0]?.isWarehouse !== 1) {
-        throw new TRPCError({ code: "FORBIDDEN", message: "Solo la bodega puede enviar envios a otra bodega" });
-      }
+      const myName = assertHubWarehouseOperator(ctx.franchiseUser!, userFranchise[0]);
 
       const envios = await db.select().from(shipments).where(inArray(shipments.id, input.ids));
       if (envios.length === 0) throw new TRPCError({ code: "NOT_FOUND", message: "No se encontraron envios" });
@@ -1625,6 +1614,9 @@ export const shipmentRouter = createRouter({
       const invalidos = envios.filter((s) => s.status !== "RECIBIDO_EN_BODEGA" && s.status !== "CREADO");
       if (invalidos.length > 0) {
         throw new TRPCError({ code: "BAD_REQUEST", message: `${invalidos.length} envio(s) no estan en estado valido para enviar a otra bodega` });
+      }
+      for (const envio of envios) {
+        assertShipmentAtWarehouse(envio, franchiseId, myName, "enviar");
       }
 
       const allFranchises = await db.select().from(franchises);
@@ -1644,10 +1636,6 @@ export const shipmentRouter = createRouter({
           message: `${wrongRoute.length} envio(s) no deben ir a ${targetBodega}. Sepáralos de los que sí siguen hacia esa bodega.`,
         });
       }
-
-      // Determine this warehouse's name for tracking
-      const myBodegaName = userFranchise[0]?.name || "";
-      const myName = myBodegaName.toLowerCase().includes("cedi") ? "Bodega Cedi" : "Bodega Pavon";
 
       // Inter-bodega: set warehouseLocation to TARGET bodega so it appears
       // in the destination bodega's "Por Recibir" filter
@@ -1726,11 +1714,8 @@ export const shipmentRouter = createRouter({
     .mutation(async ({ input, ctx }) => {
       const db = getDb();
       const franchiseId = ctx.franchiseUser!.franchiseId;
-
       const userFranchise = await db.select().from(franchises).where(eq(franchises.id, franchiseId)).limit(1);
-      if (userFranchise[0]?.isWarehouse !== 1) {
-        throw new TRPCError({ code: "FORBIDDEN", message: "Solo la bodega puede entregar estos envios al cliente" });
-      }
+      const normalizedName = assertHubWarehouseOperator(ctx.franchiseUser!, userFranchise[0]);
 
       const envios = await db.select().from(shipments).where(inArray(shipments.id, input.ids));
       if (envios.length === 0) throw new TRPCError({ code: "NOT_FOUND", message: "No se encontraron envios" });
@@ -1739,9 +1724,6 @@ export const shipmentRouter = createRouter({
       if (invalidos.length > 0) {
         throw new TRPCError({ code: "BAD_REQUEST", message: `${invalidos.length} envio(s) no estan listos para entrega al cliente en esta bodega` });
       }
-
-      const myBodegaName = userFranchise[0]?.name || "";
-      const normalizedName = myBodegaName.toLowerCase().includes("cedi") ? "Bodega Cedi" : "Bodega Pavon";
 
       await db
         .update(shipments)

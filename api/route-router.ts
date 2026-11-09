@@ -4,6 +4,7 @@ import { createRouter, franchiseAuthedQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { deliveryRoutes, routeStops, routeShipments, shipments, shipmentItems, shipmentTracking, franchises } from "@db/schema";
 import { TRPCError } from "@trpc/server";
+import { assertRouteOperator } from "./lib/auth-guards";
 
 function isPickupFranchise(franchise: { code?: string | null; displayName?: string | null; name?: string | null }) {
   const code = (franchise.code || "").toLowerCase();
@@ -71,6 +72,31 @@ async function placeShipmentOnStop(
   await db.insert(routeShipments).values({ routeId, stopId, shipmentId });
 }
 
+async function restoreRouteShipmentToCedi(
+  db: ReturnType<typeof getDb>,
+  shipmentId: number,
+  actorId: number,
+  note: string,
+) {
+  const cediId = await bodegaCediId(db);
+  const current = await db.select().from(shipments).where(eq(shipments.id, shipmentId)).limit(1);
+  const status = current[0]?.status;
+  if (!status || !["EN_RUTA", "EN_PARADA", "NO_RECOGIDO"].includes(status)) return;
+
+  await db.update(shipments).set({
+    status: "RECIBIDO_EN_BODEGA",
+    warehouseLocation: "Bodega Cedi",
+    ...(cediId ? { currentLocationId: cediId } : {}),
+  }).where(eq(shipments.id, shipmentId));
+  await db.insert(shipmentTracking).values({
+    shipmentId,
+    status: "RECIBIDO_EN_BODEGA",
+    locationId: cediId || 0,
+    notes: note,
+    createdBy: actorId,
+  });
+}
+
 export const routeRouter = createRouter({
   // ─── Create Route ──────────────────────────────────────────────
   create: franchiseAuthedQuery
@@ -82,6 +108,7 @@ export const routeRouter = createRouter({
       shipmentIds: z.array(z.number()).optional(),
     }))
     .mutation(async ({ input, ctx }) => {
+      await assertRouteOperator(ctx.franchiseUser!);
       const db = getDb();
       const routeResult = await db.insert(deliveryRoutes).values({
         name: input.name,
@@ -261,7 +288,8 @@ export const routeRouter = createRouter({
       stopId: z.number(),
       shipmentIds: z.array(z.number()).min(1),
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
+      await assertRouteOperator(ctx.franchiseUser!);
       const db = getDb();
 
       // Get pickup point franchise IDs
@@ -312,8 +340,18 @@ export const routeRouter = createRouter({
   // ─── Remove Shipment from Route ────────────────────────────────
   removeShipment: franchiseAuthedQuery
     .input(z.object({ routeShipmentId: z.number() }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
+      await assertRouteOperator(ctx.franchiseUser!);
       const db = getDb();
+      const rows = await db.select().from(routeShipments).where(eq(routeShipments.id, input.routeShipmentId)).limit(1);
+      if (rows[0]) {
+        await restoreRouteShipmentToCedi(
+          db,
+          rows[0].shipmentId,
+          ctx.franchiseUser!.id,
+          "Quitado de la ruta. Vuelve a Bodega Cedi",
+        );
+      }
       await db.delete(routeShipments).where(eq(routeShipments.id, input.routeShipmentId));
       return { success: true };
     }),
@@ -324,7 +362,8 @@ export const routeRouter = createRouter({
       routeShipmentId: z.number(),
       newStopId: z.number(),
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
+      await assertRouteOperator(ctx.franchiseUser!);
       const db = getDb();
       await db.update(routeShipments)
         .set({ stopId: input.newStopId })
@@ -339,6 +378,7 @@ export const routeRouter = createRouter({
       status: z.enum(["PLANIFICADA", "EN_RUTA", "COMPLETADA", "CANCELADA"]),
     }))
     .mutation(async ({ input, ctx }) => {
+      await assertRouteOperator(ctx.franchiseUser!);
       const db = getDb();
       await db.update(deliveryRoutes).set({ status: input.status }).where(eq(deliveryRoutes.id, input.id));
 
@@ -395,6 +435,20 @@ export const routeRouter = createRouter({
         }
       }
 
+      if (input.status === "CANCELADA") {
+        const allRouteShipments = await db.select().from(routeShipments).where(eq(routeShipments.routeId, input.id));
+        for (const rs of allRouteShipments) {
+          if (rs.status === "ENTREGADO") continue;
+          await restoreRouteShipmentToCedi(
+            db,
+            rs.shipmentId,
+            ctx.franchiseUser!.id,
+            "Ruta cancelada. El paquete vuelve a Bodega Cedi",
+          );
+          await db.delete(routeShipments).where(eq(routeShipments.id, rs.id));
+        }
+      }
+
       return { success: true };
     }),
 
@@ -406,6 +460,7 @@ export const routeRouter = createRouter({
       notes: z.string().optional(),
     }))
     .mutation(async ({ input, ctx }) => {
+      await assertRouteOperator(ctx.franchiseUser!);
       const db = getDb();
       const updateData: Record<string, any> = { status: input.status };
       if (input.status === "LLEGADO") {
@@ -481,6 +536,7 @@ export const routeRouter = createRouter({
       notes: z.string().optional(),
     }))
     .mutation(async ({ input, ctx }) => {
+      await assertRouteOperator(ctx.franchiseUser!);
       try {
         const db = getDb();
         console.log("[updateShipmentStatus] routeShipmentId:", input.routeShipmentId, "status:", input.status);

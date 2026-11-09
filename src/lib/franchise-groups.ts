@@ -19,7 +19,7 @@ export function isRetiredFranchise(franchise: {
 
 export function getFranchiseGroup(name: string | undefined | null): FranchiseGroup {
   if (!name) return "unknown";
-  const n = name.toLowerCase();
+  const n = plainFranchiseText(name);
   if (n.includes("ganga")) return "unknown";
   if (n.includes("sabana")) return "sabana";
   if (n.includes("grecia") || n.includes("palmares") || n.includes("san ramon")) return "route";

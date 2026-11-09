@@ -25,10 +25,12 @@ Cada tienda entra con su usuario. La clave no se escribe en este archivo: es la 
 
 ## Deploy en Railway
 
+Las tiendas deben abrir la URL de **Railway** (API + web juntos). No usar el deploy de Vercel como login: ahi `/api` no corre.
+
 1. Conectar repo en Railway
 2. Variables de entorno:
    - `DATABASE_URL` (URL de TiDB Cloud)
-   - `JWT_SECRET` (clave secreta)
+   - `JWT_SECRET` (obligatorio en produccion; sin esto el servidor no arranca)
    - `NODE_ENV` = production
    - `FRANCHISE_SEED_PASSWORD` solo si hay que crear una cuenta nueva
    - `INIT_TABLES_SECRET` si se van a usar las direcciones internas de reparación. Sin esta variable, esas direcciones no responden.
