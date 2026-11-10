@@ -39,7 +39,7 @@ import {
 import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
 import toast from "react-hot-toast";
-import { getFranchiseGroup, isRetiredFranchise, mixedShipmentMoveMessage, needsInterBodega, shipmentPlaceText } from "@/lib/franchise-groups";
+import { getFranchiseGroup, isDriverAccountFranchise, isRetiredFranchise, mixedShipmentMoveMessage, needsInterBodega, shipmentPlaceText } from "@/lib/franchise-groups";
 import ShipmentCheckBar from "@/components/ShipmentCheckBar";
 
 /* ─── tab definitions ─────────────────────────────────────────── */
@@ -333,7 +333,7 @@ export default function Shipments() {
 
   // Destinations a warehouse can filter: stores, Sabana, pickup points, and Bodega Cedi.
   const destinationFranchisesForFilter = (allFranchises || []).filter((f) => {
-    if (isRetiredFranchise(f)) return false;
+    if (isRetiredFranchise(f) || isDriverAccountFranchise(f)) return false;
     const code = f.code?.toLowerCase() || "";
     if (code === "bodega_sabana" || code === "bodega_cedi") return true;
     if (isRouteFranchise(f)) return true;
@@ -352,9 +352,9 @@ export default function Shipments() {
 
   // All origin options for warehouse users: stores + warehouses that can create shipments
   const originFranchisesForFilter = (isBodega
-    ? (allFranchises || []).filter((f) => !isRouteFranchise(f))
+    ? (allFranchises || []).filter((f) => !isRouteFranchise(f) && !isDriverAccountFranchise(f))
     : destinationFranchisesForFilter
-  ).filter((f) => !isRetiredFranchise(f));
+  ).filter((f) => !isRetiredFranchise(f) && !isDriverAccountFranchise(f));
 
   // Select tabs based on user type
   const TABS = isReceivingWarehouse

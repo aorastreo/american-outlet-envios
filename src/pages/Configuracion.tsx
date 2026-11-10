@@ -50,7 +50,7 @@ export default function Configuracion() {
           <div>
             <h2 className="text-base font-semibold text-[#1A1A1A]">Claves</h2>
             <p className="text-sm text-[#8A8A8A] mt-1">
-              La clave anterior deja de servir. La tienda entra con su usuario de siempre y la clave nueva.
+              La clave anterior deja de servir. Cada tienda o bodega entra con su usuario. El chofer no es un destino: solo usa Rutas para entregar lo que Cedi le asigna.
             </p>
           </div>
 

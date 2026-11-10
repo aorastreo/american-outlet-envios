@@ -3,13 +3,13 @@ import { eq } from "drizzle-orm";
 import { createRouter, publicQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { franchises } from "@db/schema";
-import { isRetiredFranchise } from "../src/lib/franchise-groups";
+import { isDriverAccountFranchise, isRetiredFranchise } from "../src/lib/franchise-groups";
 
 export const franchiseRouter = createRouter({
   list: publicQuery.query(async () => {
     const db = getDb();
     const rows = await db.select().from(franchises).orderBy(franchises.id);
-    return rows.filter((franchise) => !isRetiredFranchise(franchise));
+    return rows.filter((franchise) => !isRetiredFranchise(franchise) && !isDriverAccountFranchise(franchise));
   }),
 
   getById: publicQuery

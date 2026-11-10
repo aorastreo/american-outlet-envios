@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { eq, or, and, desc, sql, inArray, ne } from "drizzle-orm";
 import { createRouter, publicQuery, franchiseAuthedQuery } from "./middleware";
-import { getFranchiseGroup, isRetiredFranchise, needsInterBodega } from "../src/lib/franchise-groups";
+import { getFranchiseGroup, isDriverAccountFranchise, isRetiredFranchise, needsInterBodega } from "../src/lib/franchise-groups";
 import { getDb } from "./queries/connection";
 import {
   shipments,
@@ -456,6 +456,9 @@ export const shipmentRouter = createRouter({
       const destFranchise = await db.select().from(franchises).where(eq(franchises.id, input.destinationFranchiseId)).limit(1);
       if (!destFranchise[0] || isRetiredFranchise(destFranchise[0])) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Esa tienda ya no recibe envios." });
+      }
+      if (isDriverAccountFranchise(destFranchise[0])) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "El chofer no es un destino. Es el usuario de rutas." });
       }
       const destName = destFranchise[0]?.name || "";
       const originName = userFranchise[0]?.name || "";

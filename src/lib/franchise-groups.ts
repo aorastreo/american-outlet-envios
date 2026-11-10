@@ -17,6 +17,21 @@ export function isRetiredFranchise(franchise: {
   return text.includes("ganga");
 }
 
+/**
+ * Login shell for the driver account only — never a shipment origin/destination.
+ * Cedi assigns packages to routes; the chofer user opens Rutas to deliver them.
+ */
+export function isDriverAccountFranchise(franchise: {
+  code?: string | null;
+  name?: string | null;
+  displayName?: string | null;
+}): boolean {
+  const code = plainFranchiseText(franchise.code);
+  if (code === "rutas") return true;
+  const text = `${plainFranchiseText(franchise.name)} ${plainFranchiseText(franchise.displayName)}`;
+  return text.includes("chofer") && text.includes("ruta");
+}
+
 export function getFranchiseGroup(name: string | undefined | null): FranchiseGroup {
   if (!name) return "unknown";
   const n = plainFranchiseText(name);
