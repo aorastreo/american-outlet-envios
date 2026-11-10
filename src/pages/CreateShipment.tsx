@@ -12,7 +12,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Plus, Trash2, Send, AlertCircle, Package, Copy, Check, User, FileText, Zap, X } from "lucide-react";
 import { useFranchiseAuth } from "@/hooks/useFranchiseAuth";
-import { isDriverAccountFranchise, isRetiredFranchise, needsInterBodega } from "@/lib/franchise-groups";
+import { getFranchiseGroup, isDriverAccountFranchise, isRetiredFranchise, needsInterBodega } from "@/lib/franchise-groups";
 
 interface ShipmentItem {
   id: string;
@@ -165,6 +165,9 @@ export default function CreateShipment() {
         warehouseLocation: myWarehouseName,
       })
     : null;
+  const selectedIsRoutePickup = selectedDestination
+    ? getFranchiseGroup(selectedDestination.displayName || selectedDestination.name) === "route"
+    : false;
 
   return (
     <FranchiseLayout>
@@ -185,6 +188,8 @@ export default function CreateShipment() {
                 <p className="text-sm text-[#C8102E]">
                   {warehouseTransfer?.needsTransfer
                     ? `Antes de ir al destino, este envio tiene que pasar por ${warehouseTransfer.targetBodega}.`
+                    : selectedIsRoutePickup
+                      ? "Este envio sale en la ruta del camion. Cedi lo asigna en Rutas para que el chofer lo entregue."
                     : selectedDestination
                       ? "Este envio puede salir directo al destino."
                       : "Si el destino es del otro grupo, de Sabana o de una recogida, el paquete pasa primero por la otra bodega."}

@@ -678,8 +678,8 @@ export default function Shipments() {
       // If they are in Bodega Pavon, they MUST show in En Bodega to be sent to Cedi.
       let isRouteShipment = false;
       if (isBodega && activeTab === "EN_BODEGA") {
-        const destName = (s.destinationName || "").toLowerCase();
-        const isRouteDest = destName.includes("grecia") || destName.includes("palmares") || destName.includes("san ramon");
+        const destName = s.destinationName || "";
+        const isRouteDest = getFranchiseGroup(destName) === "route" || /recogida/i.test(destName);
         if (isRouteDest && s.warehouseLocation === "Bodega Cedi") {
           isRouteShipment = true; // In Cedi, route shipments go to Routes page
         }
@@ -814,8 +814,8 @@ export default function Shipments() {
           }
         } else {
           if (isBodega && !isReceivingWarehouse && tab.key === "EN_BODEGA") {
-            const destName = (s.destinationName || "").toLowerCase();
-            const isRouteDest = destName.includes("grecia") || destName.includes("palmares") || destName.includes("san ramon");
+            const destName = s.destinationName || "";
+            const isRouteDest = getFranchiseGroup(destName) === "route" || /recogida/i.test(destName);
             // Route shipments in Cedi go to Routes page, hide from EN_BODEGA count
             if (isRouteDest && s.warehouseLocation === "Bodega Cedi") continue;
             if (s.destinationFranchiseId === myFranchiseId) continue; // dest is THIS bodega, goes to ENTREGA_CLIENTE
