@@ -765,6 +765,7 @@ export const routeRouter = createRouter({
   repairTracking: franchiseAuthedQuery
     .input(z.object({ routeId: z.number() }))
     .mutation(async ({ input, ctx }) => {
+      await assertRouteOperator(ctx.franchiseUser!);
       const db = getDb();
       const results: Array<{ shipmentId: number; action: string }> = [];
 
@@ -817,6 +818,7 @@ export const routeRouter = createRouter({
     }),
   repairEnParada: franchiseAuthedQuery
     .mutation(async ({ ctx }) => {
+      await assertRouteOperator(ctx.franchiseUser!);
       const db = getDb();
       const results: { shipmentId: number; action: string }[] = [];
 
@@ -946,6 +948,7 @@ export const routeRouter = createRouter({
   // and marks them as NO_RECOGIDO so they appear in the "No Recogidos" tab
   fixStuckEnParada: franchiseAuthedQuery
     .mutation(async ({ ctx }) => {
+      await assertRouteOperator(ctx.franchiseUser!);
       const db = getDb();
 
       // Get all completed routes

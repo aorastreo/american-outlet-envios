@@ -64,6 +64,8 @@ export async function getFranchiseUserFromRequest(headers: Headers) {
 
 function canChangeFranchisePassword(franchise: { code?: string | null; name?: string | null; displayName?: string | null }) {
   if (isRetiredFranchise(franchise)) return false;
+  const code = (franchise.code || "").toLowerCase();
+  if (code === "rutas") return false; // chofer is listed separately as username "chofer"
   const text = `${franchise.code || ""} ${franchise.name || ""} ${franchise.displayName || ""}`.toLowerCase();
   return getFranchiseGroup(text) !== "route";
 }
@@ -190,33 +192,52 @@ export const franchiseAuthRouter = createRouter({
     assertPasswordManagerUser(ctx.franchiseUser!.username);
     const db = getDb();
     const rows = await db.select().from(franchises).orderBy(asc(franchises.displayName));
-    return rows
+    const list = rows
       .filter((franchise) => canChangeFranchisePassword(franchise))
       .map((franchise) => ({
         id: franchise.id,
         name: cleanFranchiseLabel(franchise.displayName),
         username: franchise.code,
       }));
+
+    const chofer = await db.select().from(franchiseUsers).where(eq(franchiseUsers.username, "chofer")).limit(1);
+    if (chofer[0]) {
+      list.push({
+        id: chofer[0].franchiseId,
+        name: "Chofer - Rutas",
+        username: "chofer",
+      });
+    }
+    return list.sort((a, b) => a.name.localeCompare(b.name, "es"));
   }),
 
   setFranchisePassword: franchiseAuthedQuery
     .input(z.object({
       franchiseId: z.number().int().positive(),
       password: z.string().min(4).max(80),
+      username: z.string().min(1).max(100).optional(),
     }))
     .mutation(async ({ input, ctx }) => {
       assertPasswordManagerUser(ctx.franchiseUser!.username);
       const db = getDb();
       const franchiseRows = await db.select().from(franchises).where(eq(franchises.id, input.franchiseId)).limit(1);
       const franchise = franchiseRows[0];
-      if (!franchise || !canChangeFranchisePassword(franchise)) {
+      if (!franchise) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Franquicia no encontrada" });
+      }
+
+      const wantedUsername = (input.username || franchise.code || "").trim().toLowerCase();
+      const isChoferTarget = wantedUsername === "chofer" || franchise.code === "rutas";
+      if (!isChoferTarget && !canChangeFranchisePassword(franchise)) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Franquicia no encontrada" });
       }
 
       const accounts = await db.select().from(franchiseUsers)
         .where(eq(franchiseUsers.franchiseId, franchise.id))
         .orderBy(asc(franchiseUsers.id));
-      const main = accounts.find((account) => account.username === franchise.code) || accounts[0];
+      const main = isChoferTarget
+        ? accounts.find((account) => account.username === "chofer")
+        : accounts.find((account) => account.username === franchise.code) || accounts[0];
       if (!main) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Esa franquicia no tiene usuario" });
       }

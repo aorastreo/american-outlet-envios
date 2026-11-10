@@ -25,7 +25,7 @@ Cada tienda entra con su usuario. La clave no se escribe en este archivo: es la 
 
 ## Deploy en Railway
 
-Las tiendas deben abrir la URL de **Railway** (API + web juntos). No usar el deploy de Vercel como login: ahi `/api` no corre.
+**Hosting recomendado: solo Railway.** Ahi corren API y web juntos, la sesion (cookie) funciona y no hace falta `VITE_API_URL`. Vercel queda como frontend suelto y complica el login; mejor no usarlo para las tiendas.
 
 1. Conectar repo en Railway
 2. Variables de entorno:

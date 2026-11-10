@@ -5,11 +5,11 @@ import { trpc } from "@/providers/trpc";
 
 export default function Configuracion() {
   const franchises = trpc.franchiseAuth.passwordFranchises.useQuery();
-  const [franchiseId, setFranchiseId] = useState("");
+  const [selectedUsername, setSelectedUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
 
-  const selected = (franchises.data || []).find((franchise) => String(franchise.id) === franchiseId);
+  const selected = (franchises.data || []).find((franchise) => franchise.username === selectedUsername);
 
   const save = trpc.franchiseAuth.setFranchisePassword.useMutation({
     onSuccess: (data) => {
@@ -44,7 +44,7 @@ export default function Configuracion() {
               toast.error("Las dos claves no coinciden");
               return;
             }
-            save.mutate({ franchiseId: selected.id, password });
+            save.mutate({ franchiseId: selected.id, password, username: selected.username });
           }}
         >
           <div>
@@ -55,13 +55,13 @@ export default function Configuracion() {
           </div>
 
           <select
-            value={franchiseId}
-            onChange={(event) => setFranchiseId(event.target.value)}
+            value={selectedUsername}
+            onChange={(event) => setSelectedUsername(event.target.value)}
             className="h-11 w-full px-3 text-sm border border-[#D4D4D4] rounded-lg bg-white"
           >
             <option value="">Seleccione el usuario</option>
             {(franchises.data || []).map((franchise) => (
-              <option key={franchise.id} value={franchise.id}>
+              <option key={franchise.username} value={franchise.username}>
                 {franchise.name} · {franchise.username}
               </option>
             ))}

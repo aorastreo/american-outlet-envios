@@ -160,6 +160,7 @@ export const warrantyRouter = createRouter({
       const db = getDb();
       const userId = ctx.franchiseUser!.id;
       const franchiseId = ctx.franchiseUser!.franchiseId;
+      const username = (ctx.franchiseUser!.username || "").toLowerCase();
 
       const existing = await db
         .select()
@@ -171,11 +172,49 @@ export const warrantyRouter = createRouter({
         throw new TRPCError({ code: "NOT_FOUND", message: "Garantia no encontrada" });
       }
 
+      const warranty = existing[0];
+      const me = await db.select().from(franchises).where(eq(franchises.id, franchiseId)).limit(1);
+      const isCedi = username === "bodega_cedi" || (me[0]?.code || "").toLowerCase() === "bodega_cedi";
+      const isOriginStore = warranty.originFranchiseId === franchiseId;
+
+      const storeTransitions: Record<string, string[]> = {
+        CREADA: ["ENVIADO_A_CEDI"],
+        ENVIADO_A_TIENDA: ["RECIBIDO_EN_TIENDA"],
+        RECIBIDO_EN_TIENDA: ["ENTREGADO_AL_CLIENTE"],
+      };
+      const cediTransitions: Record<string, string[]> = {
+        ENVIADO_A_CEDI: ["RECIBIDO_EN_CEDI"],
+        RECIBIDO_EN_CEDI: ["EN_REPARACION", "REPARADO", "NO_REPARABLE"],
+        EN_REPARACION: ["REPARADO", "NO_REPARABLE"],
+        REPARADO: ["ENVIADO_A_TIENDA"],
+        NO_REPARABLE: ["ENVIADO_A_TIENDA"],
+      };
+
+      let allowed: string[] = [];
+      if (isCedi) allowed = cediTransitions[warranty.status] || [];
+      else if (isOriginStore) allowed = storeTransitions[warranty.status] || [];
+
+      if (!allowed.includes(input.status)) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: `No puede pasar esta garantia de ${warranty.status} a ${input.status}`,
+        });
+      }
+
+      let nextLocationId = franchiseId;
+      if (input.status === "ENVIADO_A_CEDI" || input.status === "RECIBIDO_EN_CEDI" || input.status === "EN_REPARACION" || input.status === "REPARADO" || input.status === "NO_REPARABLE") {
+        const cedi = await db.select().from(franchises).where(eq(franchises.code, "bodega_cedi")).limit(1);
+        if (cedi[0]) nextLocationId = cedi[0].id;
+      }
+      if (input.status === "ENVIADO_A_TIENDA" || input.status === "RECIBIDO_EN_TIENDA" || input.status === "ENTREGADO_AL_CLIENTE") {
+        nextLocationId = warranty.originFranchiseId;
+      }
+
       await db
         .update(warranties)
         .set({
           status: input.status,
-          currentLocationId: franchiseId,
+          currentLocationId: nextLocationId,
           updatedAt: new Date(),
         })
         .where(eq(warranties.id, input.id));
@@ -183,7 +222,7 @@ export const warrantyRouter = createRouter({
       await db.insert(warrantyTracking).values({
         warrantyId: input.id,
         status: input.status,
-        locationId: franchiseId,
+        locationId: nextLocationId,
         notes: input.notes || `Estado actualizado a ${input.status}`,
         createdBy: userId,
       });

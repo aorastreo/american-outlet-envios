@@ -18,6 +18,8 @@ import { TRPCError } from "@trpc/server";
 import {
   assertHubWarehouseOperator,
   assertShipmentAtWarehouse,
+  isDriverUsername,
+  warehouseLocationOf,
 } from "./lib/auth-guards";
 
 const markTabSchema = z.enum(["POR_ENVIAR", "POR_RECIBIR", "EN_BODEGA", "EN_TIENDA"]);
@@ -910,6 +912,10 @@ export const shipmentRouter = createRouter({
         }
       }
 
+      if (isDriverUsername(ctx.franchiseUser!.username)) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "El chofer solo gestiona rutas" });
+      }
+
       // Validate permissions
       if (input.newStatus === "ENVIADO_A_BODEGA" && shipment.originFranchiseId !== franchiseId && !isWarehouse) {
         throw new TRPCError({ code: "FORBIDDEN", message: "Solo la tienda de origen o la bodega puede marcar como enviado a bodega" });
@@ -923,6 +929,22 @@ export const shipmentRouter = createRouter({
         throw new TRPCError({ code: "FORBIDDEN", message: "Solo la bodega de destino puede entregar el paquete al cliente" });
       }
 
+      // Hub warehouse detail actions must match the same rules as bulk receive/send.
+      const hubAction =
+        input.newStatus === "RECIBIDO_EN_BODEGA" ||
+        input.newStatus === "ENVIADO_A_DESTINO" ||
+        (input.newStatus === "ENVIADO_A_BODEGA" && isWarehouse && shipment.status === "RECIBIDO_EN_BODEGA");
+      let hubPlace: "Bodega Cedi" | "Bodega Pavon" | null = null;
+      if (hubAction) {
+        hubPlace = assertHubWarehouseOperator(ctx.franchiseUser!, userFranchise[0]);
+        assertShipmentAtWarehouse(
+          shipment,
+          franchiseId,
+          hubPlace,
+          input.newStatus === "RECIBIDO_EN_BODEGA" ? "recibir" : "enviar",
+        );
+      }
+
       let newLocationId = shipment.currentLocationId;
       if (input.newStatus === "ENVIADO_A_BODEGA") {
         const goingTo = (input.warehouseLocation || shipment.warehouseLocation || "").toLowerCase();
@@ -930,7 +952,7 @@ export const shipmentRouter = createRouter({
         else if (goingTo.includes("pavon") && bodegaPavon) newLocationId = bodegaPavon.id;
         else newLocationId = targetBodegaId || shipment.currentLocationId;
       }
-      else if (input.newStatus === "RECIBIDO_EN_BODEGA") newLocationId = targetBodegaId || shipment.currentLocationId;
+      else if (input.newStatus === "RECIBIDO_EN_BODEGA") newLocationId = franchiseId;
       else if (input.newStatus === "ENVIADO_A_DESTINO") newLocationId = shipment.destinationFranchiseId;
       else if (input.newStatus === "RECIBIDO_EN_DESTINO") newLocationId = shipment.destinationFranchiseId;
 
@@ -942,8 +964,8 @@ export const shipmentRouter = createRouter({
       if (input.newStatus === "ENVIADO_A_BODEGA" && input.warehouseLocation) {
         updateData.warehouseLocation = input.warehouseLocation;
       }
-      if (input.newStatus === "RECIBIDO_EN_BODEGA" && input.warehouseLocation) {
-        updateData.warehouseLocation = input.warehouseLocation;
+      if (input.newStatus === "RECIBIDO_EN_BODEGA") {
+        updateData.warehouseLocation = hubPlace || warehouseLocationOf(userFranchise[0]) || input.warehouseLocation;
       }
       if (input.newStatus === "ENVIADO_A_DESTINO" && input.warehouseLocation) {
         updateData.warehouseLocation = input.warehouseLocation;

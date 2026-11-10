@@ -344,7 +344,8 @@ async function runSeed() {
 
 const app = new Hono<{ Bindings: HttpBindings }>();
 app.use(cors({
-  origin: ["https://american-outlet-envios.vercel.app", "https://www.aorastreo.com"],
+  // Prefer same-origin Railway hosting. Keep aorastreo.com for the live domain.
+  origin: ["https://www.aorastreo.com", "https://aorastreo.com"],
   allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowHeaders: ["Content-Type", "Authorization"],
   credentials: true,
