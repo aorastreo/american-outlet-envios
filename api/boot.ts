@@ -12,6 +12,8 @@ import { getDb } from "./queries/connection";
 import { franchises, franchiseUsers, shipments, shipmentTracking, routeShipments, routeStops, deliveryRoutes } from "@db/schema";
 import { inArray, notInArray, eq, sql } from "drizzle-orm";
 import { createHash } from "crypto";
+import cookie from "cookie";
+import { SignJWT, jwtVerify } from "jose";
 import mysql from "mysql2/promise";
 
 function hashPassword(password: string): string {
@@ -351,9 +353,7 @@ app.use(cors({
   credentials: true,
 }));
 
-// Import franchise auth utilities
 async function createFranchiseToken(userId: number): Promise<string> {
-  const { SignJWT } = await import("jose");
   return new SignJWT({ userId, type: "franchise" })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
@@ -361,7 +361,8 @@ async function createFranchiseToken(userId: number): Promise<string> {
     .sign(jwtSecretBytes());
 }
 
-// REST endpoint for franchise login (bypasses tRPC body issue)
+// REST endpoint for franchise login (bypasses tRPC body issue).
+// Seed runs on boot only — never on every login (that made login wait on dozens of DB roundtrips).
 app.post("/api/auth/login", async (c) => {
   try {
     const clientIP = getClientIP(c.req.raw.headers);
@@ -380,81 +381,11 @@ app.post("/api/auth/login", async (c) => {
       return c.json({ error: "Usuario y contraseña requeridos" }, 400);
     }
 
-    const db = getDb();
-
-    // ─── AUTO-SEED: Ensure all franchises exist and are up to date ───
-    console.log("[login] Running auto-seed...");
-
-    // 1. Ensure ALL franchises exist AND are updated (including pickup points as destinations)
-    for (const f of franchiseData) {
-      try {
-        const existingFranchise = await db.select().from(franchises).where(eq(franchises.code, f.code)).limit(1);
-        if (existingFranchise.length === 0) {
-          await db.insert(franchises).values(f);
-          console.log(`[login][seed] Created franchise: ${f.displayName}`);
-        } else {
-          const current = existingFranchise[0];
-          if (current.name !== f.name || current.displayName !== f.displayName || current.isWarehouse !== f.isWarehouse) {
-            await db.update(franchises)
-              .set({ name: f.name, displayName: f.displayName, isWarehouse: f.isWarehouse })
-              .where(eq(franchises.id, current.id));
-            console.log(`[login][seed] Updated franchise: ${f.displayName}`);
-          }
-        }
-      } catch (e: any) {
-        console.error(`[login][seed] ERROR creating/updating franchise ${f.code}:`, e.message);
-      }
-    }
-
-    // 2. Ensure login users exist AND are updated (ONLY for stores, NOT pickup points)
-    for (const f of loginFranchiseData) {
-      try {
-        const existingFranchise = await db.select().from(franchises).where(eq(franchises.code, f.code)).limit(1);
-        if (existingFranchise.length === 0) continue;
-        const franchiseId = existingFranchise[0].id;
-
-        const existingUser = await db.select().from(franchiseUsers).where(eq(franchiseUsers.username, f.code)).limit(1);
-        if (existingUser.length === 0) {
-          const passwordHash = seedPasswordHash();
-          if (!passwordHash) {
-            console.log(`[login][seed] Skipped new user ${f.code}: FRANCHISE_SEED_PASSWORD is not set`);
-          } else {
-            await db.insert(franchiseUsers).values({
-              franchiseId,
-              username: f.code,
-              passwordHash,
-              displayName: f.displayName,
-              role: f.isWarehouse ? "admin" : "staff",
-              isActive: 1,
-            });
-            console.log(`[login][seed] Created user: ${f.code} (franchiseId=${franchiseId})`);
-          }
-        } else {
-          if (existingUser[0].displayName !== f.displayName || existingUser[0].franchiseId !== franchiseId) {
-            await db.update(franchiseUsers)
-              .set({ displayName: f.displayName, franchiseId, isActive: 1 })
-              .where(eq(franchiseUsers.id, existingUser[0].id));
-            console.log(`[login][seed] Updated user: ${f.code}`);
-          }
-        }
-      } catch (e: any) {
-        console.error(`[login][seed] ERROR for ${f.code}:`, e.message);
-      }
-    }
-
-    try {
-      await ensureDriverUser(db, "[login][seed]");
-    } catch (e: any) {
-      console.error("[login][seed] ERROR creating chofer:", e.message);
-    }
-    await retireClosedStores(db);
-    console.log("[login] Auto-seed complete.");
-
     if (username.includes("ganga")) {
       return c.json({ error: "Usuario o contraseña incorrectos" }, 401);
     }
 
-    // ─── AUTHENTICATE ───
+    const db = getDb();
     const users = await db
       .select()
       .from(franchiseUsers)
@@ -479,26 +410,25 @@ app.post("/api/auth/login", async (c) => {
       return c.json({ error: "Usuario inactivo" }, 401);
     }
 
-    // Create JWT token and set cookie
     const token = await createFranchiseToken(user.id);
-    const cookieModule = await import("cookie");
-    const cookieValue = cookieModule.serialize("franchise_sid", token, {
-      httpOnly: true,
-      path: "/",
-      sameSite: "lax",
-      secure: cookieSecureFlag(),
-      maxAge: 7 * 24 * 60 * 60,
-    });
-    c.res.headers.append("Set-Cookie", cookieValue);
+    c.res.headers.append(
+      "Set-Cookie",
+      cookie.serialize("franchise_sid", token, {
+        httpOnly: true,
+        path: "/",
+        sameSite: "lax",
+        secure: cookieSecureFlag(),
+        maxAge: 7 * 24 * 60 * 60,
+      }),
+    );
 
-    // Get franchise data
-    const franchiseData2 = await db
+    const franchiseRows = await db
       .select()
       .from(franchises)
       .where(eq(franchises.id, user.franchiseId))
       .limit(1);
 
-    const franchise = franchiseData2[0];
+    const franchise = franchiseRows[0];
     console.log(`[login] SUCCESS: user=${user.username}, role=${user.role}, franchise=${franchise?.displayName}`);
 
     return c.json({
@@ -522,11 +452,9 @@ app.post("/api/auth/login", async (c) => {
 app.get("/api/auth/me", async (c) => {
   try {
     const cookieHeader = c.req.header("cookie") || "";
-    const cookies = (await import("cookie")).parse(cookieHeader);
-    const token = cookies["franchise_sid"];
+    const token = cookie.parse(cookieHeader)["franchise_sid"];
     if (!token) return c.json(null);
 
-    const { jwtVerify } = await import("jose");
     const { payload } = await jwtVerify(token, jwtSecretBytes(), { clockTolerance: 60 });
 
     if (!payload || payload.type !== "franchise" || !payload.userId) {
@@ -543,7 +471,7 @@ app.get("/api/auth/me", async (c) => {
     if (users.length === 0 || !users[0].isActive) return c.json(null);
 
     const user = users[0];
-    const franchiseData = await db
+    const franchiseRows = await db
       .select()
       .from(franchises)
       .where(eq(franchises.id, user.franchiseId))
@@ -555,7 +483,7 @@ app.get("/api/auth/me", async (c) => {
       displayName: user.displayName,
       role: user.role,
       franchiseId: user.franchiseId,
-      franchise: franchiseData[0] || null,
+      franchise: franchiseRows[0] || null,
     });
   } catch {
     return c.json(null);

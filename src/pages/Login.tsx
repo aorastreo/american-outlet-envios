@@ -75,9 +75,9 @@ export default function Login() {
         return;
       }
 
-      // Store user in localStorage for session
       localStorage.setItem("franchise_user", JSON.stringify(data.user));
-      navigate("/dashboard");
+      const nextPath = data.user?.username === "chofer" ? "/rutas" : "/dashboard";
+      navigate(nextPath);
     } catch (err: any) {
       setError("Error al conectar con el servidor");
       setIsLoading(false);
