@@ -433,6 +433,10 @@ export const shipmentRouter = createRouter({
       })
     )
     .mutation(async ({ input, ctx }) => {
+      if (isDriverUsername(ctx.franchiseUser!.username)) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "El chofer solo gestiona rutas" });
+      }
+
       const db = getDb();
       const originId = ctx.franchiseUser!.franchiseId;
 

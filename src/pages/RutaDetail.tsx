@@ -63,12 +63,12 @@ export default function RutaDetail() {
   const { user, isLoading: authLoading } = useFranchiseAuth();
   const utils = trpc.useUtils();
 
-  // Solo Bodega y Chofer pueden acceder a Rutas
+  // Solo Bodega Cedi y Chofer pueden acceder a Rutas
   useEffect(() => {
     if (!authLoading && user) {
-      const isWarehouse = user?.franchise?.isWarehouse === 1;
       const isDriver = user?.username === "chofer";
-      if (!isWarehouse && !isDriver) {
+      const isCedi = user?.username === "bodega_cedi" || user?.franchise?.code === "bodega_cedi";
+      if (!isDriver && !isCedi) {
         navigate("/dashboard");
       }
     }
