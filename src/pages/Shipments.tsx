@@ -1136,34 +1136,6 @@ export default function Shipments() {
   const enviarADestino = () => {
     if (actionableSelectedIds.length === 0) return;
     const seleccionados = (baseShipments || []).filter((s) => actionableSelectedIds.includes(s.id));
-        // SOLO en Bodega Pavon: bloquear si se mezclan envios propios con recolecciones de tiendas
-    const isBodegaPavon = (user?.franchise?.displayName || "").toLowerCase().includes("pavon");
-    if (isBodegaPavon) {
-      const conOrigenBodega = seleccionados.filter((s) => {
-        const originFr = allFranchises?.find((f) => f.id === s.originFranchiseId);
-        return originFr?.isWarehouse === 1;
-      });
-      const conOrigenTienda = seleccionados.filter((s) => {
-        const originFr = allFranchises?.find((f) => f.id === s.originFranchiseId);
-        return !originFr || originFr?.isWarehouse !== 1;
-      });
-
-      if (conOrigenBodega.length > 0 && conOrigenTienda.length > 0) {
-        notify("error", "No se puede procesar envios de bodega y recolecciones de tiendas juntos. Selecciona solo uno de los dos tipos.");
-        return;
-      }
-    }
-        // SOLO en Cedi: bloquear si se mezclan envios hacia grupo Mio (Pavon) con envios hacia grupo Vendedor/Sabana/Ruta (directo)
-       const isBodegaCedi = (user?.franchise?.displayName || "").toLowerCase().includes("cedi");
-    if (isBodegaCedi) {
-      const vaAPavon = seleccionados.filter((s) => getFranchiseGroup(s.destinationName) === "mio");
-      const vaDirecto = seleccionados.filter((s) => getFranchiseGroup(s.destinationName) !== "mio");
-
-      if (vaAPavon.length > 0 && vaDirecto.length > 0) {
-        notify("error", "No se puede procesar envios hacia tiendas Mio y tiendas Vendedor juntos. Selecciona solo uno de los dos grupos.");
-        return;
-      }
-    }
     const invalidos = seleccionados.filter((s) => s.status !== "RECIBIDO_EN_BODEGA" && s.status !== "CREADO");
     if (invalidos.length > 0) {
       notify("error", `${invalidos.length} envio(s) no estan en estado valido para enviar`);
@@ -1177,6 +1149,41 @@ export default function Shipments() {
     }
 
     const interBodega = seleccionados.length > 0 ? needsInterBodega(seleccionados[0]) : { needsTransfer: false, targetBodega: "" };
+
+    // Going to the other warehouse (e.g. Pavón → Cedi): origin type does not matter.
+    // Only when sending out to stores keep warehouse-created and store pickups in separate batches.
+    if (!interBodega.needsTransfer) {
+      const isBodegaPavon = (user?.franchise?.displayName || "").toLowerCase().includes("pavon");
+      if (isBodegaPavon) {
+        const conOrigenBodega = seleccionados.filter((s) => {
+          const originFr = allFranchises?.find((f) => f.id === s.originFranchiseId);
+          return originFr?.isWarehouse === 1;
+        });
+        const conOrigenTienda = seleccionados.filter((s) => {
+          const originFr = allFranchises?.find((f) => f.id === s.originFranchiseId);
+          return !originFr || originFr?.isWarehouse !== 1;
+        });
+
+        if (conOrigenBodega.length > 0 && conOrigenTienda.length > 0) {
+          notify(
+            "error",
+            "Hay paquetes creados en esta bodega y paquetes recogidos de tiendas. Al enviar a tiendas, procesalos en dos lotes separados.",
+          );
+          return;
+        }
+      }
+
+      const isBodegaCedi = (user?.franchise?.displayName || "").toLowerCase().includes("cedi");
+      if (isBodegaCedi) {
+        const vaAPavon = seleccionados.filter((s) => getFranchiseGroup(s.destinationName) === "mio");
+        const vaDirecto = seleccionados.filter((s) => getFranchiseGroup(s.destinationName) !== "mio");
+
+        if (vaAPavon.length > 0 && vaDirecto.length > 0) {
+          notify("error", "No se puede procesar envios hacia tiendas Mio y tiendas Vendedor juntos. Selecciona solo uno de los dos grupos.");
+          return;
+        }
+      }
+    }
 
     if (interBodega.needsTransfer) {
       openConfirmDialog(
