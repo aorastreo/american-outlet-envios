@@ -2,20 +2,9 @@ import { useSearchParams } from "react-router";
 import { trpc } from "@/providers/trpc";
 import { Truck, Package, MapPin, Phone, User, Printer, Store, PenLine } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { formatNationalFee, nationalShippingFee } from "@/lib/national-shipping";
 
 const logoUrl = "/logo.jpg";
-
-const COST_MAP: Record<string, number> = {
-  PEQUENO: 1000,
-  MEDIANO: 3500,
-  GRANDE: 6500,
-};
-
-const SIZE_LABELS: Record<string, string> = {
-  PEQUENO: "Pequeno",
-  MEDIANO: "Mediano",
-  GRANDE: "Grande",
-};
 
 export default function BitacoraNacional() {
   const [searchParams] = useSearchParams();
@@ -97,7 +86,7 @@ export default function BitacoraNacional() {
           <div className="bg-[#F7F7F7] px-4 py-2.5 flex items-center justify-between">
             <p className="text-xs font-black text-[#1A1A1A] uppercase tracking-wider">Total de envios: {shipments.length}</p>
             <p className="text-xs font-black text-[#1A1A1A] uppercase tracking-wider">
-              Tarifa total: &cent;{shipments.reduce((sum, s) => sum + (COST_MAP[s.packageSize] || 0), 0).toLocaleString()}
+              Tarifa total: {formatNationalFee(shipments.reduce((sum, s) => sum + nationalShippingFee(s), 0))}
             </p>
           </div>
         </div>
@@ -117,8 +106,8 @@ export default function BitacoraNacional() {
             </thead>
             <tbody>
               {shipments.map((s, idx) => {
-                const cost = COST_MAP[s.packageSize] || 0;
-                const sizeLabel = SIZE_LABELS[s.packageSize] || s.packageSize;
+                const cost = nationalShippingFee(s);
+                const feeLabel = formatNationalFee(cost);
                 return (
                   <tr key={s.id} className="border-b border-slate-200 last:border-0">
                     <td className="px-3 py-3 text-sm font-mono text-[#525252] font-semibold">{idx + 1}</td>
@@ -161,9 +150,10 @@ export default function BitacoraNacional() {
                       </div>
                     </td>
                     <td className="px-3 py-3">
-                      <span className="text-xs font-semibold text-[#1A1A1A]">{sizeLabel}</span>
-                      <p className="text-sm font-mono font-bold text-[#C8102E]">&cent;{cost.toLocaleString()}</p>
-                      <span className="inline-block mt-1 bg-emerald-50 text-emerald-700 text-[9px] font-bold px-1.5 py-0.5 rounded border border-emerald-200">PAGADO</span>
+                      <p className="text-sm font-mono font-bold text-[#C8102E]">{feeLabel}</p>
+                      <span className="inline-block mt-1 bg-emerald-50 text-emerald-700 text-[9px] font-bold px-1.5 py-0.5 rounded border border-emerald-200">
+                        {cost <= 0 ? "GRATUITA" : "PAGADO"}
+                      </span>
                     </td>
                   </tr>
                 );

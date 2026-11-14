@@ -2,20 +2,9 @@ import { useParams } from "react-router";
 import { trpc } from "@/providers/trpc";
 import { Printer, Package, MapPin, Phone, User, Store } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { formatNationalFee, nationalShippingFee } from "@/lib/national-shipping";
 
 const logoUrl = "/logo.jpg";
-
-const COST_MAP: Record<string, number> = {
-  PEQUENO: 1000,
-  MEDIANO: 3500,
-  GRANDE: 6500,
-};
-
-const SIZE_LABELS: Record<string, string> = {
-  PEQUENO: "Pequeno",
-  MEDIANO: "Mediano",
-  GRANDE: "Grande",
-};
 
 export default function BoletaNacional() {
   const { id } = useParams<{ id: string }>();
@@ -46,8 +35,8 @@ export default function BoletaNacional() {
 
   // @ts-ignore - franchiseName added by API
   const franchiseName = (shipment as any).franchiseName || "Tienda";
-  const cost = COST_MAP[shipment.packageSize] || 0;
-  const sizeLabel = SIZE_LABELS[shipment.packageSize] || shipment.packageSize;
+  const cost = nationalShippingFee(shipment);
+  const feeLabel = formatNationalFee(cost);
 
   return (
     <div className="min-h-screen bg-white">
@@ -165,7 +154,7 @@ export default function BoletaNacional() {
                 </span>
               </div>
               <div className="px-4 py-4 flex items-center">
-                <p className="text-xl font-bold text-[#1A1A1A]">{sizeLabel} - &cent;{cost.toLocaleString()}</p>
+                <p className="text-xl font-bold text-[#1A1A1A]">{feeLabel}</p>
               </div>
             </div>
             <div className="grid grid-cols-[140px_1fr]">
@@ -173,7 +162,9 @@ export default function BoletaNacional() {
                 <span className="text-sm font-black text-[#1A1A1A] uppercase tracking-wider">Estado</span>
               </div>
               <div className="px-4 py-4 flex items-center">
-                <span className="text-lg font-bold text-emerald-700 bg-emerald-50 px-3 py-1 rounded border border-emerald-200">PAGADO DESDE TIENDA</span>
+                <span className="text-lg font-bold text-emerald-700 bg-emerald-50 px-3 py-1 rounded border border-emerald-200">
+                  {cost <= 0 ? "GRATUITA" : "PAGADO DESDE TIENDA"}
+                </span>
               </div>
             </div>
           </div>

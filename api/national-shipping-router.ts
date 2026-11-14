@@ -4,14 +4,20 @@ import { createRouter, franchiseAuthedQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { nationalShipments, franchises } from "@db/schema";
 
-// Helper: limpiar nombres de franquicia
 function cleanFranchiseName(name: string | null | undefined): string {
   if (!name) return "Tienda";
   return name.replace(/AMERICAN OUTLET\s*/i, "").trim() || name;
 }
 
+/** Keep legacy packageSize filled for old bitácoras; fee is the source of truth. */
+function packageSizeForFee(shippingFee: number): "PEQUENO" | "MEDIANO" | "GRANDE" {
+  if (shippingFee <= 0) return "PEQUENO";
+  if (shippingFee <= 1000) return "PEQUENO";
+  if (shippingFee <= 3500) return "MEDIANO";
+  return "GRANDE";
+}
+
 export const nationalShippingRouter = createRouter({
-  // ─── Create National Shipment ─────────────────────────────────
   create: franchiseAuthedQuery
     .input(
       z.object({
@@ -24,26 +30,28 @@ export const nationalShippingRouter = createRouter({
         description: z.string().min(1),
         notes: z.string().optional(),
         invoiceNumber: z.string().optional(),
-        packageSize: z.enum(["PEQUENO", "MEDIANO", "GRANDE"]),
+        shippingFee: z.number().int().min(0).max(9_999_999),
       })
     )
     .mutation(async ({ input, ctx }) => {
       const db = getDb();
       const franchiseId = ctx.franchiseUser.franchiseId;
       const createdBy = ctx.franchiseUser.id;
+      const shippingFee = Math.max(0, Math.round(input.shippingFee));
 
       const result = await db.insert(nationalShipments).values({
         franchiseId,
-        receiverName: input.receiverName,
-        receiverPhone: input.receiverPhone,
+        receiverName: input.receiverName.trim(),
+        receiverPhone: input.receiverPhone.trim(),
         province: input.province,
         canton: input.canton,
         district: input.district,
-        deliveryAddress: input.deliveryAddress,
-        description: input.description,
-        notes: input.notes,
-        invoiceNumber: input.invoiceNumber,
-        packageSize: input.packageSize,
+        deliveryAddress: input.deliveryAddress.trim(),
+        description: input.description.trim(),
+        notes: input.notes?.trim() || null,
+        invoiceNumber: input.invoiceNumber?.trim() || null,
+        packageSize: packageSizeForFee(shippingFee),
+        shippingFee,
         paymentMethod: "PAGA_ORIGEN",
         createdBy,
       });
@@ -51,21 +59,17 @@ export const nationalShippingRouter = createRouter({
       return { id: Number(result[0].insertId) };
     }),
 
-  // ─── List National Shipments ──────────────────────────────────
   list: franchiseAuthedQuery.query(async ({ ctx }) => {
     const db = getDb();
     const franchiseId = ctx.franchiseUser.franchiseId;
 
-    const results = await db
+    return db
       .select()
       .from(nationalShipments)
       .where(eq(nationalShipments.franchiseId, franchiseId))
       .orderBy(desc(nationalShipments.createdAt));
-
-    return results;
   }),
 
-  // ─── Get By ID (for boleta) ─────────────────────────────────
   getById: franchiseAuthedQuery
     .input(z.object({ id: z.number() }))
     .query(async ({ input, ctx }) => {
@@ -87,7 +91,6 @@ export const nationalShippingRouter = createRouter({
         throw new Error("No tiene permiso para ver este envio");
       }
 
-      // Get franchise name
       const franchise = await db
         .select({ displayName: franchises.displayName, name: franchises.name })
         .from(franchises)
@@ -100,7 +103,6 @@ export const nationalShippingRouter = createRouter({
       };
     }),
 
-  // ─── Get Bitacora (multiple IDs) ──────────────────────────────
   getBitacora: franchiseAuthedQuery
     .input(z.object({ ids: z.array(z.number()) }))
     .query(async ({ input, ctx }) => {
@@ -115,7 +117,6 @@ export const nationalShippingRouter = createRouter({
 
       const filtered = results.filter((s) => input.ids.includes(s.id));
 
-      // Get franchise name
       const franchise = await db
         .select({ displayName: franchises.displayName, name: franchises.name })
         .from(franchises)
@@ -132,7 +133,6 @@ export const nationalShippingRouter = createRouter({
       };
     }),
 
-  // ─── Delete National Shipment ─────────────────────────────────
   delete: franchiseAuthedQuery
     .input(z.object({ id: z.number() }))
     .mutation(async ({ input, ctx }) => {
@@ -153,9 +153,7 @@ export const nationalShippingRouter = createRouter({
         throw new Error("No tiene permiso para eliminar este envio");
       }
 
-      await db
-        .delete(nationalShipments)
-        .where(eq(nationalShipments.id, input.id));
+      await db.delete(nationalShipments).where(eq(nationalShipments.id, input.id));
 
       return { success: true };
     }),

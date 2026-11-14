@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link } from "react-router";
+import { useEffect, useState } from "react";
+import { Link, useSearchParams } from "react-router";
 import FranchiseLayout from "@/components/FranchiseLayout";
 import { trpc } from "@/providers/trpc";
 import { Button } from "@/components/ui/button";
@@ -34,30 +34,25 @@ import {
   FileText,
   Truck,
 } from "lucide-react";
-
-const COST_MAP: Record<string, number> = {
-  PEQUENO: 1000,
-  MEDIANO: 3500,
-  GRANDE: 6500,
-};
-
-const SIZE_LABELS: Record<string, { label: string; color: string }> = {
-  PEQUENO: { label: "Pequeno", color: "text-green-600 bg-green-50" },
-  MEDIANO: { label: "Mediano", color: "text-yellow-600 bg-yellow-50" },
-  GRANDE: { label: "Grande", color: "text-red-600 bg-red-50" },
-};
-
-const PAYMENT_LABELS: Record<string, { label: string; color: string }> = {
-  PAGA_ORIGEN: { label: "Pagado", color: "text-green-600 bg-green-50" },
-};
+import toast from "react-hot-toast";
+import { formatNationalFee, nationalShippingFee } from "@/lib/national-shipping";
 
 export default function NationalShipments() {
   const [search, setSearch] = useState("");
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const utils = trpc.useUtils();
   const { data: shipments, isLoading } = trpc.nationalShipping.list.useQuery();
+
+  useEffect(() => {
+    if (searchParams.get("creado") !== "exito") return;
+    toast.success("Envio nacional guardado");
+    const next = new URLSearchParams(searchParams);
+    next.delete("creado");
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   const deleteMutation = trpc.nationalShipping.delete.useMutation({
     onSuccess: () => {
@@ -187,9 +182,9 @@ export default function NationalShipments() {
                   </TableHeader>
                   <TableBody>
                     {filteredShipments.map((s) => {
-                      const pkg = SIZE_LABELS[s.packageSize];
-                      const pay = PAYMENT_LABELS[s.paymentMethod];
-                      const cost = COST_MAP[s.packageSize];
+                      const cost = nationalShippingFee(s);
+                      const feeLabel = formatNationalFee(cost);
+                      const isFree = cost <= 0;
                       return (
                         <TableRow key={s.id} className="hover:bg-gray-50">
                           <TableCell>
@@ -222,14 +217,18 @@ export default function NationalShipments() {
                             {s.description}
                           </TableCell>
                           <TableCell>
-                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${pkg?.color ?? ""}`}>
-                              {pkg?.label ?? s.packageSize} - &cent;{cost?.toLocaleString() ?? ""}
+                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                              isFree ? "text-emerald-700 bg-emerald-50" : "text-blue-700 bg-blue-50"
+                            }`}>
+                              {feeLabel}
                             </span>
                           </TableCell>
                           <TableCell>
-                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${pay?.color ?? ""}`}>
+                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                              isFree ? "text-emerald-700 bg-emerald-50" : "text-green-600 bg-green-50"
+                            }`}>
                               <CreditCard className="h-3 w-3 mr-1" />
-                              {pay?.label ?? s.paymentMethod}
+                              {isFree ? "Gratuita" : "Pagado"}
                             </span>
                           </TableCell>
                           <TableCell className="text-sm text-gray-500 whitespace-nowrap">

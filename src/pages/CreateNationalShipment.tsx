@@ -11,14 +11,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Send, AlertCircle, Package, User, Phone, MapPin, FileText } from "lucide-react";
 import { COSTA_RICA, getCantones, getDistricts } from "@/data/costa-rica";
+import { formatNationalFee } from "@/lib/national-shipping";
 
 const PROVINCIAS = COSTA_RICA.map((p) => p.name);
 
-const PACKAGE_SIZES = [
-  { value: "PEQUENO", label: "Pequeno - ¢1,000", price: 1000 },
-  { value: "MEDIANO", label: "Mediano - ¢3,500", price: 3500 },
-  { value: "GRANDE", label: "Grande - ¢6,500", price: 6500 },
-];
+type FeeMode = "gratuita" | "monto";
 
 export default function CreateNationalShipment() {
   const navigate = useNavigate();
@@ -31,7 +28,8 @@ export default function CreateNationalShipment() {
   const [description, setDescription] = useState("");
   const [notes, setNotes] = useState("");
   const [invoiceNumber, setInvoiceNumber] = useState("");
-  const [packageSize, setPackageSize] = useState("");
+  const [feeMode, setFeeMode] = useState<FeeMode>("gratuita");
+  const [feeAmount, setFeeAmount] = useState("");
   const [error, setError] = useState("");
 
   const utils = trpc.useUtils();
@@ -59,12 +57,31 @@ export default function CreateNationalShipment() {
     setDistrict("");
   };
 
+  const resolvedFee = (): number | null => {
+    if (feeMode === "gratuita") return 0;
+    const cleaned = feeAmount.replace(/[^\d]/g, "");
+    if (!cleaned) return null;
+    const value = Number(cleaned);
+    if (!Number.isFinite(value) || value < 0) return null;
+    return Math.round(value);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
-    if (!receiverName || !receiverPhone || !province || !canton || !district || !deliveryAddress || !description || !packageSize) {
+    if (!receiverName || !receiverPhone || !province || !canton || !district || !deliveryAddress || !description) {
       setError("Por favor complete todos los campos obligatorios");
+      return;
+    }
+
+    const shippingFee = resolvedFee();
+    if (shippingFee === null) {
+      setError("Digite el monto de la tarifa o elija Gratuita");
+      return;
+    }
+    if (feeMode === "monto" && shippingFee <= 0) {
+      setError("El monto debe ser mayor a 0, o elija Gratuita");
       return;
     }
 
@@ -78,11 +95,11 @@ export default function CreateNationalShipment() {
       description,
       notes: notes || undefined,
       invoiceNumber: invoiceNumber || undefined,
-      packageSize: packageSize as "PEQUENO" | "MEDIANO" | "GRANDE",
+      shippingFee,
     });
   };
 
-  const selectedPackage = PACKAGE_SIZES.find((p) => p.value === packageSize);
+  const previewFee = resolvedFee();
 
   return (
     <FranchiseLayout>
@@ -103,7 +120,6 @@ export default function CreateNationalShipment() {
             )}
 
             <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Destinatario */}
               <div className="space-y-2">
                 <Label htmlFor="receiverName" className="flex items-center gap-1">
                   <User className="h-4 w-4 text-blue-600" />
@@ -118,7 +134,6 @@ export default function CreateNationalShipment() {
                 />
               </div>
 
-              {/* Telefono */}
               <div className="space-y-2">
                 <Label htmlFor="receiverPhone" className="flex items-center gap-1">
                   <Phone className="h-4 w-4 text-blue-600" />
@@ -133,7 +148,6 @@ export default function CreateNationalShipment() {
                 />
               </div>
 
-              {/* Provincia */}
               <div className="space-y-2">
                 <Label className="flex items-center gap-1">
                   <MapPin className="h-4 w-4 text-blue-600" />
@@ -153,7 +167,6 @@ export default function CreateNationalShipment() {
                 </Select>
               </div>
 
-              {/* Canton */}
               <div className="space-y-2">
                 <Label className="flex items-center gap-1">
                   <MapPin className="h-4 w-4 text-blue-600" />
@@ -173,7 +186,6 @@ export default function CreateNationalShipment() {
                 </Select>
               </div>
 
-              {/* Distrito */}
               <div className="space-y-2">
                 <Label className="flex items-center gap-1">
                   <MapPin className="h-4 w-4 text-blue-600" />
@@ -193,7 +205,6 @@ export default function CreateNationalShipment() {
                 </Select>
               </div>
 
-              {/* Direccion exacta */}
               <div className="space-y-2">
                 <Label htmlFor="deliveryAddress" className="flex items-center gap-1">
                   <MapPin className="h-4 w-4 text-blue-600" />
@@ -209,7 +220,6 @@ export default function CreateNationalShipment() {
                 />
               </div>
 
-              {/* Contenido */}
               <div className="space-y-2">
                 <Label htmlFor="description" className="flex items-center gap-1">
                   <FileText className="h-4 w-4 text-blue-600" />
@@ -224,7 +234,6 @@ export default function CreateNationalShipment() {
                 />
               </div>
 
-              {/* Notas opcionales */}
               <div className="space-y-2">
                 <Label htmlFor="invoiceNumber" className="flex items-center gap-1">
                   <FileText className="w-4 h-4 text-[#8A8A8A]" />
@@ -248,32 +257,56 @@ export default function CreateNationalShipment() {
                 />
               </div>
 
-              {/* Tarifa / Tamano */}
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <Label className="flex items-center gap-1">
                   <Package className="h-4 w-4 text-blue-600" />
                   Tarifa de envio *
                 </Label>
-                <Select value={packageSize} onValueChange={setPackageSize}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccione el tamano" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PACKAGE_SIZES.map((p) => (
-                      <SelectItem key={p.value} value={p.value}>
-                        {p.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {selectedPackage && (
-                  <p className="text-sm text-green-600 font-medium">
-                    Tarifa: &cent;{selectedPackage.price.toLocaleString()}
-                  </p>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFeeMode("gratuita");
+                      setFeeAmount("");
+                    }}
+                    className={`h-11 rounded-md border text-sm font-medium transition-colors ${
+                      feeMode === "gratuita"
+                        ? "border-emerald-500 bg-emerald-50 text-emerald-800"
+                        : "border-[#D4D4D4] bg-white text-[#525252] hover:bg-[#FAFAFA]"
+                    }`}
+                  >
+                    Gratuita
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFeeMode("monto")}
+                    className={`h-11 rounded-md border text-sm font-medium transition-colors ${
+                      feeMode === "monto"
+                        ? "border-blue-500 bg-blue-50 text-blue-800"
+                        : "border-[#D4D4D4] bg-white text-[#525252] hover:bg-[#FAFAFA]"
+                    }`}
+                  >
+                    Digitar monto
+                  </button>
+                </div>
+                {feeMode === "monto" && (
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[#8A8A8A]">¢</span>
+                    <Input
+                      inputMode="numeric"
+                      value={feeAmount}
+                      onChange={(e) => setFeeAmount(e.target.value.replace(/[^\d]/g, ""))}
+                      placeholder="Ej: 2500"
+                      className="pl-7"
+                      autoFocus
+                    />
+                  </div>
                 )}
+                <p className="text-sm font-medium text-green-700">
+                  Tarifa: {previewFee === null ? "—" : formatNationalFee(previewFee)}
+                </p>
               </div>
 
-              {/* Botones */}
               <div className="flex gap-3 pt-4">
                 <Button
                   type="button"

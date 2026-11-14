@@ -207,7 +207,9 @@ export const nationalShipments = mysqlTable("national_shipments", {
   description: varchar("description", { length: 255 }).notNull(),
   invoiceNumber: varchar("invoiceNumber", { length: 50 }),
   notes: text("notes"),
+  /** Legacy size label kept for older rows; pricing uses shippingFee. */
   packageSize: mysqlEnum("packageSize", ["PEQUENO", "MEDIANO", "GRANDE"]).notNull(),
+  shippingFee: int("shippingFee").notNull().default(0),
   paymentMethod: mysqlEnum("paymentMethod", ["PAGA_ORIGEN", "COBRA_DESTINO"]).notNull(),
   createdBy: bigint("createdBy", { mode: "number", unsigned: true }).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),

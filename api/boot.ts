@@ -259,6 +259,41 @@ async function initTables() {
       console.log("[init] Status enum:", alterErr.message);
     }
 
+    await connection.execute(`
+      CREATE TABLE IF NOT EXISTS national_shipments (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        franchiseId BIGINT UNSIGNED NOT NULL,
+        receiverName VARCHAR(255) NOT NULL,
+        receiverPhone VARCHAR(50) NOT NULL,
+        province VARCHAR(50) NOT NULL,
+        canton VARCHAR(50) NOT NULL,
+        district VARCHAR(50) NOT NULL,
+        deliveryAddress TEXT NOT NULL,
+        description VARCHAR(255) NOT NULL,
+        invoiceNumber VARCHAR(50),
+        notes TEXT,
+        packageSize ENUM('PEQUENO','MEDIANO','GRANDE') NOT NULL,
+        shippingFee INT NOT NULL DEFAULT 0,
+        paymentMethod ENUM('PAGA_ORIGEN','COBRA_DESTINO') NOT NULL,
+        createdBy BIGINT UNSIGNED NOT NULL,
+        createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+        updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP NOT NULL
+      )
+    `);
+
+    for (const alterSql of [
+      "ALTER TABLE national_shipments ADD COLUMN invoiceNumber VARCHAR(50) NULL AFTER description",
+      "ALTER TABLE national_shipments ADD COLUMN shippingFee INT NOT NULL DEFAULT 0 AFTER packageSize",
+    ]) {
+      try {
+        await connection.execute(alterSql);
+      } catch (e: any) {
+        if (!e.message?.includes("Duplicate column")) {
+          console.log("[init] national_shipments alter:", e.message);
+        }
+      }
+    }
+
     await connection.end();
     console.log("[init] Tables OK!");
   } catch (err: any) {
@@ -1117,8 +1152,10 @@ app.get("/api/fix-national-table", async (c) => {
         district VARCHAR(50) NOT NULL,
         deliveryAddress TEXT NOT NULL,
         description VARCHAR(255) NOT NULL,
+        invoiceNumber VARCHAR(50),
         notes TEXT,
         packageSize ENUM("PEQUENO","MEDIANO","GRANDE") NOT NULL,
+        shippingFee INT NOT NULL DEFAULT 0,
         paymentMethod ENUM("PAGA_ORIGEN","COBRA_DESTINO") NOT NULL,
         createdBy BIGINT UNSIGNED NOT NULL,
         createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
